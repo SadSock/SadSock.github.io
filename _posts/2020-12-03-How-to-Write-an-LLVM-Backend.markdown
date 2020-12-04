@@ -1,6 +1,7 @@
 ---
 layout: post
 title:  "How to Write an LLVM Backend"
+toc: true
 date:   2020-12-03 19:30:38 +0800
 categories: LLVM
 keywords: LLVM
