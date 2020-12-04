@@ -136,3 +136,19 @@ theme_setting:
 # smiley:
 #   enabled: true
 #   dir: img/smileys
+#
+#
+
+# Jekyll Settings
+markdown: kramdown
+permalink: /blog/:title:output_ext
+timezone: Asia/Shanghai
+excerpt_separator: <!--more-->
+defaults:
+  -
+    scope:
+      path: ""
+      type: "posts"
+    values:
+      layout: "post"
+      toc: true
