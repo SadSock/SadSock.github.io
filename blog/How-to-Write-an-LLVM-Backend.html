@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content=""><title>How to Write an LLVM Backend | 悲催的袜子</title>
+  <meta name="keywords" content="LLVM">
+  <meta name="description" content="无"><link rel="stylesheet" href="/assets/main.css?v=0.2.5" />
+<script src="/assets/main.js?v=0.2.5" defer></script><link rel="stylesheet" href="/assets/css/tomorrow.css" />
+<script src="/assets/js/highlight.js"></script><script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script></head>
+<body class="body-post">
+    <a href="/" class="logo"><img src="/sock.svg" class="logo_img"><h1>悲催的袜子</h1>
+</a><main class="post__wrapper"><nav class="top-nav">
+
+<a href="/" class="nav-link ">主页</a>
+
+
+<a href="/about/" class="nav-link ">关于</a>
+
+
+<a href="/archive.html" class="nav-link ">归档</a>
+
+
+</nav><div class="post__top_navs clearfix">
+    <nav class="post__archive_path"><a href="/" id="archiveBtn">
+        <div class="post__archive_icon">
+          <svg width="40" height="40">
+            <circle class="circle-progress" r="18" cy="20" cx="20"  stroke-linejoin="round" stroke-linecap="round" />
+          </svg>
+          <span class="post__archive_icon"></span>
+        </div>
+        主页
+      </a>
+    </nav>
+  </div>
+  <article class="post">
+    <header class="post__header">
+      <h1 class="post__title">How to Write an LLVM Backend</h1>
+      <div class="post__meta">
+        <time>2020-12-03 19:30</time>
+      </div>
+    </header>
+    <div class="post__content content">
+      <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#简介">简介</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#llvm架构">LLVM架构</a></li>
+<li class="toc-entry toc-h3"><a href="#代码生成">代码生成</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#入门">入门</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#环境">环境</a></li>
+<li class="toc-entry toc-h3"><a href="#编译llvm">编译LLVM</a></li>
+<li class="toc-entry toc-h3"><a href="#编译risc-v的gnu工具链">编译RISC V的GNU工具链</a></li>
+<li class="toc-entry toc-h3"><a href="#编译c程序">编译C程序</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#注释">注释</a></li>
+</ul><p>为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！
+一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程<sup id="fnref:1" role="doc-noteref"><a href="#fn:1" class="footnote">1</a></sup><sup id="fnref:2" role="doc-noteref"><a href="#fn:2" class="footnote">2</a></sup>。
+因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。</p>
+
+<h2 id="简介">
+<a class="anchor" href="#%E7%AE%80%E4%BB%8B" aria-hidden="true"><span class="octicon octicon-link"></span></a>简介</h2>
+
+<p>在本教程中，我将为RISC V指令集的基本32位版本（即RV32IM）开发一个后端。希望这能帮助那些不熟悉LLVM的人开始使用这个工具，并将其扩展到自己的项目中。看懂本教程不需要前置知识，但是如果你熟悉C++和RISC V，学习本教程会更容易。</p>
+
+<p>在本文剩下的部分中，我将简要描述LLVM的体系结构和后端结构。不过，我不会在这里详细说明，因为，如果你像我一样，在5分钟（或5秒）之后，就会忘记读过的任何繁琐文档。LLVM的细节将在以后的帖子中根据需要提供。</p>
+
+<p><strong>注意:</strong>如果你想要更详细的版本，你可以自娱自乐地阅读<a href="http://llvm.org/docs/UserGuides.html">LLVM User Guides</a>。</p>
+
+<h3 id="llvm架构">
+<a class="anchor" href="#llvm%E6%9E%B6%E6%9E%84" aria-hidden="true"><span class="octicon octicon-link"></span></a>LLVM架构</h3>
+
+<p>传统上，编译过程分为三个阶段。
+首先，编译器的前端将源代码转换为某种中间表示（IR）；
+然后，优化IR；
+最后，编译器的后端将IR转换为机器代码。
+传统的编译器通常仅支持一种编程语言和一种目标指令集，编译器的源代码很难重用，例如添加新的目标指令集。</p>
+
+<p>LLVM模块化地实现了三个编译过程，可以解决重用问题。
+其思想是LLVM的核心（即IR和优化器）是固定的，但是前端和后端可以被替换，以使编译器可以支持多种编程语言和指令集。
+例如，我们可以使用Clang（LLVM的前端）和x86后端把C/C++代码编译成X86指令集上的可执行程序。
+我们也可以用ARM后端替换X86后端，从而得到ARM指令集上的可执行程序。</p>
+
+<p><strong>注意：</strong>LLVM的设计师Chris Lattner撰写了这篇<a href="http://www.aosabook.org/en/llvm.html">文章</a>介绍LLVM的体系结构及其设计动机。</p>
+
+<p><strong>注意：</strong>LLVM的这三个阶段的每个阶段在都有一个专用的可执行文件。
+clang是C/C++的前端（显然针对不同的编程语言有不同的前端），opt是优化程序，llc用于调用后端。
+通常，我们使用clang作为驱动程序来执行前端，使用llc和opt配合适当的参数来生成IR，汇编，可执行文件等。</p>
+
+<h3 id="代码生成">
+<a class="anchor" href="#%E4%BB%A3%E7%A0%81%E7%94%9F%E6%88%90" aria-hidden="true"><span class="octicon octicon-link"></span></a>代码生成</h3>
+<p>LLVM后端将IR编译为目标代码或汇编代码。
+每个后端都只支持单一平台，但可以支持多个指令集。
+例如，LLVM只有一个ARM后端，但该后端可以为ARMv6和ARMv7等指令集生成代码。
+每个后端都建立在LLVM的目标无关代码生成器之上。
+目标无关代码生成器是一个框架，可实现诸如寄存器分配之类的关键算法。
+从广义上讲，后端的任务是配置该框架并使之适应其目标指令集的特定需求。</p>
+
+<p>代码生成具有以下阶段：</p>
+
+<ol>
+  <li>
+    <p><strong>指令选择</strong> 映射LLVM IR到目标指令集中的指令。
+此阶段使用无限数量的虚拟寄存器和函数调用堆栈的抽象引用。</p>
+  </li>
+  <li>
+    <p><strong>计划和编排</strong> 确定指令的顺序。
+需要明确的是，在指令选择阶段已经对指令进行了排序，但这里可以根据寄存器分配策略或指令等待时间来对其中的一些指令的排序进行优化。</p>
+  </li>
+  <li>
+    <p><strong>基于SSA的机器代码优化</strong> 执行诸如<a href="https://en.wikipedia.org/wiki/Peephole_optimization">peephole</a>优化之类的工作。</p>
+  </li>
+  <li>
+    <p><strong>寄存器分配</strong> 将虚拟寄存器映射到物理寄存器。</p>
+  </li>
+  <li>
+    <p><strong>Prolog / Epilog插入</strong> 在每个函数的开头（或prolog）和结尾（或epilog）插入机器指令。
+这些通常是在进入或退出函数时扩展堆栈的指令。
+由于当前已经知道堆栈大小，因此也可以解析抽象堆栈引用。</p>
+  </li>
+  <li>
+    <p><strong>后期机器代码优化</strong> 可能不言自明。</p>
+  </li>
+  <li>
+    <p><strong>代码发射</strong> 发出目标代码或汇编代码。</p>
+  </li>
+</ol>
+
+<p>接下来，我将看一下构建LLVM以及如何设置开发/调试环境…</p>
+
+<p><strong>注意：</strong>您可以阅读<a href="http://llvm.org/docs/CodeGenerator.html">这篇文章</a>了解LLVM目标无关代码生成器的更多信息。</p>
+
+<h2 id="入门">
+<a class="anchor" href="#%E5%85%A5%E9%97%A8" aria-hidden="true"><span class="octicon octicon-link"></span></a>入门</h2>
+
+<p>在为新项目编写代码之前，我通常会配置环境，并对查看经存在的代码，这就是这一节要做的。在这一节中，我将展示如何下载编译LLVM和其他对调试有用的工具。我们还将了解如何使用现有的LLVM后端和GNU工具链来编译、汇编、链接和运行程序。</p>
+
+<h3 id="环境">
+<a class="anchor" href="#%E7%8E%AF%E5%A2%83" aria-hidden="true"><span class="octicon octicon-link"></span></a>环境</h3>
+
+<p>我正在使用Ubuntu，但是你应该能够在其他系统中重复这些步骤，而且(相对来说)几乎没有什么不同。您将需要以下工具来构建软件。</p>
+
+<ul>
+  <li>Makefile</li>
+  <li>C/C++ Compiler – 我用 GCC 9.2.1</li>
+  <li>autotools</li>
+  <li>CMake</li>
+  <li>Ninja</li>
+  <li>Git</li>
+  <li>大量耐心</li>
+</ul>
+
+<p><strong>注意：</strong>我可能忘记了一些东西，但是构建系统会通过一个错误告诉您；</p>
+
+<h3 id="编译llvm">
+<a class="anchor" href="#%E7%BC%96%E8%AF%91llvm" aria-hidden="true"><span class="octicon octicon-link"></span></a>编译LLVM</h3>
+
+<p>LLVM维护者已经建立了这个方便的repo，它包含LLVM和工具链的其他部分，比如Clang。</p>
+
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/llvm/llvm-project
+</code></pre></div></div>
+
+<p>在本系列文章中，我们将使用llvm 10.0.1，我建议您也使用该版本的LLVM。
+因为LLVM的变化非常快，这里显示的一些代码在旧/新版本中可能无法工作。
+不过，原理应该大致相同。</p>
+
+<p>LLVM使用CMake为构建系统生成构建文件，LLVM支持的构建系有：Ninja，Makefiles，Visual Studio和XCode。
+我通常使用Ninja，因为我认为它在我的系统中速度最快（我没有证据支持该判断！）。
+您可以通过cmake命令的<code class="language-plaintext highlighter-rouge">-G</code>参数来更改构建系统。</p>
+
+<p>CMake有很多选项，我鼓励您对其进行研究，因为有些选项对调试非常有帮助。
+您可以在<a href="https://llvm.org/docs/CMake.html">这里</a>阅读所有构建选项。
+在本教程中，我将使用以下选项:</p>
+
+<ol>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">-DLLVM_ENABLE_PROJECTS</code> 构建编译器的其余部分，比如Clang。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">-DLLVM_TARGETS_TO_BUILD</code> 指定要构建的后端。查看其他后端的输出对调试很有帮助，但是如果添加太多，构建会花费很长时间。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">-DCMAKE_BUILD_TYPE</code> 构建Debug版本。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">-DLLVM_ENABLE_ASSERTIONS=On</code> 启用断言，对调试很有帮助。</p>
+  </li>
+</ol>
+
+<p>以下是在克隆repo之后构建LLVM的方法。</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">cd </span>llvm-project
+git checkout llvmorg-10.0.1
+<span class="nb">mkdir </span>build
+<span class="nb">cd </span>build
+cmake <span class="nt">-G</span> <span class="s2">"Ninja"</span> <span class="nt">-DLLVM_ENABLE_PROJECTS</span><span class="o">=</span><span class="s2">"clang"</span> <span class="nt">-DLLVM_TARGETS_TO_BUILD</span><span class="o">=</span><span class="s2">"ARM;Lanai;RISCV"</span> <span class="nt">-DCMAKE_BUILD_TYPE</span><span class="o">=</span><span class="s2">"Debug"</span> <span class="nt">-DLLVM_ENABLE_ASSERTIONS</span><span class="o">=</span>On ../llvm
+ninja
+</code></pre></div></div>
+
+<p><strong>注意：</strong>您可以在<a href="https://llvm.org/docs/GettingStarted.html">这里</a>和<a href="https://llvm.org/docs/CMake.html">这里</a>找到更多有关构建LLVM的信息。</p>
+
+<p><strong>注意：</strong>您可以为Ninja传递<code class="language-plaintext highlighter-rouge">-j &lt;NUM_JOBS&gt;</code>选项，以指示要并行的作业数。 
+过高的<code class="language-plaintext highlighter-rouge">&lt;NUM_JOBS&gt;</code>会导致构建崩溃，并产生<code class="language-plaintext highlighter-rouge">collect2：ld ...</code>错误消息。</p>
+
+<h3 id="编译risc-v的gnu工具链">
+<a class="anchor" href="#%E7%BC%96%E8%AF%91risc-v%E7%9A%84gnu%E5%B7%A5%E5%85%B7%E9%93%BE" aria-hidden="true"><span class="octicon octicon-link"></span></a>编译RISC V的GNU工具链</h3>
+
+<p>你可能有点困惑，为什么我建议构建GCC的RISC V后端？
+难道我们不是要自己编写编译器后端吗？</p>
+
+<p>我们构建GCC的RISC V后端，是因为我们希望在初始阶段使用GCC的汇编器和链接器来测试LLVM后端生成的代码。
+编译过程分为很多阶段，在初始阶段，我们已经有以下结构:</p>
+
+<ul>
+  <li>Clang 编译C代码到LLVM IR</li>
+  <li>LLVM 优化IR</li>
+  <li>LLVM后端 编译IR到汇编</li>
+  <li>GCC 汇编和链接可执行文件</li>
+</ul>
+
+<p>使用以下命令下载，构建和安装GCC for RISCV。</p>
+
+<div class="language-bash highlighter-rouge"><div class="highlight"><pre class="highlight"><code>git clone https://github.com/riscv/riscv-gnu-toolchain
+<span class="nb">cd </span>riscv-gnu-toolchain
+<span class="nb">mkdir </span>build
+<span class="nb">cd </span>build
+../configure <span class="nt">--with-arch</span><span class="o">=</span>rv32gc <span class="nt">--with-abi</span><span class="o">=</span>ilp32
+make
+make <span class="nb">install</span>
+</code></pre></div></div>
+<p><strong>注意：</strong>请确保为指令集的正确变体（即RV32）构建GCC工具链，因为构建系统的默认值为RV64！</p>
+
+<p><strong>注意：</strong>GNU工具链支持RISC V的多个ABI，例如<code class="language-plaintext highlighter-rouge">ilp32</code>，<code class="language-plaintext highlighter-rouge">ilp32d</code>和<code class="language-plaintext highlighter-rouge">ilp32f</code>，这取决于您是否需要软浮点，硬浮点。</p>
+
+<h3 id="编译c程序">
+<a class="anchor" href="#%E7%BC%96%E8%AF%91c%E7%A8%8B%E5%BA%8F" aria-hidden="true"><span class="octicon octicon-link"></span></a>编译C程序</h3>
+
+<p>现在，构建和运行C代码的环境已经配置好了，尽管我们还没自己的后端（还！）。让我们从一个简单的C程序开始：</p>
+<pre><code class="language-C++">#include &lt;stdio.h&gt;
+
+int main(void)
+{
+    printf("Hello world!\n");
+    return 0;
+}
+</code></pre>
+
+<p>首先，使用Clang将C代码编译为LLVM IR。
+我们的计划是使用标准库中来自头文件stdio.h的函数printf，如果不能找到头文件，编译器会提示出错。
+为了使用GCC自带的RISC V标准C库，我们使用了<code class="language-plaintext highlighter-rouge">-isystem</code>参数。
+这会将包含所需头文件的目录添加到Clang预处理器的搜索目录列表中。</p>
+
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>clang <span class="nt">-O2</span> <span class="nt">-emit-llvm</span> <span class="nt">-target</span> riscv64 <span class="nt">-isystem</span> &lt;PATH_TO_GCC&gt;/riscv64-unknown-elf/include <span class="nt">-c</span> test.c <span class="nt">-o</span> test.bc
+</code></pre></div></div>
+<p>上面的命令把C语言文件test.c编译到LLVM IR文件test.bc，这是专门为机器设计的语言人类很难直接阅读。
+我们可以使用以下命令反汇编该文件：</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>llvm-dis test.bc
+</code></pre></div></div>
+<p>现在，使用包含以下内容的后端将IR编译为程序集，而无需使用以下命令下载LLVM：
+现在，使用LLVM自带的后端将IR编译为程汇编：</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>llc <span class="nt">-march</span><span class="o">=</span>riscv64 <span class="nt">-O2</span> <span class="nt">-filetype</span><span class="o">=</span>asm test.bc <span class="nt">-o</span> test.S
+</code></pre></div></div>
+<p>GCC可以直接生成程序的二进制文件。
+我将其分为两个步骤，但是您可以根据需要使用单个命令。</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>riscv64-unknown-elf-gcc <span class="nt">-c</span> test.S <span class="nt">-o</span> test.o
+riscv64-unknown-elf-gcc test.o <span class="nt">-o</span> <span class="nb">test</span>
+</code></pre></div></div>
+<p>最后，我们可以使用模拟器或真实硬件运行程序。</p>
+
+<h2 id="注释">
+<a class="anchor" href="#%E6%B3%A8%E9%87%8A" aria-hidden="true"><span class="octicon octicon-link"></span></a>注释</h2>
+<div class="footnotes" role="doc-endnotes">
+  <ol>
+    <li id="fn:1" role="doc-endnote">
+      <p>公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。 <a href="#fnref:1" class="reversefootnote" role="doc-backlink">↩</a></p>
+    </li>
+    <li id="fn:2" role="doc-endnote">
+      <p><a href="https://jonathan2251.github.io/lbd/">这个教程</a>描述了如何开发LLVM后端，但我发现很难理解。 <a href="#fnref:2" class="reversefootnote" role="doc-backlink">↩</a></p>
+    </li>
+  </ol>
+</div>
+
+    </div>
+  </article><aside class="post__contact"><h4><a href="/about/">悲催的袜子</a></h4>
+  <p>Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description.</p>
+<div class="icon__list"><a href="mailto:mantis-shrimp@outlook.com" class="icon__link" target="_blank"><svg class="icon__stroke" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+  <polyline points="22,6 12,13 2,6"></polyline>
+</svg>
+</a></div>
+</aside>
+</main><script>hljs.initHighlightingOnLoad();</script><footer class="site-footer">
+  © 2020<a href="/">悲催的袜子</a>. Theme<a href="https://github.com/erlzhang/jekyll-theme-persephone" target="_blank">Persephone</a>
+</footer>
+
+  </body>
+</html>
