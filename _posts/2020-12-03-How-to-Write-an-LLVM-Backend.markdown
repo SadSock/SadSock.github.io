@@ -204,7 +204,7 @@ GCC可以直接生成程序的二进制文件。
 ```sh
 riscv64-unknown-elf-gcc -c test.S -o test.o
 riscv64-unknown-elf-gcc test.o -o test
-``**
+```
 最后，我们可以使用模拟器或真实硬件运行程序。
 
 
