@@ -58,6 +58,10 @@
 <li class="toc-entry toc-h2"><a href="#创建后端">创建后端</a>
 <ul>
 <li class="toc-entry toc-h3"><a href="#triple和elf配置">Triple和ELF配置</a></li>
+<li class="toc-entry toc-h3"><a href="#配置驱动器">配置驱动器</a></li>
+<li class="toc-entry toc-h3"><a href="#创建新target">创建新Target</a></li>
+<li class="toc-entry toc-h3"><a href="#建立实验性后端">建立实验性后端</a></li>
+<li class="toc-entry toc-h3"><a href="#编译c程序-1">编译C程序</a></li>
 </ul>
 </li>
 <li class="toc-entry toc-h2"><a href="#注释">注释</a></li>
@@ -283,8 +287,8 @@ riscv64-unknown-elf-gcc test.o <span class="nt">-o</span> <span class="nb">test<
 
 <p>在本系列文章中，将采取略有不同的方法。
 我们将使用现有的LLVM后端作为起点，但我已经删除了大部分代码，并将其减少到编译一个(很小的)程序所需的最低限度。
-精简的后端，称为risww，非常简单，可以帮助理解LLVM目标独立代码生成器，而不必纠缠于细节。
-在这篇文章的其余部分，我将使用risww后端来展示如何创建一个新的LLVM后端。
+精简的后端，称为RISCW，非常简单，可以帮助理解LLVM目标独立代码生成器，而不必纠缠于细节。
+在这篇文章的其余部分，我将使用RISCW后端来展示如何创建一个新的LLVM后端。
 我们还将看到如何用一个实验性的后端构建LLVM，甚至编译一个(非常简单的) C程序到汇编。</p>
 
 <h3 id="triple和elf配置">
@@ -328,6 +332,129 @@ riscv64-unknown-elf-gcc test.o <span class="nt">-o</span> <span class="nb">test<
     <p>指示给定类的目标描述Triple(见此处)。目前，ELF头中的类是一个字节，用于对格式是32位还是64位进行编码。</p>
   </li>
 </ol>
+
+<p><strong>注意:</strong>查看wikipedia获取更多关于ELF文件的信息。</p>
+
+<h3 id="配置驱动器">
+<a class="anchor" href="#%E9%85%8D%E7%BD%AE%E9%A9%B1%E5%8A%A8%E5%99%A8" aria-hidden="true"><span class="octicon octicon-link"></span></a>配置驱动器</h3>
+
+<p>回想一下，我们使用clang将输入的C代码编译成LLVM IR。
+但是clang不仅仅是我们的编译器前端，它也是一个驱动器，类似GCC，驱动编译流水线将输入的C程序转换为另一个表示，比如把C转换为汇编或目标代码。
+因此，我们需要告诉clang</p>
+
+<ol>
+  <li>
+    <p>新后端的支持特性。例如，clang需要知道RISCW是32位还是64位。</p>
+  </li>
+  <li>
+    <p>新后端的编译流程。例如，它应该使用什么汇编程序? 什么连接器? 有哪些包括路径等等。</p>
+  </li>
+</ol>
+
+<p>我们可以通过添加一个新的target类<code class="language-plaintext highlighter-rouge">RISCWTargetInfo</code>来告诉clang有关RISCW的信息，该类与LLVM已有的target类一起被实例化，如这里所示。
+该类在这里和这里分别被声明和定义。
+在这段代码中有一些重要的事情需要强调:</p>
+
+<ul>
+  <li>
+<code class="language-plaintext highlighter-rouge">RISCWTargetInfo</code>通过字符串描述数据布局。这个字符串编码许多重要信息，比如指针中每一位、堆栈对齐要求等。</li>
+  <li>基本C数据类型的大小。</li>
+  <li>函数<code class="language-plaintext highlighter-rouge">RISCWTargetInfo::getTargetDefines(**</code>指示编译时定义的C预处理器宏，例如，这些宏是在使用RISCV后端编译代码时定义的。
+宏通常描述后端支持的体系结构、ABI、启用/禁用任何特性等</li>
+</ul>
+
+<p><strong>注意:</strong>一个后端可能支持多个指令集和ABI，因此驱动器的配置必须根据选定的目标Triple进行更改。
+例如，<code class="language-plaintext highlighter-rouge">RISCWTargetInfo</code>根据Triple包含riscv32还是riscv64来更改数据布局字符串。</p>
+
+<p><strong>注意:</strong>这里可以查看RISCWTargetInfo的父类TargetInfo的声明。
+它包含了更多的可以配置的选项。</p>
+
+<p>配置工具链相对简单。
+我们只需要实现一个从Toolchain继承的RISCWToolChain类，如下所示。
+代码基本上是不言自明的，通过覆盖ToolChain类的成员，您可以修改更多的选项(见此处)。</p>
+
+<h3 id="创建新target">
+<a class="anchor" href="#%E5%88%9B%E5%BB%BA%E6%96%B0target" aria-hidden="true"><span class="octicon octicon-link"></span></a>创建新Target</h3>
+
+<p>每个后端在llvm/lib/Target下都有一个单独的目录，其中包含后端的大部分代码。
+我们不会在这篇文章中深入讨论代码的细节(稍后我们会这样做) ，因为即使是一个很小的后端，比如RISCW，也有很多文件。
+目前，我们可以将这些文件大致分为三类:</p>
+
+<ul>
+  <li>
+    <p><strong>TableGen文件</strong>LLVM目标无关代码生成框架实现了一个精心设计的模式匹配算法，用于为输入的程序选择指令。
+待匹配的模式使用TableGen语法描述。
+此外，TableGen文件还描述了target在体系结构方面的重要特性，如寄存器的数量和调用约定等。</p>
+  </li>
+  <li>
+    <p><strong>Build文件</strong>后端的每个目录都必须被声明，否则它将不会被构建。
+此外，我们的后端的顶部目录(<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW</code>) ，以及每个子目录必须包含两个构建文件:<code class="language-plaintext highlighter-rouge">CMakeLists.txt</code>和<code class="language-plaintext highlighter-rouge">LLVMBuild.txt</code>，
+前者将源文件和任何子目录添加为生成目标，而后者为生成目标设置简单的生成参数，参数包括生成目标的名称、链接所需的库等。</p>
+  </li>
+  <li>
+    <p><strong>C++文件</strong>包含了大量的后端代码，实现了从简单的配置选项到更复杂的指令选择功能(TableGen没有实现或不能实现)的所有功能。</p>
+  </li>
+</ul>
+
+<h3 id="建立实验性后端">
+<a class="anchor" href="#%E5%BB%BA%E7%AB%8B%E5%AE%9E%E9%AA%8C%E6%80%A7%E5%90%8E%E7%AB%AF" aria-hidden="true"><span class="octicon octicon-link"></span></a>建立实验性后端</h3>
+
+<p>现在，一切都已经建立，我们可以构建带有RISCW后端的LLVM。
+但是我们不能简单地根据上一章的内容修改CMake的<code class="language-plaintext highlighter-rouge">-DLLVM_TARGETS_TO_BUILD</code>选项，以包含RISCW，因为后端仍处于试验阶段。
+相反，我们使用<code class="language-plaintext highlighter-rouge">-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD</code>选项，如下:</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cmake <span class="nt">-G</span> <span class="s2">"Ninja"</span> <span class="nt">-DLLVM_ENABLE_PROJECTS</span><span class="o">=</span><span class="s2">"clang"</span> <span class="nt">-DLLVM_TARGETS_TO_BUILD</span><span class="o">=</span><span class="s2">"ARM;Lanai;RISCV"</span> <span class="nt">-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD</span><span class="o">=</span><span class="s2">"RISCW"</span> <span class="nt">-DCMAKE_BUILD_TYPE</span><span class="o">=</span><span class="s2">"Debug"</span> <span class="nt">-DLLVM_ENABLE_ASSERTIONS</span><span class="o">=</span>On ../llvm
+ninja
+</code></pre></div></div>
+<p>当构建完成后，你可以检查RISCW现在是否是一个可用的后端，如下所示:</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>./build/bin/llc <span class="nt">--version</span>
+LLVM <span class="o">(</span>http://llvm.org/<span class="o">)</span>:
+  LLVM version 10.0.1
+  DEBUG build with assertions.
+  Default target: x86_64-unknown-linux-gnu
+  Host CPU: znver2
+
+  Registered Targets:
+    arm     - ARM
+    armeb   - ARM <span class="o">(</span>big endian<span class="o">)</span>
+    lanai   - Lanai
+    riscv32 - 32-bit RISC-V
+    riscv64 - 64-bit RISC-V
+    riscw   - 32-bit RISC-V         &lt;<span class="o">==</span> YAY!!
+    thumb   - Thumb
+    thumbeb - Thumb <span class="o">(</span>big endian<span class="o">)</span>
+</code></pre></div></div>
+<h3 id="编译c程序-1">
+<a class="anchor" href="#%E7%BC%96%E8%AF%91c%E7%A8%8B%E5%BA%8F-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>编译C程序</h3>
+<p>我们的RISCW后端只能发出两条add和ret指令，而且它不能正确处理函数调用、堆栈和几乎所有其他的东西！
+因此，我们将约束自己，只编译这个小函数:</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>int <span class="nb">test</span><span class="o">(</span>int a, int b<span class="o">)</span>
+<span class="o">{</span>
+    <span class="k">return </span>a + b<span class="p">;</span>
+<span class="o">}</span>
+</code></pre></div></div>
+<p>就这样，我们得到了这样一个代码:</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>	.text
+	.file	<span class="s2">"test.c"</span>
+	.globl	<span class="nb">test</span>                    <span class="p">;</span> <span class="nt">--</span> Begin <span class="k">function </span><span class="nb">test</span>
+	.type	<span class="nb">test</span>,@function
+<span class="nb">test</span>:                                   <span class="p">;</span> @test
+<span class="p">;</span> %bb.0:                                <span class="p">;</span> %entry
+	add	x0, x1, x0
+	ret
+.Lfunc_end0:
+	.size	<span class="nb">test</span>, .Lfunc_end0-test
+                                        <span class="p">;</span> <span class="nt">--</span> End <span class="k">function</span>
+	.ident	<span class="s2">"clang version 10.0.1 (https://github.com/llvm/llvm-project 89f2d2cc3bba7cb12cee346b3205cb0335e758cd)"</span>
+	.section	<span class="s2">".note.GNU-stack"</span>,<span class="s2">""</span>,@progbits
+</code></pre></div></div>
+<p>有很多东西缺失了，代码实际上是不正确的，在RISCV中的x0是一个硬编码为0的只读寄存器。
+但是我认为我们已经达到了目标: 建立了一个最小的LLVM后端，可以很容易地用更多的特性进行扩展。</p>
+
+<p><strong>注意:</strong>如果您使用上一篇文章中的命令来编译上面的测试函数，请确保为clang设置了<code class="language-plaintext highlighter-rouge">-target riscw</code>和为llc设置了<code class="language-plaintext highlighter-rouge">-march=riscw</code>。</p>
+
+<p><strong>注意:</strong>试图编译更复杂的程序将导致<code class="language-plaintext highlighter-rouge">cannot select...</code>错误。如果你感兴趣，就试一试。</p>
+
+<p><strong>注意:</strong>您可以通过将<code class="language-plaintext highlighter-rouge">-debug</code>选项传递给<code class="language-plaintext highlighter-rouge">llc</code>来指示编译器打印调试信息。</p>
 
 <h2 id="注释">
 <a class="anchor" href="#%E6%B3%A8%E9%87%8A" aria-hidden="true"><span class="octicon octicon-link"></span></a>注释</h2>
