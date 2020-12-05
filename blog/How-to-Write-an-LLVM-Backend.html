@@ -267,12 +267,11 @@ int main(void)
 <div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>llc <span class="nt">-march</span><span class="o">=</span>riscv64 <span class="nt">-O2</span> <span class="nt">-filetype</span><span class="o">=</span>asm test.bc <span class="nt">-o</span> test.S
 </code></pre></div></div>
 <p>GCC可以直接生成程序的二进制文件。
-我将其分为两个步骤，但是您可以根据需要使用单个命令。
-```sh
-riscv64-unknown-elf-gcc -c test.S -o test.o
-riscv64-unknown-elf-gcc test.o -o test
-``**
-最后，我们可以使用模拟器或真实硬件运行程序。</p>
+我将其分为两个步骤，但是您可以根据需要使用单个命令。</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>riscv64-unknown-elf-gcc <span class="nt">-c</span> test.S <span class="nt">-o</span> test.o
+riscv64-unknown-elf-gcc test.o <span class="nt">-o</span> <span class="nb">test</span>
+</code></pre></div></div>
+<p>最后，我们可以使用模拟器或真实硬件运行程序。</p>
 
 <h2 id="创建后端">
 <a class="anchor" href="#%E5%88%9B%E5%BB%BA%E5%90%8E%E7%AB%AF" aria-hidden="true"><span class="octicon octicon-link"></span></a>创建后端</h2>
