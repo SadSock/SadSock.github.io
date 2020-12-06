@@ -1,206 +1,6 @@
-<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.1.1">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2020-12-06T03:53:54+08:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">悲催的袜子</title><subtitle>Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description.</subtitle><entry><title type="html">How to Write an LLVM Backend</title><link href="http://localhost:4000/blog/How-to-Write-an-LLVM-Backend.html" rel="alternate" type="text/html" title="How to Write an LLVM Backend" /><published>2020-12-03T19:30:38+08:00</published><updated>2020-12-03T19:30:38+08:00</updated><id>http://localhost:4000/blog/How-to-Write-an-LLVM-Backend</id><content type="html" xml:base="http://localhost:4000/blog/How-to-Write-an-LLVM-Backend.html">&lt;p&gt;为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！
+<?xml version="1.0" encoding="utf-8"?><feed xmlns="http://www.w3.org/2005/Atom" ><generator uri="https://jekyllrb.com/" version="4.1.1">Jekyll</generator><link href="http://localhost:4000/feed.xml" rel="self" type="application/atom+xml" /><link href="http://localhost:4000/" rel="alternate" type="text/html" /><updated>2020-12-06T17:28:00+08:00</updated><id>http://localhost:4000/feed.xml</id><title type="html">悲催的袜子</title><subtitle>Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description.</subtitle><entry><title type="html">为LLVM添加简易RISCV后端(三)：创建后端</title><link href="http://localhost:4000/blog/%E4%B8%BALLVM%E6%B7%BB%E5%8A%A0%E7%AE%80%E6%98%93RISCV%E5%90%8E%E7%AB%AF3.html" rel="alternate" type="text/html" title="为LLVM添加简易RISCV后端(三)：创建后端" /><published>2020-12-06T13:30:38+08:00</published><updated>2020-12-06T13:30:38+08:00</updated><id>http://localhost:4000/blog/%E4%B8%BALLVM%E6%B7%BB%E5%8A%A0%E7%AE%80%E6%98%93RISCV%E5%90%8E%E7%AB%AF3</id><content type="html" xml:base="http://localhost:4000/blog/%E4%B8%BALLVM%E6%B7%BB%E5%8A%A0%E7%AE%80%E6%98%93RISCV%E5%90%8E%E7%AB%AF3.html">&lt;p&gt;为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！
 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程&lt;sup id=&quot;fnref:1&quot; role=&quot;doc-noteref&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;sup id=&quot;fnref:2&quot; role=&quot;doc-noteref&quot;&gt;&lt;a href=&quot;#fn:2&quot; class=&quot;footnote&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;。
 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。&lt;/p&gt;
-
-&lt;h2 id=&quot;简介&quot;&gt;简介&lt;/h2&gt;
-
-&lt;p&gt;在本教程中，我将为RISC V指令集的基本32位版本（即RV32IM）开发一个后端。希望这能帮助那些不熟悉LLVM的人开始使用这个工具，并将其扩展到自己的项目中。看懂本教程不需要前置知识，但是如果你熟悉C++和RISC V，学习本教程会更容易。&lt;/p&gt;
-
-&lt;p&gt;在本文剩下的部分中，我将简要描述LLVM的体系结构和后端结构。不过，我不会在这里详细说明，因为，如果你像我一样，在5分钟（或5秒）之后，就会忘记读过的任何繁琐文档。LLVM的细节将在以后的帖子中根据需要提供。&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;注意:&lt;/strong&gt;如果你想要更详细的版本，你可以自娱自乐地阅读&lt;a href=&quot;http://llvm.org/docs/UserGuides.html&quot;&gt;LLVM User Guides&lt;/a&gt;。&lt;/p&gt;
-
-&lt;h3 id=&quot;llvm架构&quot;&gt;LLVM架构&lt;/h3&gt;
-
-&lt;p&gt;传统上，编译过程分为三个阶段。
-首先，编译器的前端将源代码转换为某种中间表示（IR）；
-然后，优化IR；
-最后，编译器的后端将IR转换为机器代码。
-传统的编译器通常仅支持一种编程语言和一种目标指令集，编译器的源代码很难重用，例如添加新的目标指令集。&lt;/p&gt;
-
-&lt;p&gt;LLVM模块化地实现了三个编译过程，可以解决重用问题。
-其思想是LLVM的核心（即IR和优化器）是固定的，但是前端和后端可以被替换，以使编译器可以支持多种编程语言和指令集。
-例如，我们可以使用Clang（LLVM的前端）和x86后端把C/C++代码编译成X86指令集上的可执行程序。
-我们也可以用ARM后端替换X86后端，从而得到ARM指令集上的可执行程序。&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;LLVM的设计师Chris Lattner撰写了这篇&lt;a href=&quot;http://www.aosabook.org/en/llvm.html&quot;&gt;文章&lt;/a&gt;介绍LLVM的体系结构及其设计动机。&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;LLVM的这三个阶段的每个阶段在都有一个专用的可执行文件。
-clang是C/C++的前端（显然针对不同的编程语言有不同的前端），opt是优化程序，llc用于调用后端。
-通常，我们使用clang作为驱动程序来执行前端，使用llc和opt配合适当的参数来生成IR，汇编，可执行文件等。&lt;/p&gt;
-
-&lt;h3 id=&quot;代码生成&quot;&gt;代码生成&lt;/h3&gt;
-&lt;p&gt;LLVM后端将IR编译为目标代码或汇编代码。
-每个后端都只支持单一平台，但可以支持多个指令集。
-例如，LLVM只有一个ARM后端，但该后端可以为ARMv6和ARMv7等指令集生成代码。
-每个后端都建立在LLVM的目标无关代码生成器之上。
-目标无关代码生成器是一个框架，可实现诸如寄存器分配之类的关键算法。
-从广义上讲，后端的任务是配置该框架并使之适应其目标指令集的特定需求。&lt;/p&gt;
-
-&lt;p&gt;代码生成具有以下阶段：&lt;/p&gt;
-
-&lt;ol&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;strong&gt;指令选择&lt;/strong&gt; 映射LLVM IR到目标指令集中的指令。
-此阶段使用无限数量的虚拟寄存器和函数调用堆栈的抽象引用。&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;strong&gt;计划和编排&lt;/strong&gt; 确定指令的顺序。
-需要明确的是，在指令选择阶段已经对指令进行了排序，但这里可以根据寄存器分配策略或指令等待时间来对其中的一些指令的排序进行优化。&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;strong&gt;基于SSA的机器代码优化&lt;/strong&gt; 执行诸如&lt;a href=&quot;https://en.wikipedia.org/wiki/Peephole_optimization&quot;&gt;peephole&lt;/a&gt;优化之类的工作。&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;strong&gt;寄存器分配&lt;/strong&gt; 将虚拟寄存器映射到物理寄存器。&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;strong&gt;Prolog / Epilog插入&lt;/strong&gt; 在每个函数的开头（或prolog）和结尾（或epilog）插入机器指令。
-这些通常是在进入或退出函数时扩展堆栈的指令。
-由于当前已经知道堆栈大小，因此也可以解析抽象堆栈引用。&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;strong&gt;后期机器代码优化&lt;/strong&gt; 可能不言自明。&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;strong&gt;代码发射&lt;/strong&gt; 发出目标代码或汇编代码。&lt;/p&gt;
-  &lt;/li&gt;
-&lt;/ol&gt;
-
-&lt;p&gt;接下来，我将看一下构建LLVM以及如何设置开发/调试环境…&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;您可以阅读&lt;a href=&quot;http://llvm.org/docs/CodeGenerator.html&quot;&gt;这篇文章&lt;/a&gt;了解LLVM目标无关代码生成器的更多信息。&lt;/p&gt;
-
-&lt;h2 id=&quot;入门&quot;&gt;入门&lt;/h2&gt;
-
-&lt;p&gt;在为新项目编写代码之前，我通常会配置环境，并对查看经存在的代码，这就是这一节要做的。在这一节中，我将展示如何下载编译LLVM和其他对调试有用的工具。我们还将了解如何使用现有的LLVM后端和GNU工具链来编译、汇编、链接和运行程序。&lt;/p&gt;
-
-&lt;h3 id=&quot;环境&quot;&gt;环境&lt;/h3&gt;
-
-&lt;p&gt;我正在使用Ubuntu，但是你应该能够在其他系统中重复这些步骤，而且(相对来说)几乎没有什么不同。您将需要以下工具来构建软件。&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;Makefile&lt;/li&gt;
-  &lt;li&gt;C/C++ Compiler – 我用 GCC 9.2.1&lt;/li&gt;
-  &lt;li&gt;autotools&lt;/li&gt;
-  &lt;li&gt;CMake&lt;/li&gt;
-  &lt;li&gt;Ninja&lt;/li&gt;
-  &lt;li&gt;Git&lt;/li&gt;
-  &lt;li&gt;大量耐心&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;我可能忘记了一些东西，但是构建系统会通过一个错误告诉您；&lt;/p&gt;
-
-&lt;h3 id=&quot;编译llvm&quot;&gt;编译LLVM&lt;/h3&gt;
-
-&lt;p&gt;LLVM维护者已经建立了这个方便的repo，它包含LLVM和工具链的其他部分，比如Clang。&lt;/p&gt;
-
-&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;git clone https://github.com/llvm/llvm-project
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-
-&lt;p&gt;在本系列文章中，我们将使用llvm 10.0.1，我建议您也使用该版本的LLVM。
-因为LLVM的变化非常快，这里显示的一些代码在旧/新版本中可能无法工作。
-不过，原理应该大致相同。&lt;/p&gt;
-
-&lt;p&gt;LLVM使用CMake为构建系统生成构建文件，LLVM支持的构建系有：Ninja，Makefiles，Visual Studio和XCode。
-我通常使用Ninja，因为我认为它在我的系统中速度最快（我没有证据支持该判断！）。
-您可以通过cmake命令的&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-G&lt;/code&gt;参数来更改构建系统。&lt;/p&gt;
-
-&lt;p&gt;CMake有很多选项，我鼓励您对其进行研究，因为有些选项对调试非常有帮助。
-您可以在&lt;a href=&quot;https://llvm.org/docs/CMake.html&quot;&gt;这里&lt;/a&gt;阅读所有构建选项。
-在本教程中，我将使用以下选项:&lt;/p&gt;
-
-&lt;ol&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-DLLVM_ENABLE_PROJECTS&lt;/code&gt; 构建编译器的其余部分，比如Clang。&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-DLLVM_TARGETS_TO_BUILD&lt;/code&gt; 指定要构建的后端。查看其他后端的输出对调试很有帮助，但是如果添加太多，构建会花费很长时间。&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-DCMAKE_BUILD_TYPE&lt;/code&gt; 构建Debug版本。&lt;/p&gt;
-  &lt;/li&gt;
-  &lt;li&gt;
-    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-DLLVM_ENABLE_ASSERTIONS=On&lt;/code&gt; 启用断言，对调试很有帮助。&lt;/p&gt;
-  &lt;/li&gt;
-&lt;/ol&gt;
-
-&lt;p&gt;以下是在克隆repo之后构建LLVM的方法。&lt;/p&gt;
-&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;llvm-project
-git checkout llvmorg-10.0.1
-&lt;span class=&quot;nb&quot;&gt;mkdir &lt;/span&gt;build
-&lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;build
-cmake &lt;span class=&quot;nt&quot;&gt;-G&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Ninja&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-DLLVM_ENABLE_PROJECTS&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;clang&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-DLLVM_TARGETS_TO_BUILD&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;ARM;Lanai;RISCV&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-DCMAKE_BUILD_TYPE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;Debug&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-DLLVM_ENABLE_ASSERTIONS&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;On ../llvm
-ninja
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-
-&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;您可以在&lt;a href=&quot;https://llvm.org/docs/GettingStarted.html&quot;&gt;这里&lt;/a&gt;和&lt;a href=&quot;https://llvm.org/docs/CMake.html&quot;&gt;这里&lt;/a&gt;找到更多有关构建LLVM的信息。&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;您可以为Ninja传递&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-j &amp;lt;NUM_JOBS&amp;gt;&lt;/code&gt;选项，以指示要并行的作业数。 
-过高的&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;lt;NUM_JOBS&amp;gt;&lt;/code&gt;会导致构建崩溃，并产生&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;collect2：ld ...&lt;/code&gt;错误消息。&lt;/p&gt;
-
-&lt;h3 id=&quot;编译risc-v的gnu工具链&quot;&gt;编译RISC V的GNU工具链&lt;/h3&gt;
-
-&lt;p&gt;你可能有点困惑，为什么我建议构建GCC的RISC V后端？
-难道我们不是要自己编写编译器后端吗？&lt;/p&gt;
-
-&lt;p&gt;我们构建GCC的RISC V后端，是因为我们希望在初始阶段使用GCC的汇编器和链接器来测试LLVM后端生成的代码。
-编译过程分为很多阶段，在初始阶段，我们已经有以下结构:&lt;/p&gt;
-
-&lt;ul&gt;
-  &lt;li&gt;Clang 编译C代码到LLVM IR&lt;/li&gt;
-  &lt;li&gt;LLVM 优化IR&lt;/li&gt;
-  &lt;li&gt;LLVM后端 编译IR到汇编&lt;/li&gt;
-  &lt;li&gt;GCC 汇编和链接可执行文件&lt;/li&gt;
-&lt;/ul&gt;
-
-&lt;p&gt;使用以下命令下载，构建和安装GCC for RISCV。&lt;/p&gt;
-
-&lt;div class=&quot;language-bash highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;git clone https://github.com/riscv/riscv-gnu-toolchain
-&lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;riscv-gnu-toolchain
-&lt;span class=&quot;nb&quot;&gt;mkdir &lt;/span&gt;build
-&lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;build
-../configure &lt;span class=&quot;nt&quot;&gt;--with-arch&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;rv32gc &lt;span class=&quot;nt&quot;&gt;--with-abi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;ilp32
-make
-make &lt;span class=&quot;nb&quot;&gt;install&lt;/span&gt;
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;请确保为指令集的正确变体（即RV32）构建GCC工具链，因为构建系统的默认值为RV64！&lt;/p&gt;
-
-&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;GNU工具链支持RISC V的多个ABI，例如&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ilp32&lt;/code&gt;，&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ilp32d&lt;/code&gt;和&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ilp32f&lt;/code&gt;，这取决于您是否需要软浮点，硬浮点。&lt;/p&gt;
-
-&lt;h3 id=&quot;编译c程序&quot;&gt;编译C程序&lt;/h3&gt;
-
-&lt;p&gt;现在，构建和运行C代码的环境已经配置好了，尽管我们还没自己的后端（还！）。让我们从一个简单的C程序开始：&lt;/p&gt;
-&lt;pre&gt;&lt;code class=&quot;language-C++&quot;&gt;#include &amp;lt;stdio.h&amp;gt;
-
-int main(void)
-{
-    printf(&quot;Hello world!\n&quot;);
-    return 0;
-}
-&lt;/code&gt;&lt;/pre&gt;
-
-&lt;p&gt;首先，使用Clang将C代码编译为LLVM IR。
-我们的计划是使用标准库中来自头文件stdio.h的函数printf，如果不能找到头文件，编译器会提示出错。
-为了使用GCC自带的RISC V标准C库，我们使用了&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-isystem&lt;/code&gt;参数。
-这会将包含所需头文件的目录添加到Clang预处理器的搜索目录列表中。&lt;/p&gt;
-
-&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;clang &lt;span class=&quot;nt&quot;&gt;-O2&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-emit-llvm&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-target&lt;/span&gt; riscv64 &lt;span class=&quot;nt&quot;&gt;-isystem&lt;/span&gt; &amp;lt;PATH_TO_GCC&amp;gt;/riscv64-unknown-elf/include &lt;span class=&quot;nt&quot;&gt;-c&lt;/span&gt; test.c &lt;span class=&quot;nt&quot;&gt;-o&lt;/span&gt; test.bc
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;上面的命令把C语言文件test.c编译到LLVM IR文件test.bc，这是专门为机器设计的语言人类很难直接阅读。
-我们可以使用以下命令反汇编该文件：&lt;/p&gt;
-&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;llvm-dis test.bc
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;现在，使用包含以下内容的后端将IR编译为程序集，而无需使用以下命令下载LLVM：
-现在，使用LLVM自带的后端将IR编译为程汇编：&lt;/p&gt;
-&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;llc &lt;span class=&quot;nt&quot;&gt;-march&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;riscv64 &lt;span class=&quot;nt&quot;&gt;-O2&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-filetype&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;asm test.bc &lt;span class=&quot;nt&quot;&gt;-o&lt;/span&gt; test.S
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;GCC可以直接生成程序的二进制文件。
-我将其分为两个步骤，但是您可以根据需要使用单个命令。&lt;/p&gt;
-&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;riscv64-unknown-elf-gcc &lt;span class=&quot;nt&quot;&gt;-c&lt;/span&gt; test.S &lt;span class=&quot;nt&quot;&gt;-o&lt;/span&gt; test.o
-riscv64-unknown-elf-gcc test.o &lt;span class=&quot;nt&quot;&gt;-o&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;test&lt;/span&gt;
-&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;p&gt;最后，我们可以使用模拟器或真实硬件运行程序。&lt;/p&gt;
 
 &lt;h2 id=&quot;创建后端&quot;&gt;创建后端&lt;/h2&gt;
 
@@ -342,7 +142,7 @@ LLVM &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;http://llvm.org/&lt;span clas
     thumb   - Thumb
     thumbeb - Thumb &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;big endian&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt;
 &lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
-&lt;h3 id=&quot;编译c程序-1&quot;&gt;编译C程序&lt;/h3&gt;
+&lt;h3 id=&quot;编译c程序&quot;&gt;编译C程序&lt;/h3&gt;
 &lt;p&gt;我们的RISCW后端只能发出两条add和ret指令，而且它不能正确处理函数调用、堆栈和几乎所有其他的东西！
 因此，我们将约束自己，只编译这个小函数:&lt;/p&gt;
 &lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;int &lt;span class=&quot;nb&quot;&gt;test&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;int a, int b&lt;span class=&quot;o&quot;&gt;)&lt;/span&gt;
@@ -384,7 +184,235 @@ LLVM &lt;span class=&quot;o&quot;&gt;(&lt;/span&gt;http://llvm.org/&lt;span clas
       &lt;p&gt;&lt;a href=&quot;https://jonathan2251.github.io/lbd/&quot;&gt;这个教程&lt;/a&gt;描述了如何开发LLVM后端，但我发现很难理解。 &lt;a href=&quot;#fnref:2&quot; class=&quot;reversefootnote&quot; role=&quot;doc-backlink&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
     &lt;/li&gt;
   &lt;/ol&gt;
-&lt;/div&gt;</content><author><name></name></author><category term="LLVM" /><summary type="html">为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程12。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。 简介 在本教程中，我将为RISC V指令集的基本32位版本（即RV32IM）开发一个后端。希望这能帮助那些不熟悉LLVM的人开始使用这个工具，并将其扩展到自己的项目中。看懂本教程不需要前置知识，但是如果你熟悉C++和RISC V，学习本教程会更容易。 在本文剩下的部分中，我将简要描述LLVM的体系结构和后端结构。不过，我不会在这里详细说明，因为，如果你像我一样，在5分钟（或5秒）之后，就会忘记读过的任何繁琐文档。LLVM的细节将在以后的帖子中根据需要提供。 注意:如果你想要更详细的版本，你可以自娱自乐地阅读LLVM User Guides。 LLVM架构 传统上，编译过程分为三个阶段。 首先，编译器的前端将源代码转换为某种中间表示（IR）； 然后，优化IR； 最后，编译器的后端将IR转换为机器代码。 传统的编译器通常仅支持一种编程语言和一种目标指令集，编译器的源代码很难重用，例如添加新的目标指令集。 LLVM模块化地实现了三个编译过程，可以解决重用问题。 其思想是LLVM的核心（即IR和优化器）是固定的，但是前端和后端可以被替换，以使编译器可以支持多种编程语言和指令集。 例如，我们可以使用Clang（LLVM的前端）和x86后端把C/C++代码编译成X86指令集上的可执行程序。 我们也可以用ARM后端替换X86后端，从而得到ARM指令集上的可执行程序。 注意：LLVM的设计师Chris Lattner撰写了这篇文章介绍LLVM的体系结构及其设计动机。 注意：LLVM的这三个阶段的每个阶段在都有一个专用的可执行文件。 clang是C/C++的前端（显然针对不同的编程语言有不同的前端），opt是优化程序，llc用于调用后端。 通常，我们使用clang作为驱动程序来执行前端，使用llc和opt配合适当的参数来生成IR，汇编，可执行文件等。 代码生成 LLVM后端将IR编译为目标代码或汇编代码。 每个后端都只支持单一平台，但可以支持多个指令集。 例如，LLVM只有一个ARM后端，但该后端可以为ARMv6和ARMv7等指令集生成代码。 每个后端都建立在LLVM的目标无关代码生成器之上。 目标无关代码生成器是一个框架，可实现诸如寄存器分配之类的关键算法。 从广义上讲，后端的任务是配置该框架并使之适应其目标指令集的特定需求。 代码生成具有以下阶段： 指令选择 映射LLVM IR到目标指令集中的指令。 此阶段使用无限数量的虚拟寄存器和函数调用堆栈的抽象引用。 计划和编排 确定指令的顺序。 需要明确的是，在指令选择阶段已经对指令进行了排序，但这里可以根据寄存器分配策略或指令等待时间来对其中的一些指令的排序进行优化。 基于SSA的机器代码优化 执行诸如peephole优化之类的工作。 寄存器分配 将虚拟寄存器映射到物理寄存器。 Prolog / Epilog插入 在每个函数的开头（或prolog）和结尾（或epilog）插入机器指令。 这些通常是在进入或退出函数时扩展堆栈的指令。 由于当前已经知道堆栈大小，因此也可以解析抽象堆栈引用。 后期机器代码优化 可能不言自明。 代码发射 发出目标代码或汇编代码。 接下来，我将看一下构建LLVM以及如何设置开发/调试环境… 注意：您可以阅读这篇文章了解LLVM目标无关代码生成器的更多信息。 入门 在为新项目编写代码之前，我通常会配置环境，并对查看经存在的代码，这就是这一节要做的。在这一节中，我将展示如何下载编译LLVM和其他对调试有用的工具。我们还将了解如何使用现有的LLVM后端和GNU工具链来编译、汇编、链接和运行程序。 环境 我正在使用Ubuntu，但是你应该能够在其他系统中重复这些步骤，而且(相对来说)几乎没有什么不同。您将需要以下工具来构建软件。 Makefile C/C++ Compiler – 我用 GCC 9.2.1 autotools CMake Ninja Git 大量耐心 注意：我可能忘记了一些东西，但是构建系统会通过一个错误告诉您； 编译LLVM LLVM维护者已经建立了这个方便的repo，它包含LLVM和工具链的其他部分，比如Clang。 git clone https://github.com/llvm/llvm-project 在本系列文章中，我们将使用llvm 10.0.1，我建议您也使用该版本的LLVM。 因为LLVM的变化非常快，这里显示的一些代码在旧/新版本中可能无法工作。 不过，原理应该大致相同。 LLVM使用CMake为构建系统生成构建文件，LLVM支持的构建系有：Ninja，Makefiles，Visual Studio和XCode。 我通常使用Ninja，因为我认为它在我的系统中速度最快（我没有证据支持该判断！）。 您可以通过cmake命令的-G参数来更改构建系统。 CMake有很多选项，我鼓励您对其进行研究，因为有些选项对调试非常有帮助。 您可以在这里阅读所有构建选项。 在本教程中，我将使用以下选项: -DLLVM_ENABLE_PROJECTS 构建编译器的其余部分，比如Clang。 -DLLVM_TARGETS_TO_BUILD 指定要构建的后端。查看其他后端的输出对调试很有帮助，但是如果添加太多，构建会花费很长时间。 -DCMAKE_BUILD_TYPE 构建Debug版本。 -DLLVM_ENABLE_ASSERTIONS=On 启用断言，对调试很有帮助。 以下是在克隆repo之后构建LLVM的方法。 cd llvm-project git checkout llvmorg-10.0.1 mkdir build cd build cmake -G &quot;Ninja&quot; -DLLVM_ENABLE_PROJECTS=&quot;clang&quot; -DLLVM_TARGETS_TO_BUILD=&quot;ARM;Lanai;RISCV&quot; -DCMAKE_BUILD_TYPE=&quot;Debug&quot; -DLLVM_ENABLE_ASSERTIONS=On ../llvm ninja 注意：您可以在这里和这里找到更多有关构建LLVM的信息。 注意：您可以为Ninja传递-j &amp;lt;NUM_JOBS&amp;gt;选项，以指示要并行的作业数。 过高的&amp;lt;NUM_JOBS&amp;gt;会导致构建崩溃，并产生collect2：ld ...错误消息。 编译RISC V的GNU工具链 你可能有点困惑，为什么我建议构建GCC的RISC V后端？ 难道我们不是要自己编写编译器后端吗？ 我们构建GCC的RISC V后端，是因为我们希望在初始阶段使用GCC的汇编器和链接器来测试LLVM后端生成的代码。 编译过程分为很多阶段，在初始阶段，我们已经有以下结构: Clang 编译C代码到LLVM IR LLVM 优化IR LLVM后端 编译IR到汇编 GCC 汇编和链接可执行文件 使用以下命令下载，构建和安装GCC for RISCV。 git clone https://github.com/riscv/riscv-gnu-toolchain cd riscv-gnu-toolchain mkdir build cd build ../configure --with-arch=rv32gc --with-abi=ilp32 make make install 注意：请确保为指令集的正确变体（即RV32）构建GCC工具链，因为构建系统的默认值为RV64！ 注意：GNU工具链支持RISC V的多个ABI，例如ilp32，ilp32d和ilp32f，这取决于您是否需要软浮点，硬浮点。 编译C程序 现在，构建和运行C代码的环境已经配置好了，尽管我们还没自己的后端（还！）。让我们从一个简单的C程序开始： #include &amp;lt;stdio.h&amp;gt; int main(void) { printf(&quot;Hello world!\n&quot;); return 0; } 首先，使用Clang将C代码编译为LLVM IR。 我们的计划是使用标准库中来自头文件stdio.h的函数printf，如果不能找到头文件，编译器会提示出错。 为了使用GCC自带的RISC V标准C库，我们使用了-isystem参数。 这会将包含所需头文件的目录添加到Clang预处理器的搜索目录列表中。 clang -O2 -emit-llvm -target riscv64 -isystem &amp;lt;PATH_TO_GCC&amp;gt;/riscv64-unknown-elf/include -c test.c -o test.bc 上面的命令把C语言文件test.c编译到LLVM IR文件test.bc，这是专门为机器设计的语言人类很难直接阅读。 我们可以使用以下命令反汇编该文件： llvm-dis test.bc 现在，使用包含以下内容的后端将IR编译为程序集，而无需使用以下命令下载LLVM： 现在，使用LLVM自带的后端将IR编译为程汇编： llc -march=riscv64 -O2 -filetype=asm test.bc -o test.S GCC可以直接生成程序的二进制文件。 我将其分为两个步骤，但是您可以根据需要使用单个命令。 riscv64-unknown-elf-gcc -c test.S -o test.o riscv64-unknown-elf-gcc test.o -o test 最后，我们可以使用模拟器或真实硬件运行程序。 创建后端 开发LLVM后端并不是一件特别吸引人的事情。 您很快就会意识到，这项工作在很大程度上就是从其他现有后端复制代码。 在线论坛上，LLVM开发者建议从“复制一个现有的后端，重命名并修改它以适应您的需要”开。 但是即使是相对较小的后端，比如Lanai或XCore，也相当复杂，而且代码也不容易理解！ 在本系列文章中，将采取略有不同的方法。 我们将使用现有的LLVM后端作为起点，但我已经删除了大部分代码，并将其减少到编译一个(很小的)程序所需的最低限度。 精简的后端，称为RISCW，非常简单，可以帮助理解LLVM目标独立代码生成器，而不必纠缠于细节。 在这篇文章的其余部分，我将使用RISCW后端来展示如何创建一个新的LLVM后端。 我们还将看到如何用一个实验性的后端构建LLVM，甚至编译一个(非常简单的) C程序到汇编。 Triple和ELF配置 我们首先为后端配置一个新的目标描述Triple。 由于历史原因，Triple编码了目标平台的重要信息（如体系结构、供应商和操作系统）。 以下是配置一个新的Triple的步骤: 在llvm/include/llvm/ADT/Triple.h用Triple声明一个新的体系结构 (见这里)。 提供字符串和Triple之间的类型转换(参见这里,这里及这里)。 指出后端支持的目标文件类型，例如ELF、COFF等，ricw只支持ELF(参见这里)。 指出目标平台的字平台，例如32位或64位，以及指针的大小(请参阅这里,这里及这里)。 注意:你可以在这里和这里找到更多关于Triple的信息。 注意:指令集并不一定意味着指针的大小。 例如，在为RV64编译时，指针并不总是64位的。 指针大小通常由ABI给出，在64位机器中，它可以是ilp32(即int、long和指针为32位)。 下面的参数用于配置ELF: 创建一个枚举值作为RISCW的体系结构的标识(见此处)。 这个值被编码在ELF文件头的e_machine字段中。 这个值不是随意设置的; 它必须取得授权，例如:0xF3 for RISCV。 但是我们现在将它设置为一个未使用的值。 声明ELF重定位类型(见这里和这里)。 同样，这些是依赖于架构的，这里列出了用于RISCV的类型。 在这个阶段，我们将简单地为RISCW放置了占位符。 文件格式名称(见此处)。 指示给定类的目标描述Triple(见此处)。目前，ELF头中的类是一个字节，用于对格式是32位还是64位进行编码。 注意:查看wikipedia获取更多关于ELF文件的信息。 配置驱动器 回想一下，我们使用clang将输入的C代码编译成LLVM IR。 但是clang不仅仅是我们的编译器前端，它也是一个驱动器，类似GCC，驱动编译流水线将输入的C程序转换为另一个表示，比如把C转换为汇编或目标代码。 因此，我们需要告诉clang 新后端的支持特性。例如，clang需要知道RISCW是32位还是64位。 新后端的编译流程。例如，它应该使用什么汇编程序? 什么连接器? 有哪些包括路径等等。 我们可以通过添加一个新的target类RISCWTargetInfo来告诉clang有关RISCW的信息，该类与LLVM已有的target类一起被实例化，如这里所示。 该类在这里和这里分别被声明和定义。 在这段代码中有一些重要的事情需要强调: RISCWTargetInfo通过字符串描述数据布局。这个字符串编码许多重要信息，比如指针中每一位、堆栈对齐要求等。 基本C数据类型的大小。 函数RISCWTargetInfo::getTargetDefines(**指示编译时定义的C预处理器宏，例如，这些宏是在使用RISCV后端编译代码时定义的。 宏通常描述后端支持的体系结构、ABI、启用/禁用任何特性等 注意:一个后端可能支持多个指令集和ABI，因此驱动器的配置必须根据选定的目标Triple进行更改。 例如，RISCWTargetInfo根据Triple包含riscv32还是riscv64来更改数据布局字符串。 注意:这里可以查看RISCWTargetInfo的父类TargetInfo的声明。 它包含了更多的可以配置的选项。 配置工具链相对简单。 我们只需要实现一个从Toolchain继承的RISCWToolChain类，如下所示。 代码基本上是不言自明的，通过覆盖ToolChain类的成员，您可以修改更多的选项(见此处)。 创建新Target 每个后端在llvm/lib/Target下都有一个单独的目录，其中包含后端的大部分代码。 我们不会在这篇文章中深入讨论代码的细节(稍后我们会这样做) ，因为即使是一个很小的后端，比如RISCW，也有很多文件。 目前，我们可以将这些文件大致分为三类: TableGen文件LLVM目标无关代码生成框架实现了一个精心设计的模式匹配算法，用于为输入的程序选择指令。 待匹配的模式使用TableGen语法描述。 此外，TableGen文件还描述了target在体系结构方面的重要特性，如寄存器的数量和调用约定等。 Build文件后端的每个目录都必须被声明，否则它将不会被构建。 此外，我们的后端的顶部目录(llvm/lib/Target/RISCW) ，以及每个子目录必须包含两个构建文件:CMakeLists.txt和LLVMBuild.txt， 前者将源文件和任何子目录添加为生成目标，而后者为生成目标设置简单的生成参数，参数包括生成目标的名称、链接所需的库等。 C++文件包含了大量的后端代码，实现了从简单的配置选项到更复杂的指令选择功能(TableGen没有实现或不能实现)的所有功能。 建立实验性后端 现在，一切都已经建立，我们可以构建带有RISCW后端的LLVM。 但是我们不能简单地根据上一章的内容修改CMake的-DLLVM_TARGETS_TO_BUILD选项，以包含RISCW，因为后端仍处于试验阶段。 相反，我们使用-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD选项，如下: cmake -G &quot;Ninja&quot; -DLLVM_ENABLE_PROJECTS=&quot;clang&quot; -DLLVM_TARGETS_TO_BUILD=&quot;ARM;Lanai;RISCV&quot; -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=&quot;RISCW&quot; -DCMAKE_BUILD_TYPE=&quot;Debug&quot; -DLLVM_ENABLE_ASSERTIONS=On ../llvm ninja 当构建完成后，你可以检查RISCW现在是否是一个可用的后端，如下所示: $ ./build/bin/llc --version LLVM (http://llvm.org/): LLVM version 10.0.1 DEBUG build with assertions. Default target: x86_64-unknown-linux-gnu Host CPU: znver2 Registered Targets: arm - ARM armeb - ARM (big endian) lanai - Lanai riscv32 - 32-bit RISC-V riscv64 - 64-bit RISC-V riscw - 32-bit RISC-V &amp;lt;== YAY!! thumb - Thumb thumbeb - Thumb (big endian) 编译C程序 我们的RISCW后端只能发出两条add和ret指令，而且它不能正确处理函数调用、堆栈和几乎所有其他的东西！ 因此，我们将约束自己，只编译这个小函数: int test(int a, int b) { return a + b; } 就这样，我们得到了这样一个代码: .text .file &quot;test.c&quot; .globl test ; -- Begin function test .type test,@function test: ; @test ; %bb.0: ; %entry add x0, x1, x0 ret .Lfunc_end0: .size test, .Lfunc_end0-test ; -- End function .ident &quot;clang version 10.0.1 (https://github.com/llvm/llvm-project 89f2d2cc3bba7cb12cee346b3205cb0335e758cd)&quot; .section &quot;.note.GNU-stack&quot;,&quot;&quot;,@progbits 有很多东西缺失了，代码实际上是不正确的，在RISCV中的x0是一个硬编码为0的只读寄存器。 但是我认为我们已经达到了目标: 建立了一个最小的LLVM后端，可以很容易地用更多的特性进行扩展。 注意:如果您使用上一篇文章中的命令来编译上面的测试函数，请确保为clang设置了-target riscw和为llc设置了-march=riscw。 注意:试图编译更复杂的程序将导致cannot select...错误。如果你感兴趣，就试一试。 注意:您可以通过将-debug选项传递给llc来指示编译器打印调试信息。 注释 公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。 &amp;#8617; 这个教程描述了如何开发LLVM后端，但我发现很难理解。 &amp;#8617;</summary></entry><entry><title type="html">Welcome to Jekyll!</title><link href="http://localhost:4000/blog/welcome-to-jekyll.html" rel="alternate" type="text/html" title="Welcome to Jekyll!" /><published>2020-12-03T18:38:38+08:00</published><updated>2020-12-03T18:38:38+08:00</updated><id>http://localhost:4000/blog/welcome-to-jekyll</id><content type="html" xml:base="http://localhost:4000/blog/welcome-to-jekyll.html">&lt;p&gt;You’ll find this post in your &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_posts&lt;/code&gt; directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jekyll serve&lt;/code&gt;, which launches a web server and auto-regenerates your site when a file is updated.&lt;/p&gt;
+&lt;/div&gt;</content><author><name></name></author><category term="LLVM" /><summary type="html">为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程12。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。 创建后端 开发LLVM后端并不是一件特别吸引人的事情。 您很快就会意识到，这项工作在很大程度上就是从其他现有后端复制代码。 在线论坛上，LLVM开发者建议从“复制一个现有的后端，重命名并修改它以适应您的需要”开。 但是即使是相对较小的后端，比如Lanai或XCore，也相当复杂，而且代码也不容易理解！ 在本系列文章中，将采取略有不同的方法。 我们将使用现有的LLVM后端作为起点，但我已经删除了大部分代码，并将其减少到编译一个(很小的)程序所需的最低限度。 精简的后端，称为RISCW，非常简单，可以帮助理解LLVM目标独立代码生成器，而不必纠缠于细节。 在这篇文章的其余部分，我将使用RISCW后端来展示如何创建一个新的LLVM后端。 我们还将看到如何用一个实验性的后端构建LLVM，甚至编译一个(非常简单的) C程序到汇编。 Triple和ELF配置 我们首先为后端配置一个新的目标描述Triple。 由于历史原因，Triple编码了目标平台的重要信息（如体系结构、供应商和操作系统）。 以下是配置一个新的Triple的步骤: 在llvm/include/llvm/ADT/Triple.h用Triple声明一个新的体系结构 (见这里)。 提供字符串和Triple之间的类型转换(参见这里,这里及这里)。 指出后端支持的目标文件类型，例如ELF、COFF等，ricw只支持ELF(参见这里)。 指出目标平台的字平台，例如32位或64位，以及指针的大小(请参阅这里,这里及这里)。 注意:你可以在这里和这里找到更多关于Triple的信息。 注意:指令集并不一定意味着指针的大小。 例如，在为RV64编译时，指针并不总是64位的。 指针大小通常由ABI给出，在64位机器中，它可以是ilp32(即int、long和指针为32位)。 下面的参数用于配置ELF: 创建一个枚举值作为RISCW的体系结构的标识(见此处)。 这个值被编码在ELF文件头的e_machine字段中。 这个值不是随意设置的; 它必须取得授权，例如:0xF3 for RISCV。 但是我们现在将它设置为一个未使用的值。 声明ELF重定位类型(见这里和这里)。 同样，这些是依赖于架构的，这里列出了用于RISCV的类型。 在这个阶段，我们将简单地为RISCW放置了占位符。 文件格式名称(见此处)。 指示给定类的目标描述Triple(见此处)。目前，ELF头中的类是一个字节，用于对格式是32位还是64位进行编码。 注意:查看wikipedia获取更多关于ELF文件的信息。 配置驱动器 回想一下，我们使用clang将输入的C代码编译成LLVM IR。 但是clang不仅仅是我们的编译器前端，它也是一个驱动器，类似GCC，驱动编译流水线将输入的C程序转换为另一个表示，比如把C转换为汇编或目标代码。 因此，我们需要告诉clang 新后端的支持特性。例如，clang需要知道RISCW是32位还是64位。 新后端的编译流程。例如，它应该使用什么汇编程序? 什么连接器? 有哪些包括路径等等。 我们可以通过添加一个新的target类RISCWTargetInfo来告诉clang有关RISCW的信息，该类与LLVM已有的target类一起被实例化，如这里所示。 该类在这里和这里分别被声明和定义。 在这段代码中有一些重要的事情需要强调: RISCWTargetInfo通过字符串描述数据布局。这个字符串编码许多重要信息，比如指针中每一位、堆栈对齐要求等。 基本C数据类型的大小。 函数RISCWTargetInfo::getTargetDefines(**指示编译时定义的C预处理器宏，例如，这些宏是在使用RISCV后端编译代码时定义的。 宏通常描述后端支持的体系结构、ABI、启用/禁用任何特性等 注意:一个后端可能支持多个指令集和ABI，因此驱动器的配置必须根据选定的目标Triple进行更改。 例如，RISCWTargetInfo根据Triple包含riscv32还是riscv64来更改数据布局字符串。 注意:这里可以查看RISCWTargetInfo的父类TargetInfo的声明。 它包含了更多的可以配置的选项。 配置工具链相对简单。 我们只需要实现一个从Toolchain继承的RISCWToolChain类，如下所示。 代码基本上是不言自明的，通过覆盖ToolChain类的成员，您可以修改更多的选项(见此处)。 创建新Target 每个后端在llvm/lib/Target下都有一个单独的目录，其中包含后端的大部分代码。 我们不会在这篇文章中深入讨论代码的细节(稍后我们会这样做) ，因为即使是一个很小的后端，比如RISCW，也有很多文件。 目前，我们可以将这些文件大致分为三类: TableGen文件LLVM目标无关代码生成框架实现了一个精心设计的模式匹配算法，用于为输入的程序选择指令。 待匹配的模式使用TableGen语法描述。 此外，TableGen文件还描述了target在体系结构方面的重要特性，如寄存器的数量和调用约定等。 Build文件后端的每个目录都必须被声明，否则它将不会被构建。 此外，我们的后端的顶部目录(llvm/lib/Target/RISCW) ，以及每个子目录必须包含两个构建文件:CMakeLists.txt和LLVMBuild.txt， 前者将源文件和任何子目录添加为生成目标，而后者为生成目标设置简单的生成参数，参数包括生成目标的名称、链接所需的库等。 C++文件包含了大量的后端代码，实现了从简单的配置选项到更复杂的指令选择功能(TableGen没有实现或不能实现)的所有功能。 建立实验性后端 现在，一切都已经建立，我们可以构建带有RISCW后端的LLVM。 但是我们不能简单地根据上一章的内容修改CMake的-DLLVM_TARGETS_TO_BUILD选项，以包含RISCW，因为后端仍处于试验阶段。 相反，我们使用-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD选项，如下: cmake -G &quot;Ninja&quot; -DLLVM_ENABLE_PROJECTS=&quot;clang&quot; -DLLVM_TARGETS_TO_BUILD=&quot;ARM;Lanai;RISCV&quot; -DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=&quot;RISCW&quot; -DCMAKE_BUILD_TYPE=&quot;Debug&quot; -DLLVM_ENABLE_ASSERTIONS=On ../llvm ninja 当构建完成后，你可以检查RISCW现在是否是一个可用的后端，如下所示: $ ./build/bin/llc --version LLVM (http://llvm.org/): LLVM version 10.0.1 DEBUG build with assertions. Default target: x86_64-unknown-linux-gnu Host CPU: znver2 Registered Targets: arm - ARM armeb - ARM (big endian) lanai - Lanai riscv32 - 32-bit RISC-V riscv64 - 64-bit RISC-V riscw - 32-bit RISC-V &amp;lt;== YAY!! thumb - Thumb thumbeb - Thumb (big endian) 编译C程序 我们的RISCW后端只能发出两条add和ret指令，而且它不能正确处理函数调用、堆栈和几乎所有其他的东西！ 因此，我们将约束自己，只编译这个小函数: int test(int a, int b) { return a + b; } 就这样，我们得到了这样一个代码: .text .file &quot;test.c&quot; .globl test ; -- Begin function test .type test,@function test: ; @test ; %bb.0: ; %entry add x0, x1, x0 ret .Lfunc_end0: .size test, .Lfunc_end0-test ; -- End function .ident &quot;clang version 10.0.1 (https://github.com/llvm/llvm-project 89f2d2cc3bba7cb12cee346b3205cb0335e758cd)&quot; .section &quot;.note.GNU-stack&quot;,&quot;&quot;,@progbits 有很多东西缺失了，代码实际上是不正确的，在RISCV中的x0是一个硬编码为0的只读寄存器。 但是我认为我们已经达到了目标: 建立了一个最小的LLVM后端，可以很容易地用更多的特性进行扩展。 注意:如果您使用上一篇文章中的命令来编译上面的测试函数，请确保为clang设置了-target riscw和为llc设置了-march=riscw。 注意:试图编译更复杂的程序将导致cannot select...错误。如果你感兴趣，就试一试。 注意:您可以通过将-debug选项传递给llc来指示编译器打印调试信息。 注释 公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。 &amp;#8617; 这个教程描述了如何开发LLVM后端，但我发现很难理解。 &amp;#8617;</summary></entry><entry><title type="html">为LLVM添加简易RISCV后端(二)：入门</title><link href="http://localhost:4000/blog/%E4%B8%BALLVM%E6%B7%BB%E5%8A%A0%E7%AE%80%E6%98%93RISCV%E5%90%8E%E7%AB%AF2.html" rel="alternate" type="text/html" title="为LLVM添加简易RISCV后端(二)：入门" /><published>2020-12-04T19:30:38+08:00</published><updated>2020-12-04T19:30:38+08:00</updated><id>http://localhost:4000/blog/%E4%B8%BALLVM%E6%B7%BB%E5%8A%A0%E7%AE%80%E6%98%93RISCV%E5%90%8E%E7%AB%AF2</id><content type="html" xml:base="http://localhost:4000/blog/%E4%B8%BALLVM%E6%B7%BB%E5%8A%A0%E7%AE%80%E6%98%93RISCV%E5%90%8E%E7%AB%AF2.html">&lt;p&gt;为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！
+一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程&lt;sup id=&quot;fnref:1&quot; role=&quot;doc-noteref&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;sup id=&quot;fnref:2&quot; role=&quot;doc-noteref&quot;&gt;&lt;a href=&quot;#fn:2&quot; class=&quot;footnote&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;。
+因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。&lt;/p&gt;
+
+&lt;h2 id=&quot;入门&quot;&gt;入门&lt;/h2&gt;
+
+&lt;p&gt;在为新项目编写代码之前，我通常会配置环境，并对查看经存在的代码，这就是这一节要做的。在这一节中，我将展示如何下载编译LLVM和其他对调试有用的工具。我们还将了解如何使用现有的LLVM后端和GNU工具链来编译、汇编、链接和运行程序。&lt;/p&gt;
+
+&lt;h3 id=&quot;环境&quot;&gt;环境&lt;/h3&gt;
+
+&lt;p&gt;我正在使用Ubuntu，但是你应该能够在其他系统中重复这些步骤，而且(相对来说)几乎没有什么不同。您将需要以下工具来构建软件。&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Makefile&lt;/li&gt;
+  &lt;li&gt;C/C++ Compiler – 我用 GCC 9.2.1&lt;/li&gt;
+  &lt;li&gt;autotools&lt;/li&gt;
+  &lt;li&gt;CMake&lt;/li&gt;
+  &lt;li&gt;Ninja&lt;/li&gt;
+  &lt;li&gt;Git&lt;/li&gt;
+  &lt;li&gt;大量耐心&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;我可能忘记了一些东西，但是构建系统会通过一个错误告诉您；&lt;/p&gt;
+
+&lt;h3 id=&quot;编译llvm&quot;&gt;编译LLVM&lt;/h3&gt;
+
+&lt;p&gt;LLVM维护者已经建立了这个方便的repo，它包含LLVM和工具链的其他部分，比如Clang。&lt;/p&gt;
+
+&lt;div class=&quot;language-plaintext highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;git clone https://github.com/llvm/llvm-project
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;在本系列文章中，我们将使用llvm 10.0.1，我建议您也使用该版本的LLVM。
+因为LLVM的变化非常快，这里显示的一些代码在旧/新版本中可能无法工作。
+不过，原理应该大致相同。&lt;/p&gt;
+
+&lt;p&gt;LLVM使用CMake为构建系统生成构建文件，LLVM支持的构建系有：Ninja，Makefiles，Visual Studio和XCode。
+我通常使用Ninja，因为我认为它在我的系统中速度最快（我没有证据支持该判断！）。
+您可以通过cmake命令的&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-G&lt;/code&gt;参数来更改构建系统。&lt;/p&gt;
+
+&lt;p&gt;CMake有很多选项，我鼓励您对其进行研究，因为有些选项对调试非常有帮助。
+您可以在&lt;a href=&quot;https://llvm.org/docs/CMake.html&quot;&gt;这里&lt;/a&gt;阅读所有构建选项。
+在本教程中，我将使用以下选项:&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-DLLVM_ENABLE_PROJECTS&lt;/code&gt; 构建编译器的其余部分，比如Clang。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-DLLVM_TARGETS_TO_BUILD&lt;/code&gt; 指定要构建的后端。查看其他后端的输出对调试很有帮助，但是如果添加太多，构建会花费很长时间。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-DCMAKE_BUILD_TYPE&lt;/code&gt; 构建Debug版本。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-DLLVM_ENABLE_ASSERTIONS=On&lt;/code&gt; 启用断言，对调试很有帮助。&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;以下是在克隆repo之后构建LLVM的方法。&lt;/p&gt;
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;&lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;llvm-project
+git checkout llvmorg-10.0.1
+&lt;span class=&quot;nb&quot;&gt;mkdir &lt;/span&gt;build
+&lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;build
+cmake &lt;span class=&quot;nt&quot;&gt;-G&lt;/span&gt; &lt;span class=&quot;s2&quot;&gt;&quot;Ninja&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-DLLVM_ENABLE_PROJECTS&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;clang&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-DLLVM_TARGETS_TO_BUILD&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;ARM;Lanai;RISCV&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-DCMAKE_BUILD_TYPE&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;&lt;span class=&quot;s2&quot;&gt;&quot;Debug&quot;&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-DLLVM_ENABLE_ASSERTIONS&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;On ../llvm
+ninja
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+
+&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;您可以在&lt;a href=&quot;https://llvm.org/docs/GettingStarted.html&quot;&gt;这里&lt;/a&gt;和&lt;a href=&quot;https://llvm.org/docs/CMake.html&quot;&gt;这里&lt;/a&gt;找到更多有关构建LLVM的信息。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;您可以为Ninja传递&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-j &amp;lt;NUM_JOBS&amp;gt;&lt;/code&gt;选项，以指示要并行的作业数。 
+过高的&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;&amp;lt;NUM_JOBS&amp;gt;&lt;/code&gt;会导致构建崩溃，并产生&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;collect2：ld ...&lt;/code&gt;错误消息。&lt;/p&gt;
+
+&lt;h3 id=&quot;编译risc-v的gnu工具链&quot;&gt;编译RISC V的GNU工具链&lt;/h3&gt;
+
+&lt;p&gt;你可能有点困惑，为什么我建议构建GCC的RISC V后端？
+难道我们不是要自己编写编译器后端吗？&lt;/p&gt;
+
+&lt;p&gt;我们构建GCC的RISC V后端，是因为我们希望在初始阶段使用GCC的汇编器和链接器来测试LLVM后端生成的代码。
+编译过程分为很多阶段，在初始阶段，我们已经有以下结构:&lt;/p&gt;
+
+&lt;ul&gt;
+  &lt;li&gt;Clang 编译C代码到LLVM IR&lt;/li&gt;
+  &lt;li&gt;LLVM 优化IR&lt;/li&gt;
+  &lt;li&gt;LLVM后端 编译IR到汇编&lt;/li&gt;
+  &lt;li&gt;GCC 汇编和链接可执行文件&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;使用以下命令下载，构建和安装GCC for RISCV。&lt;/p&gt;
+
+&lt;div class=&quot;language-bash highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;git clone https://github.com/riscv/riscv-gnu-toolchain
+&lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;riscv-gnu-toolchain
+&lt;span class=&quot;nb&quot;&gt;mkdir &lt;/span&gt;build
+&lt;span class=&quot;nb&quot;&gt;cd &lt;/span&gt;build
+../configure &lt;span class=&quot;nt&quot;&gt;--with-arch&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;rv32gc &lt;span class=&quot;nt&quot;&gt;--with-abi&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;ilp32
+make
+make &lt;span class=&quot;nb&quot;&gt;install&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;请确保为指令集的正确变体（即RV32）构建GCC工具链，因为构建系统的默认值为RV64！&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;GNU工具链支持RISC V的多个ABI，例如&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ilp32&lt;/code&gt;，&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ilp32d&lt;/code&gt;和&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;ilp32f&lt;/code&gt;，这取决于您是否需要软浮点，硬浮点。&lt;/p&gt;
+
+&lt;h3 id=&quot;编译c程序&quot;&gt;编译C程序&lt;/h3&gt;
+
+&lt;p&gt;现在，构建和运行C代码的环境已经配置好了，尽管我们还没自己的后端（还！）。让我们从一个简单的C程序开始：&lt;/p&gt;
+&lt;pre&gt;&lt;code class=&quot;language-C++&quot;&gt;#include &amp;lt;stdio.h&amp;gt;
+
+int main(void)
+{
+    printf(&quot;Hello world!\n&quot;);
+    return 0;
+}
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;首先，使用Clang将C代码编译为LLVM IR。
+我们的计划是使用标准库中来自头文件stdio.h的函数printf，如果不能找到头文件，编译器会提示出错。
+为了使用GCC自带的RISC V标准C库，我们使用了&lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;-isystem&lt;/code&gt;参数。
+这会将包含所需头文件的目录添加到Clang预处理器的搜索目录列表中。&lt;/p&gt;
+
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;clang &lt;span class=&quot;nt&quot;&gt;-O2&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-emit-llvm&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-target&lt;/span&gt; riscv64 &lt;span class=&quot;nt&quot;&gt;-isystem&lt;/span&gt; &amp;lt;PATH_TO_GCC&amp;gt;/riscv64-unknown-elf/include &lt;span class=&quot;nt&quot;&gt;-c&lt;/span&gt; test.c &lt;span class=&quot;nt&quot;&gt;-o&lt;/span&gt; test.bc
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;上面的命令把C语言文件test.c编译到LLVM IR文件test.bc，这是专门为机器设计的语言人类很难直接阅读。
+我们可以使用以下命令反汇编该文件：&lt;/p&gt;
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;llvm-dis test.bc
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;现在，使用包含以下内容的后端将IR编译为程序集，而无需使用以下命令下载LLVM：
+现在，使用LLVM自带的后端将IR编译为程汇编：&lt;/p&gt;
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;llc &lt;span class=&quot;nt&quot;&gt;-march&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;riscv64 &lt;span class=&quot;nt&quot;&gt;-O2&lt;/span&gt; &lt;span class=&quot;nt&quot;&gt;-filetype&lt;/span&gt;&lt;span class=&quot;o&quot;&gt;=&lt;/span&gt;asm test.bc &lt;span class=&quot;nt&quot;&gt;-o&lt;/span&gt; test.S
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;GCC可以直接生成程序的二进制文件。
+我将其分为两个步骤，但是您可以根据需要使用单个命令。&lt;/p&gt;
+&lt;div class=&quot;language-sh highlighter-rouge&quot;&gt;&lt;div class=&quot;highlight&quot;&gt;&lt;pre class=&quot;highlight&quot;&gt;&lt;code&gt;riscv64-unknown-elf-gcc &lt;span class=&quot;nt&quot;&gt;-c&lt;/span&gt; test.S &lt;span class=&quot;nt&quot;&gt;-o&lt;/span&gt; test.o
+riscv64-unknown-elf-gcc test.o &lt;span class=&quot;nt&quot;&gt;-o&lt;/span&gt; &lt;span class=&quot;nb&quot;&gt;test&lt;/span&gt;
+&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/div&gt;
+&lt;p&gt;最后，我们可以使用模拟器或真实硬件运行程序。&lt;/p&gt;
+
+&lt;h2 id=&quot;注释&quot;&gt;注释&lt;/h2&gt;
+&lt;div class=&quot;footnotes&quot; role=&quot;doc-endnotes&quot;&gt;
+  &lt;ol&gt;
+    &lt;li id=&quot;fn:1&quot; role=&quot;doc-endnote&quot;&gt;
+      &lt;p&gt;公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。 &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot; role=&quot;doc-backlink&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:2&quot; role=&quot;doc-endnote&quot;&gt;
+      &lt;p&gt;&lt;a href=&quot;https://jonathan2251.github.io/lbd/&quot;&gt;这个教程&lt;/a&gt;描述了如何开发LLVM后端，但我发现很难理解。 &lt;a href=&quot;#fnref:2&quot; class=&quot;reversefootnote&quot; role=&quot;doc-backlink&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/div&gt;</content><author><name></name></author><category term="LLVM" /><summary type="html">为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程12。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。 入门 在为新项目编写代码之前，我通常会配置环境，并对查看经存在的代码，这就是这一节要做的。在这一节中，我将展示如何下载编译LLVM和其他对调试有用的工具。我们还将了解如何使用现有的LLVM后端和GNU工具链来编译、汇编、链接和运行程序。 环境 我正在使用Ubuntu，但是你应该能够在其他系统中重复这些步骤，而且(相对来说)几乎没有什么不同。您将需要以下工具来构建软件。 Makefile C/C++ Compiler – 我用 GCC 9.2.1 autotools CMake Ninja Git 大量耐心 注意：我可能忘记了一些东西，但是构建系统会通过一个错误告诉您； 编译LLVM LLVM维护者已经建立了这个方便的repo，它包含LLVM和工具链的其他部分，比如Clang。 git clone https://github.com/llvm/llvm-project 在本系列文章中，我们将使用llvm 10.0.1，我建议您也使用该版本的LLVM。 因为LLVM的变化非常快，这里显示的一些代码在旧/新版本中可能无法工作。 不过，原理应该大致相同。 LLVM使用CMake为构建系统生成构建文件，LLVM支持的构建系有：Ninja，Makefiles，Visual Studio和XCode。 我通常使用Ninja，因为我认为它在我的系统中速度最快（我没有证据支持该判断！）。 您可以通过cmake命令的-G参数来更改构建系统。 CMake有很多选项，我鼓励您对其进行研究，因为有些选项对调试非常有帮助。 您可以在这里阅读所有构建选项。 在本教程中，我将使用以下选项: -DLLVM_ENABLE_PROJECTS 构建编译器的其余部分，比如Clang。 -DLLVM_TARGETS_TO_BUILD 指定要构建的后端。查看其他后端的输出对调试很有帮助，但是如果添加太多，构建会花费很长时间。 -DCMAKE_BUILD_TYPE 构建Debug版本。 -DLLVM_ENABLE_ASSERTIONS=On 启用断言，对调试很有帮助。 以下是在克隆repo之后构建LLVM的方法。 cd llvm-project git checkout llvmorg-10.0.1 mkdir build cd build cmake -G &quot;Ninja&quot; -DLLVM_ENABLE_PROJECTS=&quot;clang&quot; -DLLVM_TARGETS_TO_BUILD=&quot;ARM;Lanai;RISCV&quot; -DCMAKE_BUILD_TYPE=&quot;Debug&quot; -DLLVM_ENABLE_ASSERTIONS=On ../llvm ninja 注意：您可以在这里和这里找到更多有关构建LLVM的信息。 注意：您可以为Ninja传递-j &amp;lt;NUM_JOBS&amp;gt;选项，以指示要并行的作业数。 过高的&amp;lt;NUM_JOBS&amp;gt;会导致构建崩溃，并产生collect2：ld ...错误消息。 编译RISC V的GNU工具链 你可能有点困惑，为什么我建议构建GCC的RISC V后端？ 难道我们不是要自己编写编译器后端吗？ 我们构建GCC的RISC V后端，是因为我们希望在初始阶段使用GCC的汇编器和链接器来测试LLVM后端生成的代码。 编译过程分为很多阶段，在初始阶段，我们已经有以下结构: Clang 编译C代码到LLVM IR LLVM 优化IR LLVM后端 编译IR到汇编 GCC 汇编和链接可执行文件 使用以下命令下载，构建和安装GCC for RISCV。 git clone https://github.com/riscv/riscv-gnu-toolchain cd riscv-gnu-toolchain mkdir build cd build ../configure --with-arch=rv32gc --with-abi=ilp32 make make install 注意：请确保为指令集的正确变体（即RV32）构建GCC工具链，因为构建系统的默认值为RV64！ 注意：GNU工具链支持RISC V的多个ABI，例如ilp32，ilp32d和ilp32f，这取决于您是否需要软浮点，硬浮点。 编译C程序 现在，构建和运行C代码的环境已经配置好了，尽管我们还没自己的后端（还！）。让我们从一个简单的C程序开始： #include &amp;lt;stdio.h&amp;gt; int main(void) { printf(&quot;Hello world!\n&quot;); return 0; } 首先，使用Clang将C代码编译为LLVM IR。 我们的计划是使用标准库中来自头文件stdio.h的函数printf，如果不能找到头文件，编译器会提示出错。 为了使用GCC自带的RISC V标准C库，我们使用了-isystem参数。 这会将包含所需头文件的目录添加到Clang预处理器的搜索目录列表中。 clang -O2 -emit-llvm -target riscv64 -isystem &amp;lt;PATH_TO_GCC&amp;gt;/riscv64-unknown-elf/include -c test.c -o test.bc 上面的命令把C语言文件test.c编译到LLVM IR文件test.bc，这是专门为机器设计的语言人类很难直接阅读。 我们可以使用以下命令反汇编该文件： llvm-dis test.bc 现在，使用包含以下内容的后端将IR编译为程序集，而无需使用以下命令下载LLVM： 现在，使用LLVM自带的后端将IR编译为程汇编： llc -march=riscv64 -O2 -filetype=asm test.bc -o test.S GCC可以直接生成程序的二进制文件。 我将其分为两个步骤，但是您可以根据需要使用单个命令。 riscv64-unknown-elf-gcc -c test.S -o test.o riscv64-unknown-elf-gcc test.o -o test 最后，我们可以使用模拟器或真实硬件运行程序。 注释 公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。 &amp;#8617; 这个教程描述了如何开发LLVM后端，但我发现很难理解。 &amp;#8617;</summary></entry><entry><title type="html">为LLVM添加简易RISCV后端(一)：简介</title><link href="http://localhost:4000/blog/%E4%B8%BALLVM%E6%B7%BB%E5%8A%A0%E7%AE%80%E6%98%93RISCV%E5%90%8E%E7%AB%AF1.html" rel="alternate" type="text/html" title="为LLVM添加简易RISCV后端(一)：简介" /><published>2020-12-03T19:30:38+08:00</published><updated>2020-12-03T19:30:38+08:00</updated><id>http://localhost:4000/blog/%E4%B8%BALLVM%E6%B7%BB%E5%8A%A0%E7%AE%80%E6%98%93RISCV%E5%90%8E%E7%AB%AF1</id><content type="html" xml:base="http://localhost:4000/blog/%E4%B8%BALLVM%E6%B7%BB%E5%8A%A0%E7%AE%80%E6%98%93RISCV%E5%90%8E%E7%AB%AF1.html">&lt;p&gt;为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！
+一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程&lt;sup id=&quot;fnref:1&quot; role=&quot;doc-noteref&quot;&gt;&lt;a href=&quot;#fn:1&quot; class=&quot;footnote&quot;&gt;1&lt;/a&gt;&lt;/sup&gt;&lt;sup id=&quot;fnref:2&quot; role=&quot;doc-noteref&quot;&gt;&lt;a href=&quot;#fn:2&quot; class=&quot;footnote&quot;&gt;2&lt;/a&gt;&lt;/sup&gt;。
+因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。&lt;/p&gt;
+
+&lt;h2 id=&quot;简介&quot;&gt;简介&lt;/h2&gt;
+
+&lt;p&gt;在本教程中，我将为RISC V指令集的基本32位版本（即RV32IM）开发一个后端。希望这能帮助那些不熟悉LLVM的人开始使用这个工具，并将其扩展到自己的项目中。看懂本教程不需要前置知识，但是如果你熟悉C++和RISC V，学习本教程会更容易。&lt;/p&gt;
+
+&lt;p&gt;在本文剩下的部分中，我将简要描述LLVM的体系结构和后端结构。不过，我不会在这里详细说明，因为，如果你像我一样，在5分钟（或5秒）之后，就会忘记读过的任何繁琐文档。LLVM的细节将在以后的帖子中根据需要提供。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;注意:&lt;/strong&gt;如果你想要更详细的版本，你可以自娱自乐地阅读&lt;a href=&quot;http://llvm.org/docs/UserGuides.html&quot;&gt;LLVM User Guides&lt;/a&gt;。&lt;/p&gt;
+
+&lt;h3 id=&quot;llvm架构&quot;&gt;LLVM架构&lt;/h3&gt;
+
+&lt;p&gt;传统上，编译过程分为三个阶段。
+首先，编译器的前端将源代码转换为某种中间表示（IR）；
+然后，优化IR；
+最后，编译器的后端将IR转换为机器代码。
+传统的编译器通常仅支持一种编程语言和一种目标指令集，编译器的源代码很难重用，例如添加新的目标指令集。&lt;/p&gt;
+
+&lt;p&gt;LLVM模块化地实现了三个编译过程，可以解决重用问题。
+其思想是LLVM的核心（即IR和优化器）是固定的，但是前端和后端可以被替换，以使编译器可以支持多种编程语言和指令集。
+例如，我们可以使用Clang（LLVM的前端）和x86后端把C/C++代码编译成X86指令集上的可执行程序。
+我们也可以用ARM后端替换X86后端，从而得到ARM指令集上的可执行程序。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;LLVM的设计师Chris Lattner撰写了这篇&lt;a href=&quot;http://www.aosabook.org/en/llvm.html&quot;&gt;文章&lt;/a&gt;介绍LLVM的体系结构及其设计动机。&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;LLVM的这三个阶段的每个阶段在都有一个专用的可执行文件。
+clang是C/C++的前端（显然针对不同的编程语言有不同的前端），opt是优化程序，llc用于调用后端。
+通常，我们使用clang作为驱动程序来执行前端，使用llc和opt配合适当的参数来生成IR，汇编，可执行文件等。&lt;/p&gt;
+
+&lt;h3 id=&quot;代码生成&quot;&gt;代码生成&lt;/h3&gt;
+&lt;p&gt;LLVM后端将IR编译为目标代码或汇编代码。
+每个后端都只支持单一平台，但可以支持多个指令集。
+例如，LLVM只有一个ARM后端，但该后端可以为ARMv6和ARMv7等指令集生成代码。
+每个后端都建立在LLVM的目标无关代码生成器之上。
+目标无关代码生成器是一个框架，可实现诸如寄存器分配之类的关键算法。
+从广义上讲，后端的任务是配置该框架并使之适应其目标指令集的特定需求。&lt;/p&gt;
+
+&lt;p&gt;代码生成具有以下阶段：&lt;/p&gt;
+
+&lt;ol&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;strong&gt;指令选择&lt;/strong&gt; 映射LLVM IR到目标指令集中的指令。
+此阶段使用无限数量的虚拟寄存器和函数调用堆栈的抽象引用。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;strong&gt;计划和编排&lt;/strong&gt; 确定指令的顺序。
+需要明确的是，在指令选择阶段已经对指令进行了排序，但这里可以根据寄存器分配策略或指令等待时间来对其中的一些指令的排序进行优化。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;strong&gt;基于SSA的机器代码优化&lt;/strong&gt; 执行诸如&lt;a href=&quot;https://en.wikipedia.org/wiki/Peephole_optimization&quot;&gt;peephole&lt;/a&gt;优化之类的工作。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;strong&gt;寄存器分配&lt;/strong&gt; 将虚拟寄存器映射到物理寄存器。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;strong&gt;Prolog / Epilog插入&lt;/strong&gt; 在每个函数的开头（或prolog）和结尾（或epilog）插入机器指令。
+这些通常是在进入或退出函数时扩展堆栈的指令。
+由于当前已经知道堆栈大小，因此也可以解析抽象堆栈引用。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;strong&gt;后期机器代码优化&lt;/strong&gt; 可能不言自明。&lt;/p&gt;
+  &lt;/li&gt;
+  &lt;li&gt;
+    &lt;p&gt;&lt;strong&gt;代码发射&lt;/strong&gt; 发出目标代码或汇编代码。&lt;/p&gt;
+  &lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;接下来，我将看一下构建LLVM以及如何设置开发/调试环境…&lt;/p&gt;
+
+&lt;p&gt;&lt;strong&gt;注意：&lt;/strong&gt;您可以阅读&lt;a href=&quot;http://llvm.org/docs/CodeGenerator.html&quot;&gt;这篇文章&lt;/a&gt;了解LLVM目标无关代码生成器的更多信息。&lt;/p&gt;
+
+&lt;h2 id=&quot;注释&quot;&gt;注释&lt;/h2&gt;
+&lt;div class=&quot;footnotes&quot; role=&quot;doc-endnotes&quot;&gt;
+  &lt;ol&gt;
+    &lt;li id=&quot;fn:1&quot; role=&quot;doc-endnote&quot;&gt;
+      &lt;p&gt;公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。 &lt;a href=&quot;#fnref:1&quot; class=&quot;reversefootnote&quot; role=&quot;doc-backlink&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+    &lt;li id=&quot;fn:2&quot; role=&quot;doc-endnote&quot;&gt;
+      &lt;p&gt;&lt;a href=&quot;https://jonathan2251.github.io/lbd/&quot;&gt;这个教程&lt;/a&gt;描述了如何开发LLVM后端，但我发现很难理解。 &lt;a href=&quot;#fnref:2&quot; class=&quot;reversefootnote&quot; role=&quot;doc-backlink&quot;&gt;&amp;#8617;&lt;/a&gt;&lt;/p&gt;
+    &lt;/li&gt;
+  &lt;/ol&gt;
+&lt;/div&gt;</content><author><name></name></author><category term="LLVM" /><summary type="html">为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程12。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。 简介 在本教程中，我将为RISC V指令集的基本32位版本（即RV32IM）开发一个后端。希望这能帮助那些不熟悉LLVM的人开始使用这个工具，并将其扩展到自己的项目中。看懂本教程不需要前置知识，但是如果你熟悉C++和RISC V，学习本教程会更容易。 在本文剩下的部分中，我将简要描述LLVM的体系结构和后端结构。不过，我不会在这里详细说明，因为，如果你像我一样，在5分钟（或5秒）之后，就会忘记读过的任何繁琐文档。LLVM的细节将在以后的帖子中根据需要提供。 注意:如果你想要更详细的版本，你可以自娱自乐地阅读LLVM User Guides。 LLVM架构 传统上，编译过程分为三个阶段。 首先，编译器的前端将源代码转换为某种中间表示（IR）； 然后，优化IR； 最后，编译器的后端将IR转换为机器代码。 传统的编译器通常仅支持一种编程语言和一种目标指令集，编译器的源代码很难重用，例如添加新的目标指令集。 LLVM模块化地实现了三个编译过程，可以解决重用问题。 其思想是LLVM的核心（即IR和优化器）是固定的，但是前端和后端可以被替换，以使编译器可以支持多种编程语言和指令集。 例如，我们可以使用Clang（LLVM的前端）和x86后端把C/C++代码编译成X86指令集上的可执行程序。 我们也可以用ARM后端替换X86后端，从而得到ARM指令集上的可执行程序。 注意：LLVM的设计师Chris Lattner撰写了这篇文章介绍LLVM的体系结构及其设计动机。 注意：LLVM的这三个阶段的每个阶段在都有一个专用的可执行文件。 clang是C/C++的前端（显然针对不同的编程语言有不同的前端），opt是优化程序，llc用于调用后端。 通常，我们使用clang作为驱动程序来执行前端，使用llc和opt配合适当的参数来生成IR，汇编，可执行文件等。 代码生成 LLVM后端将IR编译为目标代码或汇编代码。 每个后端都只支持单一平台，但可以支持多个指令集。 例如，LLVM只有一个ARM后端，但该后端可以为ARMv6和ARMv7等指令集生成代码。 每个后端都建立在LLVM的目标无关代码生成器之上。 目标无关代码生成器是一个框架，可实现诸如寄存器分配之类的关键算法。 从广义上讲，后端的任务是配置该框架并使之适应其目标指令集的特定需求。 代码生成具有以下阶段： 指令选择 映射LLVM IR到目标指令集中的指令。 此阶段使用无限数量的虚拟寄存器和函数调用堆栈的抽象引用。 计划和编排 确定指令的顺序。 需要明确的是，在指令选择阶段已经对指令进行了排序，但这里可以根据寄存器分配策略或指令等待时间来对其中的一些指令的排序进行优化。 基于SSA的机器代码优化 执行诸如peephole优化之类的工作。 寄存器分配 将虚拟寄存器映射到物理寄存器。 Prolog / Epilog插入 在每个函数的开头（或prolog）和结尾（或epilog）插入机器指令。 这些通常是在进入或退出函数时扩展堆栈的指令。 由于当前已经知道堆栈大小，因此也可以解析抽象堆栈引用。 后期机器代码优化 可能不言自明。 代码发射 发出目标代码或汇编代码。 接下来，我将看一下构建LLVM以及如何设置开发/调试环境… 注意：您可以阅读这篇文章了解LLVM目标无关代码生成器的更多信息。 注释 公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。 &amp;#8617; 这个教程描述了如何开发LLVM后端，但我发现很难理解。 &amp;#8617;</summary></entry><entry><title type="html">Welcome to Jekyll!</title><link href="http://localhost:4000/blog/welcome-to-jekyll.html" rel="alternate" type="text/html" title="Welcome to Jekyll!" /><published>2020-12-03T18:38:38+08:00</published><updated>2020-12-03T18:38:38+08:00</updated><id>http://localhost:4000/blog/welcome-to-jekyll</id><content type="html" xml:base="http://localhost:4000/blog/welcome-to-jekyll.html">&lt;p&gt;You’ll find this post in your &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;_posts&lt;/code&gt; directory. Go ahead and edit it and re-build the site to see your changes. You can rebuild the site in many different ways, but the most common way is to run &lt;code class=&quot;language-plaintext highlighter-rouge&quot;&gt;jekyll serve&lt;/code&gt;, which launches a web server and auto-regenerates your site when a file is updated.&lt;/p&gt;
 
 &lt;p&gt;Jekyll requires blog post files to be named according to the following format:&lt;/p&gt;
 
