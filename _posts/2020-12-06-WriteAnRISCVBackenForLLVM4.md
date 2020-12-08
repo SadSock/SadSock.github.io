@@ -1,0 +1,142 @@
+---
+layout: post
+title:  "为LLVM添加简易RISCV后端(四)：配置构建系统"
+toc: true
+date:   2020-12-08 12:30:38 +0800
+categories: LLVM
+keywords: LLVM
+description: 无
+---
+
+为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！
+一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程[^1][^2]。
+因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。
+
+
+
+## 配置构建系统
+
+在前面，我们提到每个LLVM后端都有一个单独的目录`LLVM/lib/Target`，后端的大部分代码都在其中。
+此外，LLVM依赖CMake为实际的构建系统(如Make、Ninja等)生成构建文件。
+在这篇文章中，我们将仔细研究其中的一些CMake配置文件。
+
+注意:RISCW后端代码可以在[这里](https://github.com/andresag01/llvm-project/commit/274cfea0f9662f0ed49f6132b0424323d0b11750)找到。
+
+
+### CMake配置文件
+
+回想一下，RISCW后端存放在`llvm/lib/Target/RISCW`目录下。
+该目录及其子目录都有两个构建文件(`CMakeLists.txt`和`LLVMBuild.txt`)，描述后端模块的结构，提供链接信息等。
+RISCW后端目前非常简单，目录结构是这样的:
+```
+llvm/lib/Target/RISCW
+|- CMakeLists.txt
+|- LLVMBuild.txt
+|- Other C++, TableGen, etc files
+|- TargetInfo/
+|  |- CMakeLists.txt
+|  |- LLVMBuild.txt
+|  |- Other C++, TableGen, etc files
+|- MCTargetDesc/
+   |- CMakeLists.txt
+   |- LLVMBuild.txt
+   |- Other C++, TableGen, etc files
+```
+每个使用CMake的项目都会包含`CMakeLists.txt`文件[^3]，RISCW也不例外。
+这些文件包含一系列CMake指令，这些指令用于驱动构建文件的生成。
+在LLVM后端中，CMake会根据这些指令执行一些操作，例如指示要编译的C++源文件或生成TableGen指令。
+LLVMBuild.txt文件对当前目录中包含的组件提供了描述。
+
+
+### LLVMBuild.txt文件
+
+
+让我们看一下`llvm/lib/Target/RISCW/LLVMBuild.txt`的内容。
+```json
+[common]
+subdirectories = MCTargetDesc TargetInfo
+
+[component_0]
+type = TargetGroup
+name = RISCW
+parent = Target
+has_asmprinter = 1
+
+[component_1]
+type = Library
+name = RISCWCodeGen
+parent = RISCW
+required_libraries = AsmPrinter CodeGen Core MC RISCWDesc RISCWInfo
+  SelectionDAG Support Target
+
+add_to_library_groups = RISCW
+```
+该文件告诉构建系统RISCW后端具有两个组件。
+其中一个是顶级组件RISCW，其类型为TargetGroup，该类型表明RISCW是一个后端，构建系统对该类型有一些特殊处理。 
+Target是RISCW的父组件。 
+请注意，此命名与LLVM后端的目录结构匹配，即`llvm/lib/Target/RISCW`。
+RISCW的名称也不是任意的，它必须与后端的TableGen文件中的定义匹配。
+
+LLVM后端提供了一系列可选功能，
+例如assembly printing，assembly parsing等，
+LLVMBuild.txt文件表明了后端支持哪些可选功能。
+比如，最后一行告诉构建系统RISCW后端实现了assembly printing功能。
+
+**注意：**查看现有后端（如ARM或RISCV）中的代码，以了解它们除了has_asmprinter之外还启用了哪些功能。
+
+LLVMBuild.txt文件还定义了第二个名为RISCWCodeGen的组件，其类型为Library，其父级为RISCW。
+另外，文件还指明了RISCWCodeGen需要的依赖库，例如AsmPrinter，CodeGen等，构建LLVM时，缺少库会导致链接错误。
+
+`llvm/lib/Target/RISCW`的每个子目录也会包含一个LLVMBuild.txt文件，该文件使用RISCW作为父级来定义自己的组件。
+
+
+### CMakeLists.txt文件
+
+让我们看一下`llvm/lib/Target/RISCW/CMakeLists.txt`文件的内容。
+```sh
+set(LLVM_TARGET_DEFINITIONS RISCW.td)
+
+tablegen(LLVM RISCWGenRegisterInfo.inc -gen-register-info)
+tablegen(LLVM RISCWGenInstrInfo.inc -gen-instr-info)
+# Other TableGen commands
+
+add_public_tablegen_target(RISCWCommonTableGen)
+
+# RISCWCodeGen should match with LLVMBuild.txt RISCWCodeGen
+add_llvm_target(RISCWCodeGen
+  RISCWAsmPrinter.cpp
+  # Other files
+)
+
+# Should match with "subdirectories =  MCTargetDesc TargetInfo" in LLVMBuild.txt
+add_subdirectory(TargetInfo)
+add_subdirectory(MCTargetDesc)
+
+```
+文件顶部的`set`命令将`LLVM_TARGET_DEFINITION`定义为`RISCW.td**。
+这个文件通常包含一些顶级定义，
+并通过包含其他文件的方式来引入其他TableGen定义——我们将在后面的文章中更仔细地研究TableGen，
+但是请随时查看代码库中的RISCW.td。
+
+然后我们在CMake文件中看到一些TableGen命令。
+它们命令构建系统使TableGen工具根据`*.td`文件生成`RISCWGen*.inc`。
+这些`*.inc`文件实际上就是传统的C++代码，在编译完LLVM之后，你可以在`build/lib/Target/RISCW`的构建目录中找到它们；它们可以用于调试，但是不容易阅读。
+
+接下来的命令，也就是`add_llvm_target`，
+指定了当前目录中要构建的C++文件，被指定的文件不能位于子目录中。
+`add_llvm_target`命令的第一个参数是目标的名称，并且应该与`LLVMBuild.txt`中定义名称匹配。
+
+最后，CMakeLists.txt指定了CMake应该查看的子目录，在后端RISCW中，只有两个:`TargetInfo`和`MCTargetDesc`。
+子目录中的CMakeLists.txt与此类似，但要简单得多!
+
+**注意:**后端文件的命名约定通常很重要，显然应该与构建文件的内容相匹配。
+例如，`set(LLVM_TARGET_DEFINITIONS RISCW.td)`命令要求`RISCW.td`存在!
+一定要仔细检查这些错误，因为构建错误可能有点含糊不清。
+
+
+
+## 注释
+[^1]:公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。
+[^2]:[这个教程](https://jonathan2251.github.io/lbd/)描述了如何开发LLVM后端，但我发现很难理解。
+[^3]:您可以在[此处](https://cmake.org/overview/)找到有关CMake的更多信息。
+
