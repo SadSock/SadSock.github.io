@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content=""><title>为LLVM添加简易RISCV后端(五)：指令选择 | 悲催的袜子</title>
+  <meta name="keywords" content="LLVM">
+  <meta name="description" content="无"><link rel="stylesheet" href="/assets/main.css?v=0.2.5" />
+<script src="/assets/main.js?v=0.2.5" defer></script><link rel="stylesheet" href="/assets/css/tomorrow.css" />
+<script src="/assets/js/highlight.js"></script><script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script></head>
+<body class="body-post">
+    <a href="/" class="logo"><img src="/sock.svg" class="logo_img"><h1>悲催的袜子</h1>
+</a><main class="post__wrapper"><nav class="top-nav">
+
+<a href="/" class="nav-link ">主页</a>
+
+
+<a href="/about/" class="nav-link ">关于</a>
+
+
+<a href="/archive.html" class="nav-link ">归档</a>
+
+
+</nav><div class="post__top_navs clearfix">
+    <nav class="post__archive_path"><a href="/" id="archiveBtn">
+        <div class="post__archive_icon">
+          <svg width="40" height="40">
+            <circle class="circle-progress" r="18" cy="20" cx="20"  stroke-linejoin="round" stroke-linecap="round" />
+          </svg>
+          <span class="post__archive_icon"></span>
+        </div>
+        主页
+      </a>
+    </nav>
+  </div>
+  <article class="post">
+    <header class="post__header">
+      <h1 class="post__title">为LLVM添加简易RISCV后端(五)：指令选择</h1>
+      <div class="post__meta">
+        <time>2020-12-08 19:30</time>
+      </div>
+    </header>
+    <div class="post__content content">
+      <ul class="section-nav">
+<li class="toc-entry toc-h2"><a href="#指令选择">指令选择</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#构建dag">构建DAG</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#注释">注释</a></li>
+</ul><p>为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！
+一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程<sup id="fnref:1" role="doc-noteref"><a href="#fn:1" class="footnote">1</a></sup><sup id="fnref:2" role="doc-noteref"><a href="#fn:2" class="footnote">2</a></sup>。
+因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。</p>
+
+<h2 id="指令选择">
+<a class="anchor" href="#%E6%8C%87%E4%BB%A4%E9%80%89%E6%8B%A9" aria-hidden="true"><span class="octicon octicon-link"></span></a>指令选择</h2>
+
+<p>我们先前简要介绍了LLVM后端的工作过程。
+在这篇文章中，我们将更深入地了解这个过程的第一个阶段：指令选择。
+我们的目的是在了解RISCW后端的具体实现之前，了解它的工作原理以及如何配置它。</p>
+
+<p><strong>注意：</strong><a href="https://llvm.org/docs/CodeGenerator.html#instruction-selection-section">LLVM文档</a>对指令选择的工作原理给出了简短而清晰的描述，
+这篇文章通过示例来重新说明这一点。</p>
+
+<p><strong>注意：</strong>本文中显示的示例是使用我们的RISCW后端框架构建的。可以在<a href="https://github.com/andresag01/llvm-project/commit/274cfea0f9662f0ed49f6132b0424323d0b11750">这里</a>找到它的来源。</p>
+
+<p>指令选择过程将LLVM IR转化为指令序列，该指令序列使用了无穷数量的寄存器。
+该过程分为以下几个阶段：</p>
+<ol>
+  <li>构建初始DAG</li>
+  <li>优化</li>
+  <li>类型合法化</li>
+  <li>优化</li>
+  <li>操作合法化</li>
+  <li>优化</li>
+  <li>目标指令选择</li>
+  <li>调度和形成</li>
+</ol>
+
+<p>我觉得通过例子来了解发生的事情会比较容易，我们将考虑指令选择如何转换下面的C程序。
+该代码包含一个MUL函数，该函数接受64位参数x和32位参数y。
+参数相乘，并返回32位整数结果。</p>
+
+<pre><code class="language-C++">unsigned int MUL(unsigned long long int x, unsigned int y)
+{
+    return x * y;
+}
+
+</code></pre>
+
+<h3 id="构建dag">
+<a class="anchor" href="#%E6%9E%84%E5%BB%BAdag" aria-hidden="true"><span class="octicon octicon-link"></span></a>构建DAG</h3>
+
+<p>这是指令选择的第一阶段。
+它接受LLVM IR作为输入，
+并产生Selection DAG(有向无环图)作为输出。
+指令选择过程中的每个其他阶段都在DAG上执行，直到产生输出指令序列。
+正如前面几篇文章所讨论的，LLVM IR是前端工具(如Clang)根据C代码生成，随后由LLVM优化器进行优化。
+下面是C程序的LLVM IR:</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">define</span> <span class="k">dso_local</span> <span class="kt">i32</span> <span class="vg">@MUL</span><span class="p">(</span><span class="kt">i64</span> <span class="nv">%x</span><span class="p">,</span> <span class="kt">i32</span> <span class="nv">%y</span><span class="p">)</span> <span class="k">local_unnamed_addr</span> <span class="vg">#0</span> <span class="p">{</span>
+<span class="nl">entry:</span>
+  <span class="nv">%0</span> <span class="p">=</span> <span class="k">trunc</span> <span class="kt">i64</span> <span class="nv">%x</span> <span class="k">to</span> <span class="kt">i32</span>
+  <span class="nv">%conv1</span> <span class="p">=</span> <span class="k">mul</span> <span class="kt">i32</span> <span class="nv">%0</span><span class="p">,</span> <span class="nv">%y</span>
+  <span class="k">ret</span> <span class="kt">i32</span> <span class="nv">%conv1</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>Selection DAG实际上是一种精巧的树型数据结构，它表示LLVM IR中的基本块。 
+基本块是不包含分支目的地（入口除外）和分支指令（出口除外）的指令序列。 
+示例MUL函数非常简单，它只有一个称为入口的基本块，其他函数通常具有多个基本块。 
+例如，下面的<code class="language-plaintext highlighter-rouge">hello</code>函数具有四个基本块：<code class="language-plaintext highlighter-rouge">entry</code>，<code class="language-plaintext highlighter-rouge">if.then</code>，<code class="language-plaintext highlighter-rouge">if.else</code>和<code class="language-plaintext highlighter-rouge">return</code>。
+每个基本块都将被转换为单独的DAG。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">define</span> <span class="k">dso_local</span> <span class="kt">i32</span> <span class="vg">@hello</span><span class="p">(</span><span class="kt">i32</span> <span class="nv">%x</span><span class="p">)</span> <span class="k">local_unnamed_addr</span> <span class="vg">#0</span> <span class="p">{</span>
+<span class="nl">entry:</span>
+  <span class="nv">%cmp</span> <span class="p">=</span> <span class="k">icmp</span> <span class="k">eq</span> <span class="kt">i32</span> <span class="nv">%x</span><span class="p">,</span> <span class="m">100</span>
+  <span class="k">br</span> <span class="kt">i1</span> <span class="nv">%cmp</span><span class="p">,</span> <span class="kt">label</span> <span class="nv">%if.then</span><span class="p">,</span> <span class="kt">label</span> <span class="nv">%if.else</span>
+
+<span class="nl">if.then:</span>                                          <span class="c1">; preds = %entry</span>
+  <span class="nv">%call</span> <span class="p">=</span> <span class="k">tail</span> <span class="k">call</span> <span class="kt">i32</span> <span class="k">bitcast</span> <span class="p">(</span><span class="kt">i32</span> <span class="p">(...)*</span> <span class="vg">@hello100</span> <span class="k">to</span> <span class="kt">i32</span> <span class="p">(</span><span class="kt">i32</span><span class="p">)*)(</span><span class="kt">i32</span> <span class="m">100</span><span class="p">)</span> <span class="vg">#2</span>
+  <span class="k">br</span> <span class="kt">label</span> <span class="nv">%return</span>
+
+<span class="nl">if.else:</span>                                          <span class="c1">; preds = %entry</span>
+  <span class="nv">%call1</span> <span class="p">=</span> <span class="k">tail</span> <span class="k">call</span> <span class="kt">i32</span> <span class="k">bitcast</span> <span class="p">(</span><span class="kt">i32</span> <span class="p">(...)*</span> <span class="vg">@helloOther</span> <span class="k">to</span> <span class="kt">i32</span> <span class="p">(</span><span class="kt">i32</span><span class="p">)*)(</span><span class="kt">i32</span> <span class="nv">%x</span><span class="p">)</span> <span class="vg">#2</span>
+  <span class="k">br</span> <span class="kt">label</span> <span class="nv">%return</span>
+
+<span class="nl">return:</span>                                           <span class="c1">; preds = %if.else, %if.then</span>
+  <span class="nv">%retval.0</span> <span class="p">=</span> <span class="k">phi</span> <span class="kt">i32</span> <span class="p">[</span> <span class="nv">%call</span><span class="p">,</span> <span class="nv">%if.then</span> <span class="p">],</span> <span class="p">[</span> <span class="nv">%call1</span><span class="p">,</span> <span class="nv">%if.else</span> <span class="p">]</span>
+  <span class="k">ret</span> <span class="kt">i32</span> <span class="nv">%retval.0</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>Selection DAG具有以下属性：</p>
+<ul>
+  <li>每个节点都是<code class="language-plaintext highlighter-rouge">SDNode</code>类的实例，代表一个操作，如加、减、乘等。
+操作类型都定义在文件<code class="language-plaintext highlighter-rouge">include/llvm/CodeGen/ISDOpcodes.h</code>中。</li>
+  <li>每个节点都有0个或多个操作数，操作数由其他节点定义，用指向该节点的边表示，边是<code class="language-plaintext highlighter-rouge">SDValue</code>类的实例。</li>
+  <li>操作产生的值的类型为<code class="language-plaintext highlighter-rouge">MTV</code>（Machine Value Type），比如<code class="language-plaintext highlighter-rouge">i1</code>和<code class="language-plaintext highlighter-rouge">i8</code>，它们分别表示1位和8位整数。</li>
+  <li>具有副作用的节点会强制对操作进行排序，例如<code class="language-plaintext highlighter-rouge">return</code>和<code class="language-plaintext highlighter-rouge">loads</code>语句，它们具有类型为<code class="language-plaintext highlighter-rouge">MVT::Other</code>的特殊chain值，
+既作为输入操作数又作为输出操作数。</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">ISD::EntryToken</code>类型的叶节点是代码的入口。</li>
+  <li>DAG的根节点是带有链操作数的最终副作用节点。这是的代码块的最后一个操作，例如函数结尾处的返回。</li>
+</ul>
+
+<p><strong>警告！</strong>LLVM后端的类型系统非常有限。
+当输入的LLVM IR被转换为DAG时，许多有用的类型信息被丢弃。
+最值得注意的丢弃是指针类型，<code class="language-plaintext highlighter-rouge">MVT</code>类的类型列表完全没有包含指针类型。
+因此，指针在DAG中使用整数类型表示，所以很难判断一个节点(如<code class="language-plaintext highlighter-rouge">add</code>)的操作数是指针还是整数。</p>
+
+<p>这是我从MUL函数获得的初始Selection DAG。
+<img src="http://localhost:4000/assets/riscw/llvm-4-dag-before-combine1.png" alt="Selection DAG"></p>
+
+<h2 id="注释">
+<a class="anchor" href="#%E6%B3%A8%E9%87%8A" aria-hidden="true"><span class="octicon octicon-link"></span></a>注释</h2>
+
+<div class="footnotes" role="doc-endnotes">
+  <ol>
+    <li id="fn:1" role="doc-endnote">
+      <p>公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。 <a href="#fnref:1" class="reversefootnote" role="doc-backlink">↩</a></p>
+    </li>
+    <li id="fn:2" role="doc-endnote">
+      <p><a href="https://jonathan2251.github.io/lbd/">这个教程</a>描述了如何开发LLVM后端，但我发现很难理解。 <a href="#fnref:2" class="reversefootnote" role="doc-backlink">↩</a></p>
+    </li>
+  </ol>
+</div>
+
+    </div>
+  </article><aside class="post__contact"><h4><a href="/about/">悲催的袜子</a></h4>
+  <p>Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description.</p>
+<div class="icon__list"><a href="mailto:mantis-shrimp@outlook.com" class="icon__link" target="_blank"><svg class="icon__stroke" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+  <polyline points="22,6 12,13 2,6"></polyline>
+</svg>
+</a></div>
+</aside>
+</main><script>hljs.initHighlightingOnLoad();</script><footer class="site-footer">
+  © 2020<a href="/">悲催的袜子</a>. Theme<a href="https://github.com/erlzhang/jekyll-theme-persephone" target="_blank">Persephone</a>
+</footer>
+
+  </body>
+</html>
