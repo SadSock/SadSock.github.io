@@ -2,7 +2,7 @@
 <html lang="en"><head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="author" content=""><title>为LLVM添加简易RISCV后端(四)：配置构建系统 | 悲催的袜子</title>
+  <meta name="author" content=""><title>为LLVM添加简易RISCV后端(四)：指令选择 | 悲催的袜子</title>
   <meta name="keywords" content="LLVM">
   <meta name="description" content="无"><link rel="stylesheet" href="/assets/main.css?v=0.2.5" />
 <script src="/assets/main.js?v=0.2.5" defer></script><link rel="stylesheet" href="/assets/css/tomorrow.css" />
@@ -34,18 +34,20 @@
   </div>
   <article class="post">
     <header class="post__header">
-      <h1 class="post__title">为LLVM添加简易RISCV后端(四)：配置构建系统</h1>
+      <h1 class="post__title">为LLVM添加简易RISCV后端(四)：指令选择</h1>
       <div class="post__meta">
-        <time>2020-12-08 12:30</time>
+        <time>2020-12-08 19:30</time>
       </div>
     </header>
     <div class="post__content content">
       <ul class="section-nav">
-<li class="toc-entry toc-h2"><a href="#配置构建系统">配置构建系统</a>
+<li class="toc-entry toc-h2"><a href="#指令选择">指令选择</a>
 <ul>
-<li class="toc-entry toc-h3"><a href="#cmake配置文件">CMake配置文件</a></li>
-<li class="toc-entry toc-h3"><a href="#llvmbuildtxt文件">LLVMBuild.txt文件</a></li>
-<li class="toc-entry toc-h3"><a href="#cmakeliststxt文件">CMakeLists.txt文件</a></li>
+<li class="toc-entry toc-h3"><a href="#构建dag">构建DAG</a></li>
+<li class="toc-entry toc-h3"><a href="#优化">优化</a></li>
+<li class="toc-entry toc-h3"><a href="#类型和操作合法化">类型和操作合法化</a></li>
+<li class="toc-entry toc-h3"><a href="#指令选择-1">指令选择</a></li>
+<li class="toc-entry toc-h3"><a href="#调度和形成">调度和形成</a></li>
 </ul>
 </li>
 <li class="toc-entry toc-h2"><a href="#注释">注释</a></li>
@@ -53,121 +55,228 @@
 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程<sup id="fnref:1" role="doc-noteref"><a href="#fn:1" class="footnote">1</a></sup><sup id="fnref:2" role="doc-noteref"><a href="#fn:2" class="footnote">2</a></sup>。
 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。</p>
 
-<h2 id="配置构建系统">
-<a class="anchor" href="#%E9%85%8D%E7%BD%AE%E6%9E%84%E5%BB%BA%E7%B3%BB%E7%BB%9F" aria-hidden="true"><span class="octicon octicon-link"></span></a>配置构建系统</h2>
+<h2 id="指令选择">
+<a class="anchor" href="#%E6%8C%87%E4%BB%A4%E9%80%89%E6%8B%A9" aria-hidden="true"><span class="octicon octicon-link"></span></a>指令选择</h2>
 
-<p>在前面，我们提到每个LLVM后端都有一个单独的目录<code class="language-plaintext highlighter-rouge">LLVM/lib/Target</code>，后端的大部分代码都在其中。
-此外，LLVM依赖CMake为实际的构建系统(如Make、Ninja等)生成构建文件。
-在这篇文章中，我们将仔细研究其中的一些CMake配置文件。</p>
+<p>我们先前简要介绍了LLVM后端的工作过程。
+在这篇文章中，我们将更深入地了解这个过程的第一个阶段：指令选择。
+我们的目的是在了解RISCW后端的具体实现之前，了解它的工作原理以及如何配置它。</p>
 
-<p>注意:RISCW后端代码可以在<a href="https://github.com/andresag01/llvm-project/commit/274cfea0f9662f0ed49f6132b0424323d0b11750">这里</a>找到。</p>
+<p><strong>注意：</strong><a href="https://llvm.org/docs/CodeGenerator.html#instruction-selection-section">LLVM文档</a>对指令选择的工作原理给出了简短而清晰的描述，
+这篇文章通过示例来重新说明这一点。</p>
 
-<h3 id="cmake配置文件">
-<a class="anchor" href="#cmake%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6" aria-hidden="true"><span class="octicon octicon-link"></span></a>CMake配置文件</h3>
+<p><strong>注意：</strong>本文中显示的示例是使用我们的RISCW后端框架构建的。可以在<a href="https://github.com/andresag01/llvm-project/commit/274cfea0f9662f0ed49f6132b0424323d0b11750">这里</a>找到它的来源。</p>
 
-<p>回想一下，RISCW后端存放在<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW</code>目录下。
-该目录及其子目录都有两个构建文件(<code class="language-plaintext highlighter-rouge">CMakeLists.txt</code>和<code class="language-plaintext highlighter-rouge">LLVMBuild.txt</code>)，描述后端模块的结构，提供链接信息等。
-RISCW后端目前非常简单，目录结构是这样的:</p>
-<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>llvm/lib/Target/RISCW
-|- CMakeLists.txt
-|- LLVMBuild.txt
-|- Other C++, TableGen, etc files
-|- TargetInfo/
-|  |- CMakeLists.txt
-|  |- LLVMBuild.txt
-|  |- Other C++, TableGen, etc files
-|- MCTargetDesc/
-   |- CMakeLists.txt
-   |- LLVMBuild.txt
-   |- Other C++, TableGen, etc files
+<p>指令选择过程将LLVM IR转化为指令序列，该指令序列使用了无穷数量的寄存器。
+该过程分为以下几个阶段：</p>
+<ol>
+  <li>构建初始DAG</li>
+  <li>优化</li>
+  <li>类型合法化</li>
+  <li>优化</li>
+  <li>操作合法化</li>
+  <li>优化</li>
+  <li>目标指令选择</li>
+  <li>调度和形成</li>
+</ol>
+
+<p>我觉得通过例子来了解发生的事情会比较容易，我们将考虑指令选择如何转换下面的C程序。
+该代码包含一个MUL函数，该函数接受64位参数x和32位参数y。
+参数相乘，并返回32位整数结果。</p>
+
+<pre><code class="language-C++">unsigned int MUL(unsigned long long int x, unsigned int y)
+{
+    return x * y;
+}
+
+</code></pre>
+
+<h3 id="构建dag">
+<a class="anchor" href="#%E6%9E%84%E5%BB%BAdag" aria-hidden="true"><span class="octicon octicon-link"></span></a>构建DAG</h3>
+
+<p>这是指令选择的第一阶段。
+它接受LLVM IR作为输入，
+并产生Selection DAG(有向无环图)作为输出。
+指令选择过程中的每个其他阶段都在DAG上执行，直到产生输出指令序列。
+正如前面几篇文章所讨论的，LLVM IR是前端工具(如Clang)根据C代码生成，随后由LLVM优化器进行优化。
+下面是C程序的LLVM IR:</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">define</span> <span class="k">dso_local</span> <span class="kt">i32</span> <span class="vg">@MUL</span><span class="p">(</span><span class="kt">i64</span> <span class="nv">%x</span><span class="p">,</span> <span class="kt">i32</span> <span class="nv">%y</span><span class="p">)</span> <span class="k">local_unnamed_addr</span> <span class="vg">#0</span> <span class="p">{</span>
+<span class="nl">entry:</span>
+  <span class="nv">%0</span> <span class="p">=</span> <span class="k">trunc</span> <span class="kt">i64</span> <span class="nv">%x</span> <span class="k">to</span> <span class="kt">i32</span>
+  <span class="nv">%conv1</span> <span class="p">=</span> <span class="k">mul</span> <span class="kt">i32</span> <span class="nv">%0</span><span class="p">,</span> <span class="nv">%y</span>
+  <span class="k">ret</span> <span class="kt">i32</span> <span class="nv">%conv1</span>
+<span class="p">}</span>
 </code></pre></div></div>
-<p>每个使用CMake的项目都会包含<code class="language-plaintext highlighter-rouge">CMakeLists.txt</code>文件<sup id="fnref:3" role="doc-noteref"><a href="#fn:3" class="footnote">3</a></sup>，RISCW也不例外。
-这些文件包含一系列CMake指令，这些指令用于驱动构建文件的生成。
-在LLVM后端中，CMake会根据这些指令执行一些操作，例如指示要编译的C++源文件或生成TableGen指令。
-LLVMBuild.txt文件对当前目录中包含的组件提供了描述。</p>
+<p>Selection DAG实际上是一种精巧的树型数据结构，它表示LLVM IR中的基本块。 
+基本块是不包含分支目的地（入口除外）和分支指令（出口除外）的指令序列。 
+示例MUL函数非常简单，它只有一个称为入口的基本块，其他函数通常具有多个基本块。 
+例如，下面的<code class="language-plaintext highlighter-rouge">hello</code>函数具有四个基本块：<code class="language-plaintext highlighter-rouge">entry</code>，<code class="language-plaintext highlighter-rouge">if.then</code>，<code class="language-plaintext highlighter-rouge">if.else</code>和<code class="language-plaintext highlighter-rouge">return</code>。
+每个基本块都将被转换为单独的DAG。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">define</span> <span class="k">dso_local</span> <span class="kt">i32</span> <span class="vg">@hello</span><span class="p">(</span><span class="kt">i32</span> <span class="nv">%x</span><span class="p">)</span> <span class="k">local_unnamed_addr</span> <span class="vg">#0</span> <span class="p">{</span>
+<span class="nl">entry:</span>
+  <span class="nv">%cmp</span> <span class="p">=</span> <span class="k">icmp</span> <span class="k">eq</span> <span class="kt">i32</span> <span class="nv">%x</span><span class="p">,</span> <span class="m">100</span>
+  <span class="k">br</span> <span class="kt">i1</span> <span class="nv">%cmp</span><span class="p">,</span> <span class="kt">label</span> <span class="nv">%if.then</span><span class="p">,</span> <span class="kt">label</span> <span class="nv">%if.else</span>
 
-<h3 id="llvmbuildtxt文件">
-<a class="anchor" href="#llvmbuildtxt%E6%96%87%E4%BB%B6" aria-hidden="true"><span class="octicon octicon-link"></span></a>LLVMBuild.txt文件</h3>
+<span class="nl">if.then:</span>                                          <span class="c1">; preds = %entry</span>
+  <span class="nv">%call</span> <span class="p">=</span> <span class="k">tail</span> <span class="k">call</span> <span class="kt">i32</span> <span class="k">bitcast</span> <span class="p">(</span><span class="kt">i32</span> <span class="p">(...)*</span> <span class="vg">@hello100</span> <span class="k">to</span> <span class="kt">i32</span> <span class="p">(</span><span class="kt">i32</span><span class="p">)*)(</span><span class="kt">i32</span> <span class="m">100</span><span class="p">)</span> <span class="vg">#2</span>
+  <span class="k">br</span> <span class="kt">label</span> <span class="nv">%return</span>
 
-<p>让我们看一下<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW/LLVMBuild.txt</code>的内容。</p>
-<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="err">common</span><span class="p">]</span><span class="w">
-</span><span class="err">subdirectories</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">MCTargetDesc</span><span class="w"> </span><span class="err">TargetInfo</span><span class="w">
+<span class="nl">if.else:</span>                                          <span class="c1">; preds = %entry</span>
+  <span class="nv">%call1</span> <span class="p">=</span> <span class="k">tail</span> <span class="k">call</span> <span class="kt">i32</span> <span class="k">bitcast</span> <span class="p">(</span><span class="kt">i32</span> <span class="p">(...)*</span> <span class="vg">@helloOther</span> <span class="k">to</span> <span class="kt">i32</span> <span class="p">(</span><span class="kt">i32</span><span class="p">)*)(</span><span class="kt">i32</span> <span class="nv">%x</span><span class="p">)</span> <span class="vg">#2</span>
+  <span class="k">br</span> <span class="kt">label</span> <span class="nv">%return</span>
 
-</span><span class="p">[</span><span class="err">component_</span><span class="mi">0</span><span class="p">]</span><span class="w">
-</span><span class="err">type</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">TargetGroup</span><span class="w">
-</span><span class="err">name</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">RISCW</span><span class="w">
-</span><span class="err">parent</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">Target</span><span class="w">
-</span><span class="err">has_asmprinter</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="mi">1</span><span class="w">
-
-</span><span class="p">[</span><span class="err">component_</span><span class="mi">1</span><span class="p">]</span><span class="w">
-</span><span class="err">type</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">Library</span><span class="w">
-</span><span class="err">name</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">RISCWCodeGen</span><span class="w">
-</span><span class="err">parent</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">RISCW</span><span class="w">
-</span><span class="err">required_libraries</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">AsmPrinter</span><span class="w"> </span><span class="err">CodeGen</span><span class="w"> </span><span class="err">Core</span><span class="w"> </span><span class="err">MC</span><span class="w"> </span><span class="err">RISCWDesc</span><span class="w"> </span><span class="err">RISCWInfo</span><span class="w">
-  </span><span class="err">SelectionDAG</span><span class="w"> </span><span class="err">Support</span><span class="w"> </span><span class="err">Target</span><span class="w">
-
-</span><span class="err">add_to_library_groups</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">RISCW</span><span class="w">
-</span></code></pre></div></div>
-<p>该文件告诉构建系统RISCW后端具有两个组件。
-其中一个是顶级组件RISCW，其类型为TargetGroup，该类型表明RISCW是一个后端，构建系统对该类型有一些特殊处理。 
-Target是RISCW的父组件。 
-请注意，此命名与LLVM后端的目录结构匹配，即<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW</code>。
-RISCW的名称也不是任意的，它必须与后端的TableGen文件中的定义匹配。</p>
-
-<p>LLVM后端提供了一系列可选功能，
-例如assembly printing，assembly parsing等，
-LLVMBuild.txt文件表明了后端支持哪些可选功能。
-比如，最后一行告诉构建系统RISCW后端实现了assembly printing功能。</p>
-
-<p><strong>注意：</strong>查看现有后端（如ARM或RISCV）中的代码，以了解它们除了has_asmprinter之外还启用了哪些功能。</p>
-
-<p>LLVMBuild.txt文件还定义了第二个名为RISCWCodeGen的组件，其类型为Library，其父级为RISCW。
-另外，文件还指明了RISCWCodeGen需要的依赖库，例如AsmPrinter，CodeGen等，构建LLVM时，缺少库会导致链接错误。</p>
-
-<p><code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW</code>的每个子目录也会包含一个LLVMBuild.txt文件，该文件使用RISCW作为父级来定义自己的组件。</p>
-
-<h3 id="cmakeliststxt文件">
-<a class="anchor" href="#cmakeliststxt%E6%96%87%E4%BB%B6" aria-hidden="true"><span class="octicon octicon-link"></span></a>CMakeLists.txt文件</h3>
-
-<p>让我们看一下<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW/CMakeLists.txt</code>文件的内容。</p>
-<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">set</span><span class="o">(</span>LLVM_TARGET_DEFINITIONS RISCW.td<span class="o">)</span>
-
-tablegen<span class="o">(</span>LLVM RISCWGenRegisterInfo.inc <span class="nt">-gen-register-info</span><span class="o">)</span>
-tablegen<span class="o">(</span>LLVM RISCWGenInstrInfo.inc <span class="nt">-gen-instr-info</span><span class="o">)</span>
-<span class="c"># Other TableGen commands</span>
-
-add_public_tablegen_target<span class="o">(</span>RISCWCommonTableGen<span class="o">)</span>
-
-<span class="c"># RISCWCodeGen should match with LLVMBuild.txt RISCWCodeGen</span>
-add_llvm_target<span class="o">(</span>RISCWCodeGen
-  RISCWAsmPrinter.cpp
-  <span class="c"># Other files</span>
-<span class="o">)</span>
-
-<span class="c"># Should match with "subdirectories =  MCTargetDesc TargetInfo" in LLVMBuild.txt</span>
-add_subdirectory<span class="o">(</span>TargetInfo<span class="o">)</span>
-add_subdirectory<span class="o">(</span>MCTargetDesc<span class="o">)</span>
-
+<span class="nl">return:</span>                                           <span class="c1">; preds = %if.else, %if.then</span>
+  <span class="nv">%retval.0</span> <span class="p">=</span> <span class="k">phi</span> <span class="kt">i32</span> <span class="p">[</span> <span class="nv">%call</span><span class="p">,</span> <span class="nv">%if.then</span> <span class="p">],</span> <span class="p">[</span> <span class="nv">%call1</span><span class="p">,</span> <span class="nv">%if.else</span> <span class="p">]</span>
+  <span class="k">ret</span> <span class="kt">i32</span> <span class="nv">%retval.0</span>
+<span class="p">}</span>
 </code></pre></div></div>
-<p>文件顶部的<code class="language-plaintext highlighter-rouge">set</code>命令将<code class="language-plaintext highlighter-rouge">LLVM_TARGET_DEFINITION</code>定义为`RISCW.td**。
-这个文件通常包含一些顶级定义，
-并通过包含其他文件的方式来引入其他TableGen定义——我们将在后面的文章中更仔细地研究TableGen，
-但是请随时查看代码库中的RISCW.td。</p>
+<p>Selection DAG具有以下属性：</p>
+<ul>
+  <li>每个节点都是<code class="language-plaintext highlighter-rouge">SDNode</code>类的实例，代表一个操作，如加、减、乘等。
+操作类型都定义在文件<code class="language-plaintext highlighter-rouge">include/llvm/CodeGen/ISDOpcodes.h</code>中。</li>
+  <li>每个节点都有0个或多个操作数，操作数由其他节点定义，用指向该节点的边表示，边是<code class="language-plaintext highlighter-rouge">SDValue</code>类的实例。</li>
+  <li>操作产生的值的类型为<code class="language-plaintext highlighter-rouge">MTV</code>（Machine Value Type），比如<code class="language-plaintext highlighter-rouge">i1</code>和<code class="language-plaintext highlighter-rouge">i8</code>，它们分别表示1位和8位整数。</li>
+  <li>具有副作用的节点会强制对操作进行排序，例如<code class="language-plaintext highlighter-rouge">return</code>和<code class="language-plaintext highlighter-rouge">loads</code>语句，它们具有类型为<code class="language-plaintext highlighter-rouge">MVT::Other</code>的特殊chain值，
+既作为输入操作数又作为输出操作数。</li>
+  <li>
+<code class="language-plaintext highlighter-rouge">ISD::EntryToken</code>类型的叶节点是代码的入口。</li>
+  <li>DAG的根节点是带有链操作数的最终副作用节点。这是的代码块的最后一个操作，例如函数结尾处的返回。</li>
+</ul>
 
-<p>然后我们在CMake文件中看到一些TableGen命令。
-它们命令构建系统使TableGen工具根据<code class="language-plaintext highlighter-rouge">*.td</code>文件生成<code class="language-plaintext highlighter-rouge">RISCWGen*.inc</code>。
-这些<code class="language-plaintext highlighter-rouge">*.inc</code>文件实际上就是传统的C++代码，在编译完LLVM之后，你可以在<code class="language-plaintext highlighter-rouge">build/lib/Target/RISCW</code>的构建目录中找到它们；它们可以用于调试，但是不容易阅读。</p>
+<p><strong>警告！</strong>LLVM后端的类型系统非常有限。
+当输入的LLVM IR被转换为DAG时，许多有用的类型信息被丢弃。
+最值得注意的丢弃是指针类型，<code class="language-plaintext highlighter-rouge">MVT</code>类的类型列表完全没有包含指针类型。
+因此，指针在DAG中使用整数类型表示，所以很难判断一个节点(如<code class="language-plaintext highlighter-rouge">add</code>)的操作数是指针还是整数。</p>
 
-<p>接下来的命令，也就是<code class="language-plaintext highlighter-rouge">add_llvm_target</code>，
-指定了当前目录中要构建的C++文件，被指定的文件不能位于子目录中。
-<code class="language-plaintext highlighter-rouge">add_llvm_target</code>命令的第一个参数是目标的名称，并且应该与<code class="language-plaintext highlighter-rouge">LLVMBuild.txt</code>中定义名称匹配。</p>
+<p>这是我从MUL函数获得的初始Selection DAG。
+<img src="http://localhost:4000/assets/riscw/llvm-4-dag-before-combine1.png" alt="Selection DAG"></p>
 
-<p>最后，CMakeLists.txt指定了CMake应该查看的子目录，在后端RISCW中，只有两个:<code class="language-plaintext highlighter-rouge">TargetInfo</code>和<code class="language-plaintext highlighter-rouge">MCTargetDesc</code>。
-子目录中的CMakeLists.txt与此类似，但要简单得多!</p>
+<p>入口节点位于图的顶部，而根节点位于底部。
+还有一个由蓝色边连接的节点链，从根节点开始，到入口节点结束。
+这些蓝边就是前面讨论过的链操作数。
+黑色边显示的是值的流动，如整数和浮点数。
+此Selection DAG的等效文本表示如下所示：</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nl">t0:</span> <span class="err">ch</span> <span class="p">=</span> <span class="err">EntryToken</span>
+        <span class="nl">t2:</span> <span class="kt">i32</span><span class="p">,</span><span class="err">ch</span> <span class="p">=</span> <span class="err">CopyFromReg</span> <span class="err">t0</span><span class="p">,</span> <span class="nl">Register:</span><span class="kt">i32</span> <span class="nv">%0</span>
+        <span class="nl">t4:</span> <span class="kt">i32</span><span class="p">,</span><span class="err">ch</span> <span class="p">=</span> <span class="err">CopyFromReg</span> <span class="err">t0</span><span class="p">,</span> <span class="nl">Register:</span><span class="kt">i32</span> <span class="nv">%1</span>
+      <span class="nl">t7:</span> <span class="kt">i64</span> <span class="p">=</span> <span class="err">build_pair</span> <span class="err">t2</span><span class="p">,</span> <span class="err">t4</span>
+    <span class="nl">t8:</span> <span class="kt">i32</span> <span class="p">=</span> <span class="err">truncate</span> <span class="err">t7</span>
+    <span class="nl">t6:</span> <span class="kt">i32</span><span class="p">,</span><span class="err">ch</span> <span class="p">=</span> <span class="err">CopyFromReg</span> <span class="err">t0</span><span class="p">,</span> <span class="nl">Register:</span><span class="kt">i32</span> <span class="nv">%2</span>
+  <span class="nl">t9:</span> <span class="kt">i32</span> <span class="p">=</span> <span class="k">mul</span> <span class="err">t8</span><span class="p">,</span> <span class="err">t6</span>
+<span class="nl">t11:</span> <span class="err">ch</span><span class="p">,</span><span class="err">glue</span> <span class="p">=</span> <span class="err">CopyToReg</span> <span class="err">t0</span><span class="p">,</span> <span class="nl">Register:</span><span class="kt">i32</span> <span class="err">$</span><span class="p">x</span><span class="m">0</span><span class="p">,</span> <span class="err">t9</span>
+<span class="nl">t12:</span> <span class="err">ch</span> <span class="p">=</span> <span class="nl">RISCWISD:</span><span class="err">:Ret</span> <span class="err">t11</span><span class="p">,</span> <span class="nl">Register:</span><span class="kt">i32</span> <span class="err">$</span><span class="p">x</span><span class="m">0</span><span class="p">,</span> <span class="nl">t11:</span><span class="m">1</span>
+</code></pre></div></div>
+<p><strong>注意：</strong>Selection DAG可以同时包含目标独立和目标相关的节点。
+目标独立的操作定义在文件<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/include/llvm/CodeGen/ISDOpcodes.h#L40">ISDOpcodes.h</a>中。
+目标相关的操作由每个后端定义，通常定义在声明TargetLowering子类的同一文件中。 
+您可以在<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/RISCW/RISCWISelLowering.h#L25">llvm/lib/Target/RISCW/RISCWISelLowering.h</a>中找到目标相关节点的定义。
+上面显示的用于MUL的Selection DAG具有节点t12，该节点代表目标相关操作<code class="language-plaintext highlighter-rouge">RISCWISD::Ret</code>，该函数表示从函数返回。</p>
 
-<p><strong>注意:</strong>后端文件的命名约定通常很重要，显然应该与构建文件的内容相匹配。
-例如，<code class="language-plaintext highlighter-rouge">set(LLVM_TARGET_DEFINITIONS RISCW.td)</code>命令要求<code class="language-plaintext highlighter-rouge">RISCW.td</code>存在!
-一定要仔细检查这些错误，因为构建错误可能有点含糊不清。</p>
+<p><strong>注意：</strong>在指令选择过程的各个阶段，您可以通过向<code class="language-plaintext highlighter-rouge">llc</code>命令传递<code class="language-plaintext highlighter-rouge">-view-dag-combine1-dags</code>，<code class="language-plaintext highlighter-rouge">-view-legalize-dags</code>，<code class="language-plaintext highlighter-rouge">-view-dag-combine2-dags</code>参数告诉LLVM生成Selection DAG的可视化表示，还可以通过向<code class="language-plaintext highlighter-rouge">llc</code>命令传递<code class="language-plaintext highlighter-rouge">-debug</code>参数告诉LLVM生成Selection DAG的文本表示。</p>
+
+<h3 id="优化">
+<a class="anchor" href="#%E4%BC%98%E5%8C%96" aria-hidden="true"><span class="octicon octicon-link"></span></a>优化</h3>
+
+<p>指令选择阶段会有三次DAG优化过程，第一次优化发生在LLVM IR构建Selection DAG之后。
+其余两次将在合法化阶段后执行。
+根据LLVM文档，这些优化旨在简化可能由其他阶段(如合法化)生成的不必要的复杂Selection DAGs。</p>
+
+<p>就我所知，LLVM的优化过程就是通过运行一个编译pass将一组节点组合成更简洁的节点。
+为了实现这一点，LLVM用这个巨大的C++文件(&gt;20,000行)遍历DAG，并通过模式匹配来寻找优化机会。
+例如，合并器可以将Selection DAG的<code class="language-plaintext highlighter-rouge">(add (add x, y) z)</code>节点，转换为<code class="language-plaintext highlighter-rouge">(add x，y + z)</code>节点，从而消除了<code class="language-plaintext highlighter-rouge">add</code>节点。</p>
+
+<p>下图显示了MUL示例函数第一遍优化后的Selection DAG。
+与上一节中的Selection DAG相比，优化的DAG用节点t13代替了节点t3和t4。
+该优化将丢弃64位整数x的高32位，因为函数MUL的返回值仅依赖x的低32位，
+因此，可以通过消除t3和t4简化DAG。
+<img src="http://localhost:4000/assets/riscw/llvm-4-dag-before-legalize-types.png" alt="Selection DAG"></p>
+
+<p>LLVM的DAG合成器只优化目标独立的操作，即<code class="language-plaintext highlighter-rouge">ISDOpcodes.h</code>中定义的<code class="language-plaintext highlighter-rouge">add</code>、<code class="language-plaintext highlighter-rouge">sub</code>、<code class="language-plaintext highlighter-rouge">load</code>、<code class="language-plaintext highlighter-rouge">store</code>等。
+通过覆盖<code class="language-plaintext highlighter-rouge">targetlower</code>子类中的<code class="language-plaintext highlighter-rouge">PerformDAGCombine</code>函数，
+后端可以为合成器提供额外的优化功能，这些功能可以是目标独立的也可以是目标依赖的。
+此外，后端必须通知优化器受支持的目标独立的节点，
+这通过在<code class="language-plaintext highlighter-rouge">targetlower</code>类的子类的构造函数中调用<code class="language-plaintext highlighter-rouge">setTargetDAGCombine</code>函数完成。</p>
+
+<p><strong>注意：</strong>令人困惑的是，LLVM后端的<code class="language-plaintext highlighter-rouge">TargetLowering</code>子类通常在<code class="language-plaintext highlighter-rouge">&lt;TARGET_NAME&gt;ISelLowering.cpp</code>文件中实现。
+您可以在<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW/RISCWISelLowering.cpp</code>中找到RISCW的实现。</p>
+
+<p><strong>注意：</strong>XCore后端有一个很好的<code class="language-plaintext highlighter-rouge">PerformDAGCombine</code>和<code class="language-plaintext highlighter-rouge">setTargetDAGCombine</code>例子（参见<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/XCore/XCoreISelLowering.cpp#L1590">这里</a>和<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/XCore/XCoreISelLowering.cpp#L170">这里</a>）
+——我的意思是很容易阅读。
+另外，看看<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/XCore/XCoreISelLowering.cpp#L1739">这个后端</a>是如何将<code class="language-plaintext highlighter-rouge">add(add(mul(x，y)，a)，b)</code>节点组合到更简单的目标依赖的<code class="language-plaintext highlighter-rouge">lmul(x，y，a，b)</code>节点，
+因为XCore架构有一个乘法累加指令<sup id="fnref:3" role="doc-noteref"><a href="#fn:3" class="footnote">3</a></sup>。</p>
+
+<h3 id="类型和操作合法化">
+<a class="anchor" href="#%E7%B1%BB%E5%9E%8B%E5%92%8C%E6%93%8D%E4%BD%9C%E5%90%88%E6%B3%95%E5%8C%96" aria-hidden="true"><span class="octicon octicon-link"></span></a>类型和操作合法化</h3>
+
+<p>上面显示的优化的DAG包含一个节点t7，
+它会产生一个i64类型的值，
+但是RISCW机器只支持32位。
+合法化阶段会解决这些问题。</p>
+
+<p>首先执行的是类型合法化，
+它将DAG转换为仅使用本地计算机原生支持的数据类型。
+为了实现这一点，它将小类型转换或提升为较大的类型；
+例如，<code class="language-plaintext highlighter-rouge">i1</code>类型的1位整数转换为<code class="language-plaintext highlighter-rouge">i32</code>类型的32位整数。
+此外，编译器将大整数分解或展开为较小的整数，例如在32位计算机中，<code class="language-plaintext highlighter-rouge">i64</code>类型的64位整数被转换为<code class="language-plaintext highlighter-rouge">i32</code>类型的32位整数。
+下面的DAG是前面展示的DAG的合法化版本。
+在本例中，编译器消除了t3和t7节点，以确保新的DAG只使用<code class="language-plaintext highlighter-rouge">i32</code>整数。</p>
+
+<p><img src="http://localhost:4000/assets/riscw/llvm-4-dag-before-combine2.png" alt="Selection DAG"></p>
+
+<p>操作合法化在第二个优化阶段之后执行。
+它将DAG转换为仅使用本地计算机原生支持的操作。
+例如，DAG可能包含bit-rotate left（rotl）节点，但目标指令集可能不支持该指令，
+因此，操作合法化把该操作转化为移位和或运算的联合操作。</p>
+
+<p>有三种使操作合法化的策略。
+首先，将不受支持的操作扩展为一组受支持的操作来模拟原不受支持的操作。
+其次，把类型提升为更大的类型，以支持缺失的操作。
+第三，使用TargetLowering类的子类中的钩子在C++中实现自定义的合法化。</p>
+
+<p><strong>注意：</strong>在以后的文章中，我将解释后端如何配置合法化阶段。
+这可以在TargetLowering类的子类的构造函数中完成。</p>
+
+<h3 id="指令选择-1">
+<a class="anchor" href="#%E6%8C%87%E4%BB%A4%E9%80%89%E6%8B%A9-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>指令选择</h3>
+<p>此时，DAG包含大部分目标独立（如加和减）节点，以及一小部分目标依赖节点（如<code class="language-plaintext highlighter-rouge">RISCWISD::Ret</code>）。 
+下一步，需要将这些抽象操作映射到目标架构的具体机器指令，
+LLVM在指令选择阶段会对此进行处理。 
+处理方法很简单：编译器通过模式匹配将DAG中的节点映射成机器指令。 
+指令的模式和描述由编译器后端的开发人员通过<a href="https://llvm.org/docs/TableGen/ProgRef.html">TableGen</a>代码提供。 
+另外，可以使用C++直接编写难以使用TableGen描述的复杂模式。</p>
+
+<p>我们将在以后的文章中更仔细地研究TableGen。
+现在，让我们考虑一下LLVM如何将合法且优化的DAG映射成下面显示的新DAG。
+在这种情况下，只有两个节点需要更改。
+t9用指令<code class="language-plaintext highlighter-rouge">MUL</code>替换了mul操作，而t12用指令<code class="language-plaintext highlighter-rouge">PseudoRet</code>替换了<code class="language-plaintext highlighter-rouge">RISCWISD::Ret</code>。</p>
+
+<p><img src="http://localhost:4000/assets/riscw/llvm-4-dag-before-scheduler.png" alt="Selection DAG"></p>
+
+<h3 id="调度和形成">
+<a class="anchor" href="#%E8%B0%83%E5%BA%A6%E5%92%8C%E5%BD%A2%E6%88%90" aria-hidden="true"><span class="octicon octicon-link"></span></a>调度和形成</h3>
+
+<p>谢天谢地，这里没什么好说的，因为帖子已经很长了！
+此阶段根据某些约束将DAG转换为指令列表。
+例如，后端可以通过<code class="language-plaintext highlighter-rouge">TargetLowering</code>子类的构造函数调用<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/include/llvm/CodeGen/TargetLowering.h#L1939">setSchedulingPreference</a>来指定调度选项。</p>
+
+<p><strong>警告！</strong> 一定要尝试不同的调度首选项！
+如果调度策略与体系结构和处理器的特性不匹配，那么调度策略会显著降低所发出的代码的质量。
+<a href="">这里</a>列出了各种调度选项。</p>
+
+<p>下面是我们MUL函数的指令清单。
+有几个重要的事情要注意。
+首先，与实际机器的寄存器相反，生成的代码仍然使用一组无限多的虚拟寄存器；
+编译器稍后会通过寄存器分配器来处理这个问题。
+第二，已经存在一些对寄存器分配过程有用的生命周期信息；例如，有两个寄存器，即<code class="language-plaintext highlighter-rouge">x0</code>和<code class="language-plaintext highlighter-rouge">x2</code>，
+它们在基本块的开始处就处于活动状态。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nl">bb.0.entry:</span>
+  <span class="nl">liveins:</span> <span class="err">$</span><span class="p">x</span><span class="m">0</span><span class="p">,</span> <span class="err">$</span><span class="p">x</span><span class="m">2</span>
+  <span class="nv">%2</span><span class="err">:gpr</span> <span class="p">=</span> <span class="err">COPY</span> <span class="err">$</span><span class="p">x</span><span class="m">2</span>
+  <span class="nv">%0</span><span class="err">:gpr</span> <span class="p">=</span> <span class="err">COPY</span> <span class="err">$</span><span class="p">x</span><span class="m">0</span>
+  <span class="nv">%3</span><span class="err">:gpr</span> <span class="p">=</span> <span class="err">MUL</span> <span class="nv">%0</span><span class="err">:gpr</span><span class="p">,</span> <span class="nv">%2</span><span class="err">:gpr</span>
+  <span class="err">$</span><span class="p">x</span><span class="m">0</span> <span class="p">=</span> <span class="err">COPY</span> <span class="nv">%3</span><span class="err">:gpr</span>
+  <span class="err">PseudoRET</span> <span class="err">implicit</span> <span class="err">$</span><span class="p">x</span><span class="m">0</span>
+</code></pre></div></div>
 
 <h2 id="注释">
 <a class="anchor" href="#%E6%B3%A8%E9%87%8A" aria-hidden="true"><span class="octicon octicon-link"></span></a>注释</h2>
@@ -181,7 +290,7 @@ add_subdirectory<span class="o">(</span>MCTargetDesc<span class="o">)</span>
       <p><a href="https://jonathan2251.github.io/lbd/">这个教程</a>描述了如何开发LLVM后端，但我发现很难理解。 <a href="#fnref:2" class="reversefootnote" role="doc-backlink">↩</a></p>
     </li>
     <li id="fn:3" role="doc-endnote">
-      <p>您可以在<a href="https://cmake.org/overview/">此处</a>找到有关CMake的更多信息。 <a href="#fnref:3" class="reversefootnote" role="doc-backlink">↩</a></p>
+      <p>查看XCore XS1体系结构<a href="https://www.xmos.ai/download/The-XMOS-XS1-Architecture(X7879A).pdf">参考手册</a>，了解乘法累加（LMUL）指令的详细说明。 <a href="#fnref:3" class="reversefootnote" role="doc-backlink">↩</a></p>
     </li>
   </ol>
 </div>

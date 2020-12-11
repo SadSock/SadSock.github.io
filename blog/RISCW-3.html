@@ -2,7 +2,7 @@
 <html lang="en"><head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="author" content=""><title>为LLVM添加简易RISCV后端(三)：创建后端 | 悲催的袜子</title>
+  <meta name="author" content=""><title>为LLVM添加简易RISCV后端(三)：配置构建系统 | 悲催的袜子</title>
   <meta name="keywords" content="LLVM">
   <meta name="description" content="无"><link rel="stylesheet" href="/assets/main.css?v=0.2.5" />
 <script src="/assets/main.js?v=0.2.5" defer></script><link rel="stylesheet" href="/assets/css/tomorrow.css" />
@@ -34,20 +34,18 @@
   </div>
   <article class="post">
     <header class="post__header">
-      <h1 class="post__title">为LLVM添加简易RISCV后端(三)：创建后端</h1>
+      <h1 class="post__title">为LLVM添加简易RISCV后端(三)：配置构建系统</h1>
       <div class="post__meta">
-        <time>2020-12-06 13:30</time>
+        <time>2020-12-08 12:30</time>
       </div>
     </header>
     <div class="post__content content">
       <ul class="section-nav">
-<li class="toc-entry toc-h2"><a href="#创建后端">创建后端</a>
+<li class="toc-entry toc-h2"><a href="#配置构建系统">配置构建系统</a>
 <ul>
-<li class="toc-entry toc-h3"><a href="#triple和elf配置">Triple和ELF配置</a></li>
-<li class="toc-entry toc-h3"><a href="#配置驱动器">配置驱动器</a></li>
-<li class="toc-entry toc-h3"><a href="#创建新target">创建新Target</a></li>
-<li class="toc-entry toc-h3"><a href="#建立实验性后端">建立实验性后端</a></li>
-<li class="toc-entry toc-h3"><a href="#编译c程序">编译C程序</a></li>
+<li class="toc-entry toc-h3"><a href="#cmake配置文件">CMake配置文件</a></li>
+<li class="toc-entry toc-h3"><a href="#llvmbuildtxt文件">LLVMBuild.txt文件</a></li>
+<li class="toc-entry toc-h3"><a href="#cmakeliststxt文件">CMakeLists.txt文件</a></li>
 </ul>
 </li>
 <li class="toc-entry toc-h2"><a href="#注释">注释</a></li>
@@ -55,187 +53,125 @@
 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程<sup id="fnref:1" role="doc-noteref"><a href="#fn:1" class="footnote">1</a></sup><sup id="fnref:2" role="doc-noteref"><a href="#fn:2" class="footnote">2</a></sup>。
 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。</p>
 
-<h2 id="创建后端">
-<a class="anchor" href="#%E5%88%9B%E5%BB%BA%E5%90%8E%E7%AB%AF" aria-hidden="true"><span class="octicon octicon-link"></span></a>创建后端</h2>
+<h2 id="配置构建系统">
+<a class="anchor" href="#%E9%85%8D%E7%BD%AE%E6%9E%84%E5%BB%BA%E7%B3%BB%E7%BB%9F" aria-hidden="true"><span class="octicon octicon-link"></span></a>配置构建系统</h2>
 
-<p>开发LLVM后端并不是一件特别吸引人的事情。
-您很快就会意识到，这项工作在很大程度上就是从其他现有后端复制代码。
-在线论坛上，LLVM开发者建议从“复制一个现有的后端，重命名并修改它以适应您的需要”开。
-但是即使是相对较小的后端，比如Lanai或XCore，也相当复杂，而且代码也不容易理解！</p>
+<p>在前面，我们提到每个LLVM后端都有一个单独的目录<code class="language-plaintext highlighter-rouge">LLVM/lib/Target</code>，后端的大部分代码都在其中。
+此外，LLVM依赖CMake为实际的构建系统(如Make、Ninja等)生成构建文件。
+在这篇文章中，我们将仔细研究其中的一些CMake配置文件。</p>
 
-<p>在本系列文章中，将采取略有不同的方法。
-我们将使用现有的LLVM后端作为起点，但我已经删除了大部分代码，并将其减少到编译一个(很小的)程序所需的最低限度。
-精简的后端，称为RISCW，非常简单，可以帮助理解LLVM目标独立代码生成器，而不必纠缠于细节。
-在这篇文章的其余部分，我将使用RISCW后端来展示如何创建一个新的LLVM后端。
-我们还将看到如何用一个实验性的后端构建LLVM，甚至编译一个(非常简单的) C程序到汇编。</p>
+<p>注意:RISCW后端代码可以在<a href="https://github.com/andresag01/llvm-project/commit/274cfea0f9662f0ed49f6132b0424323d0b11750">这里</a>找到。</p>
 
-<h3 id="triple和elf配置">
-<a class="anchor" href="#triple%E5%92%8Celf%E9%85%8D%E7%BD%AE" aria-hidden="true"><span class="octicon octicon-link"></span></a>Triple和ELF配置</h3>
+<h3 id="cmake配置文件">
+<a class="anchor" href="#cmake%E9%85%8D%E7%BD%AE%E6%96%87%E4%BB%B6" aria-hidden="true"><span class="octicon octicon-link"></span></a>CMake配置文件</h3>
 
-<p>我们首先为后端配置一个新的目标描述Triple。
-由于历史原因，Triple编码了目标平台的重要信息（如体系结构、供应商和操作系统）。
-以下是配置一个新的Triple的步骤:</p>
-
-<ol>
-  <li>在llvm/include/llvm/ADT/Triple.h用Triple声明一个新的体系结构 (见这里)。</li>
-  <li>提供字符串和Triple之间的类型转换(参见这里,这里及这里)。</li>
-  <li>指出后端支持的目标文件类型，例如ELF、COFF等，ricw只支持ELF(参见这里)。</li>
-  <li>指出目标平台的字平台，例如32位或64位，以及指针的大小(请参阅这里,这里及这里)。</li>
-</ol>
-
-<p><strong>注意:</strong>你可以在这里和这里找到更多关于Triple的信息。</p>
-
-<p><strong>注意:</strong>指令集并不一定意味着指针的大小。
-例如，在为RV64编译时，指针并不总是64位的。
-指针大小通常由ABI给出，在64位机器中，它可以是ilp32(即int、long和指针为32位)。</p>
-
-<p>下面的参数用于配置ELF:</p>
-
-<ol>
-  <li>
-    <p>创建一个枚举值作为RISCW的体系结构的标识(见此处)。
-这个值被编码在ELF文件头的e_machine字段中。
-这个值不是随意设置的; 它必须取得授权，例如:0xF3 for RISCV。
-但是我们现在将它设置为一个未使用的值。</p>
-  </li>
-  <li>
-    <p>声明ELF重定位类型(见这里和这里)。
-同样，这些是依赖于架构的，这里列出了用于RISCV的类型。
-在这个阶段，我们将简单地为RISCW放置了占位符。</p>
-  </li>
-  <li>
-    <p>文件格式名称(见此处)。</p>
-  </li>
-  <li>
-    <p>指示给定类的目标描述Triple(见此处)。目前，ELF头中的类是一个字节，用于对格式是32位还是64位进行编码。</p>
-  </li>
-</ol>
-
-<p><strong>注意:</strong>查看wikipedia获取更多关于ELF文件的信息。</p>
-
-<h3 id="配置驱动器">
-<a class="anchor" href="#%E9%85%8D%E7%BD%AE%E9%A9%B1%E5%8A%A8%E5%99%A8" aria-hidden="true"><span class="octicon octicon-link"></span></a>配置驱动器</h3>
-
-<p>回想一下，我们使用clang将输入的C代码编译成LLVM IR。
-但是clang不仅仅是我们的编译器前端，它也是一个驱动器，类似GCC，驱动编译流水线将输入的C程序转换为另一个表示，比如把C转换为汇编或目标代码。
-因此，我们需要告诉clang</p>
-
-<ol>
-  <li>
-    <p>新后端的支持特性。例如，clang需要知道RISCW是32位还是64位。</p>
-  </li>
-  <li>
-    <p>新后端的编译流程。例如，它应该使用什么汇编程序? 什么连接器? 有哪些包括路径等等。</p>
-  </li>
-</ol>
-
-<p>我们可以通过添加一个新的target类<code class="language-plaintext highlighter-rouge">RISCWTargetInfo</code>来告诉clang有关RISCW的信息，该类与LLVM已有的target类一起被实例化，如这里所示。
-该类在这里和这里分别被声明和定义。
-在这段代码中有一些重要的事情需要强调:</p>
-
-<ul>
-  <li>
-<code class="language-plaintext highlighter-rouge">RISCWTargetInfo</code>通过字符串描述数据布局。这个字符串编码许多重要信息，比如指针中每一位、堆栈对齐要求等。</li>
-  <li>基本C数据类型的大小。</li>
-  <li>函数<code class="language-plaintext highlighter-rouge">RISCWTargetInfo::getTargetDefines(**</code>指示编译时定义的C预处理器宏，例如，这些宏是在使用RISCV后端编译代码时定义的。
-宏通常描述后端支持的体系结构、ABI、启用/禁用任何特性等</li>
-</ul>
-
-<p><strong>注意:</strong>一个后端可能支持多个指令集和ABI，因此驱动器的配置必须根据选定的目标Triple进行更改。
-例如，<code class="language-plaintext highlighter-rouge">RISCWTargetInfo</code>根据Triple包含riscv32还是riscv64来更改数据布局字符串。</p>
-
-<p><strong>注意:</strong>这里可以查看RISCWTargetInfo的父类TargetInfo的声明。
-它包含了更多的可以配置的选项。</p>
-
-<p>配置工具链相对简单。
-我们只需要实现一个从Toolchain继承的RISCWToolChain类，如下所示。
-代码基本上是不言自明的，通过覆盖ToolChain类的成员，您可以修改更多的选项(见此处)。</p>
-
-<h3 id="创建新target">
-<a class="anchor" href="#%E5%88%9B%E5%BB%BA%E6%96%B0target" aria-hidden="true"><span class="octicon octicon-link"></span></a>创建新Target</h3>
-
-<p>每个后端在llvm/lib/Target下都有一个单独的目录，其中包含后端的大部分代码。
-我们不会在这篇文章中深入讨论代码的细节(稍后我们会这样做) ，因为即使是一个很小的后端，比如RISCW，也有很多文件。
-目前，我们可以将这些文件大致分为三类:</p>
-
-<ul>
-  <li>
-    <p><strong>TableGen文件</strong>LLVM目标无关代码生成框架实现了一个精心设计的模式匹配算法，用于为输入的程序选择指令。
-待匹配的模式使用TableGen语法描述。
-此外，TableGen文件还描述了target在体系结构方面的重要特性，如寄存器的数量和调用约定等。</p>
-  </li>
-  <li>
-    <p><strong>Build文件</strong>后端的每个目录都必须被声明，否则它将不会被构建。
-此外，我们的后端的顶部目录(<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW</code>) ，以及每个子目录必须包含两个构建文件:<code class="language-plaintext highlighter-rouge">CMakeLists.txt</code>和<code class="language-plaintext highlighter-rouge">LLVMBuild.txt</code>，
-前者将源文件和任何子目录添加为生成目标，而后者为生成目标设置简单的生成参数，参数包括生成目标的名称、链接所需的库等。</p>
-  </li>
-  <li>
-    <p><strong>C++文件</strong>包含了大量的后端代码，实现了从简单的配置选项到更复杂的指令选择功能(TableGen没有实现或不能实现)的所有功能。</p>
-  </li>
-</ul>
-
-<h3 id="建立实验性后端">
-<a class="anchor" href="#%E5%BB%BA%E7%AB%8B%E5%AE%9E%E9%AA%8C%E6%80%A7%E5%90%8E%E7%AB%AF" aria-hidden="true"><span class="octicon octicon-link"></span></a>建立实验性后端</h3>
-
-<p>现在，一切都已经建立，我们可以构建带有RISCW后端的LLVM。
-但是我们不能简单地根据上一章的内容修改CMake的<code class="language-plaintext highlighter-rouge">-DLLVM_TARGETS_TO_BUILD</code>选项，以包含RISCW，因为后端仍处于试验阶段。
-相反，我们使用<code class="language-plaintext highlighter-rouge">-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD</code>选项，如下:</p>
-<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>cmake <span class="nt">-G</span> <span class="s2">"Ninja"</span> <span class="nt">-DLLVM_ENABLE_PROJECTS</span><span class="o">=</span><span class="s2">"clang"</span> <span class="nt">-DLLVM_TARGETS_TO_BUILD</span><span class="o">=</span><span class="s2">"ARM;Lanai;RISCV"</span> <span class="nt">-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD</span><span class="o">=</span><span class="s2">"RISCW"</span> <span class="nt">-DCMAKE_BUILD_TYPE</span><span class="o">=</span><span class="s2">"Debug"</span> <span class="nt">-DLLVM_ENABLE_ASSERTIONS</span><span class="o">=</span>On ../llvm
-ninja
+<p>回想一下，RISCW后端存放在<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW</code>目录下。
+该目录及其子目录都有两个构建文件(<code class="language-plaintext highlighter-rouge">CMakeLists.txt</code>和<code class="language-plaintext highlighter-rouge">LLVMBuild.txt</code>)，描述后端模块的结构，提供链接信息等。
+RISCW后端目前非常简单，目录结构是这样的:</p>
+<div class="language-plaintext highlighter-rouge"><div class="highlight"><pre class="highlight"><code>llvm/lib/Target/RISCW
+|- CMakeLists.txt
+|- LLVMBuild.txt
+|- Other C++, TableGen, etc files
+|- TargetInfo/
+|  |- CMakeLists.txt
+|  |- LLVMBuild.txt
+|  |- Other C++, TableGen, etc files
+|- MCTargetDesc/
+   |- CMakeLists.txt
+   |- LLVMBuild.txt
+   |- Other C++, TableGen, etc files
 </code></pre></div></div>
-<p>当构建完成后，你可以检查RISCW现在是否是一个可用的后端，如下所示:</p>
-<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nv">$ </span>./build/bin/llc <span class="nt">--version</span>
-LLVM <span class="o">(</span>http://llvm.org/<span class="o">)</span>:
-  LLVM version 10.0.1
-  DEBUG build with assertions.
-  Default target: x86_64-unknown-linux-gnu
-  Host CPU: znver2
+<p>每个使用CMake的项目都会包含<code class="language-plaintext highlighter-rouge">CMakeLists.txt</code>文件<sup id="fnref:3" role="doc-noteref"><a href="#fn:3" class="footnote">3</a></sup>，RISCW也不例外。
+这些文件包含一系列CMake指令，这些指令用于驱动构建文件的生成。
+在LLVM后端中，CMake会根据这些指令执行一些操作，例如指示要编译的C++源文件或生成TableGen指令。
+LLVMBuild.txt文件对当前目录中包含的组件提供了描述。</p>
 
-  Registered Targets:
-    arm     - ARM
-    armeb   - ARM <span class="o">(</span>big endian<span class="o">)</span>
-    lanai   - Lanai
-    riscv32 - 32-bit RISC-V
-    riscv64 - 64-bit RISC-V
-    riscw   - 32-bit RISC-V         &lt;<span class="o">==</span> YAY!!
-    thumb   - Thumb
-    thumbeb - Thumb <span class="o">(</span>big endian<span class="o">)</span>
+<h3 id="llvmbuildtxt文件">
+<a class="anchor" href="#llvmbuildtxt%E6%96%87%E4%BB%B6" aria-hidden="true"><span class="octicon octicon-link"></span></a>LLVMBuild.txt文件</h3>
+
+<p>让我们看一下<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW/LLVMBuild.txt</code>的内容。</p>
+<div class="language-json highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="p">[</span><span class="err">common</span><span class="p">]</span><span class="w">
+</span><span class="err">subdirectories</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">MCTargetDesc</span><span class="w"> </span><span class="err">TargetInfo</span><span class="w">
+
+</span><span class="p">[</span><span class="err">component_</span><span class="mi">0</span><span class="p">]</span><span class="w">
+</span><span class="err">type</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">TargetGroup</span><span class="w">
+</span><span class="err">name</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">RISCW</span><span class="w">
+</span><span class="err">parent</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">Target</span><span class="w">
+</span><span class="err">has_asmprinter</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="mi">1</span><span class="w">
+
+</span><span class="p">[</span><span class="err">component_</span><span class="mi">1</span><span class="p">]</span><span class="w">
+</span><span class="err">type</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">Library</span><span class="w">
+</span><span class="err">name</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">RISCWCodeGen</span><span class="w">
+</span><span class="err">parent</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">RISCW</span><span class="w">
+</span><span class="err">required_libraries</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">AsmPrinter</span><span class="w"> </span><span class="err">CodeGen</span><span class="w"> </span><span class="err">Core</span><span class="w"> </span><span class="err">MC</span><span class="w"> </span><span class="err">RISCWDesc</span><span class="w"> </span><span class="err">RISCWInfo</span><span class="w">
+  </span><span class="err">SelectionDAG</span><span class="w"> </span><span class="err">Support</span><span class="w"> </span><span class="err">Target</span><span class="w">
+
+</span><span class="err">add_to_library_groups</span><span class="w"> </span><span class="err">=</span><span class="w"> </span><span class="err">RISCW</span><span class="w">
+</span></code></pre></div></div>
+<p>该文件告诉构建系统RISCW后端具有两个组件。
+其中一个是顶级组件RISCW，其类型为TargetGroup，该类型表明RISCW是一个后端，构建系统对该类型有一些特殊处理。 
+Target是RISCW的父组件。 
+请注意，此命名与LLVM后端的目录结构匹配，即<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW</code>。
+RISCW的名称也不是任意的，它必须与后端的TableGen文件中的定义匹配。</p>
+
+<p>LLVM后端提供了一系列可选功能，
+例如assembly printing，assembly parsing等，
+LLVMBuild.txt文件表明了后端支持哪些可选功能。
+比如，最后一行告诉构建系统RISCW后端实现了assembly printing功能。</p>
+
+<p><strong>注意：</strong>查看现有后端（如ARM或RISCV）中的代码，以了解它们除了has_asmprinter之外还启用了哪些功能。</p>
+
+<p>LLVMBuild.txt文件还定义了第二个名为RISCWCodeGen的组件，其类型为Library，其父级为RISCW。
+另外，文件还指明了RISCWCodeGen需要的依赖库，例如AsmPrinter，CodeGen等，构建LLVM时，缺少库会导致链接错误。</p>
+
+<p><code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW</code>的每个子目录也会包含一个LLVMBuild.txt文件，该文件使用RISCW作为父级来定义自己的组件。</p>
+
+<h3 id="cmakeliststxt文件">
+<a class="anchor" href="#cmakeliststxt%E6%96%87%E4%BB%B6" aria-hidden="true"><span class="octicon octicon-link"></span></a>CMakeLists.txt文件</h3>
+
+<p>让我们看一下<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW/CMakeLists.txt</code>文件的内容。</p>
+<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nb">set</span><span class="o">(</span>LLVM_TARGET_DEFINITIONS RISCW.td<span class="o">)</span>
+
+tablegen<span class="o">(</span>LLVM RISCWGenRegisterInfo.inc <span class="nt">-gen-register-info</span><span class="o">)</span>
+tablegen<span class="o">(</span>LLVM RISCWGenInstrInfo.inc <span class="nt">-gen-instr-info</span><span class="o">)</span>
+<span class="c"># Other TableGen commands</span>
+
+add_public_tablegen_target<span class="o">(</span>RISCWCommonTableGen<span class="o">)</span>
+
+<span class="c"># RISCWCodeGen should match with LLVMBuild.txt RISCWCodeGen</span>
+add_llvm_target<span class="o">(</span>RISCWCodeGen
+  RISCWAsmPrinter.cpp
+  <span class="c"># Other files</span>
+<span class="o">)</span>
+
+<span class="c"># Should match with "subdirectories =  MCTargetDesc TargetInfo" in LLVMBuild.txt</span>
+add_subdirectory<span class="o">(</span>TargetInfo<span class="o">)</span>
+add_subdirectory<span class="o">(</span>MCTargetDesc<span class="o">)</span>
+
 </code></pre></div></div>
-<h3 id="编译c程序">
-<a class="anchor" href="#%E7%BC%96%E8%AF%91c%E7%A8%8B%E5%BA%8F" aria-hidden="true"><span class="octicon octicon-link"></span></a>编译C程序</h3>
-<p>我们的RISCW后端只能发出两条add和ret指令，而且它不能正确处理函数调用、堆栈和几乎所有其他的东西！
-因此，我们将约束自己，只编译这个小函数:</p>
-<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>int <span class="nb">test</span><span class="o">(</span>int a, int b<span class="o">)</span>
-<span class="o">{</span>
-    <span class="k">return </span>a + b<span class="p">;</span>
-<span class="o">}</span>
-</code></pre></div></div>
-<p>就这样，我们得到了这样一个代码:</p>
-<div class="language-sh highlighter-rouge"><div class="highlight"><pre class="highlight"><code>	.text
-	.file	<span class="s2">"test.c"</span>
-	.globl	<span class="nb">test</span>                    <span class="p">;</span> <span class="nt">--</span> Begin <span class="k">function </span><span class="nb">test</span>
-	.type	<span class="nb">test</span>,@function
-<span class="nb">test</span>:                                   <span class="p">;</span> @test
-<span class="p">;</span> %bb.0:                                <span class="p">;</span> %entry
-	add	x0, x1, x0
-	ret
-.Lfunc_end0:
-	.size	<span class="nb">test</span>, .Lfunc_end0-test
-                                        <span class="p">;</span> <span class="nt">--</span> End <span class="k">function</span>
-	.ident	<span class="s2">"clang version 10.0.1 (https://github.com/llvm/llvm-project 89f2d2cc3bba7cb12cee346b3205cb0335e758cd)"</span>
-	.section	<span class="s2">".note.GNU-stack"</span>,<span class="s2">""</span>,@progbits
-</code></pre></div></div>
-<p>有很多东西缺失了，代码实际上是不正确的，在RISCV中的x0是一个硬编码为0的只读寄存器。
-但是我认为我们已经达到了目标: 建立了一个最小的LLVM后端，可以很容易地用更多的特性进行扩展。</p>
+<p>文件顶部的<code class="language-plaintext highlighter-rouge">set</code>命令将<code class="language-plaintext highlighter-rouge">LLVM_TARGET_DEFINITION</code>定义为`RISCW.td**。
+这个文件通常包含一些顶级定义，
+并通过包含其他文件的方式来引入其他TableGen定义——我们将在后面的文章中更仔细地研究TableGen，
+但是请随时查看代码库中的RISCW.td。</p>
 
-<p><strong>注意:</strong>如果您使用上一篇文章中的命令来编译上面的测试函数，请确保为clang设置了<code class="language-plaintext highlighter-rouge">-target riscw</code>和为llc设置了<code class="language-plaintext highlighter-rouge">-march=riscw</code>。</p>
+<p>然后我们在CMake文件中看到一些TableGen命令。
+它们命令构建系统使TableGen工具根据<code class="language-plaintext highlighter-rouge">*.td</code>文件生成<code class="language-plaintext highlighter-rouge">RISCWGen*.inc</code>。
+这些<code class="language-plaintext highlighter-rouge">*.inc</code>文件实际上就是传统的C++代码，在编译完LLVM之后，你可以在<code class="language-plaintext highlighter-rouge">build/lib/Target/RISCW</code>的构建目录中找到它们；它们可以用于调试，但是不容易阅读。</p>
 
-<p><strong>注意:</strong>试图编译更复杂的程序将导致<code class="language-plaintext highlighter-rouge">cannot select...</code>错误。如果你感兴趣，就试一试。</p>
+<p>接下来的命令，也就是<code class="language-plaintext highlighter-rouge">add_llvm_target</code>，
+指定了当前目录中要构建的C++文件，被指定的文件不能位于子目录中。
+<code class="language-plaintext highlighter-rouge">add_llvm_target</code>命令的第一个参数是目标的名称，并且应该与<code class="language-plaintext highlighter-rouge">LLVMBuild.txt</code>中定义名称匹配。</p>
 
-<p><strong>注意:</strong>您可以通过将<code class="language-plaintext highlighter-rouge">-debug</code>选项传递给<code class="language-plaintext highlighter-rouge">llc</code>来指示编译器打印调试信息。</p>
+<p>最后，CMakeLists.txt指定了CMake应该查看的子目录，在后端RISCW中，只有两个:<code class="language-plaintext highlighter-rouge">TargetInfo</code>和<code class="language-plaintext highlighter-rouge">MCTargetDesc</code>。
+子目录中的CMakeLists.txt与此类似，但要简单得多!</p>
+
+<p><strong>注意:</strong>后端文件的命名约定通常很重要，显然应该与构建文件的内容相匹配。
+例如，<code class="language-plaintext highlighter-rouge">set(LLVM_TARGET_DEFINITIONS RISCW.td)</code>命令要求<code class="language-plaintext highlighter-rouge">RISCW.td</code>存在!
+一定要仔细检查这些错误，因为构建错误可能有点含糊不清。</p>
 
 <h2 id="注释">
 <a class="anchor" href="#%E6%B3%A8%E9%87%8A" aria-hidden="true"><span class="octicon octicon-link"></span></a>注释</h2>
+
 <div class="footnotes" role="doc-endnotes">
   <ol>
     <li id="fn:1" role="doc-endnote">
@@ -243,6 +179,9 @@ LLVM <span class="o">(</span>http://llvm.org/<span class="o">)</span>:
     </li>
     <li id="fn:2" role="doc-endnote">
       <p><a href="https://jonathan2251.github.io/lbd/">这个教程</a>描述了如何开发LLVM后端，但我发现很难理解。 <a href="#fnref:2" class="reversefootnote" role="doc-backlink">↩</a></p>
+    </li>
+    <li id="fn:3" role="doc-endnote">
+      <p>您可以在<a href="https://cmake.org/overview/">此处</a>找到有关CMake的更多信息。 <a href="#fnref:3" class="reversefootnote" role="doc-backlink">↩</a></p>
     </li>
   </ol>
 </div>
