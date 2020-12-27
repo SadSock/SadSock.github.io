@@ -2,7 +2,7 @@
 <html lang="en"><head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="author" content=""><title>为LLVM添加简易RISCV后端(五)：指令选择 | 悲催的袜子</title>
+  <meta name="author" content=""><title>为LLVM添加简易RISCV后端(五)：算术指令 | 悲催的袜子</title>
   <meta name="keywords" content="LLVM">
   <meta name="description" content="无"><link rel="stylesheet" href="/assets/main.css?v=0.2.5" />
 <script src="/assets/main.js?v=0.2.5" defer></script><link rel="stylesheet" href="/assets/css/tomorrow.css" />
@@ -34,249 +34,545 @@
   </div>
   <article class="post">
     <header class="post__header">
-      <h1 class="post__title">为LLVM添加简易RISCV后端(五)：指令选择</h1>
+      <h1 class="post__title">为LLVM添加简易RISCV后端(五)：算术指令</h1>
       <div class="post__meta">
-        <time>2020-12-08 19:30</time>
+        <time>2020-12-11 11:30</time>
       </div>
     </header>
     <div class="post__content content">
       <ul class="section-nav">
-<li class="toc-entry toc-h2"><a href="#指令选择">指令选择</a>
+<li class="toc-entry toc-h2"><a href="#算术指令">算术指令</a>
 <ul>
-<li class="toc-entry toc-h3"><a href="#构建dag">构建DAG</a></li>
-<li class="toc-entry toc-h3"><a href="#优化">优化</a></li>
-<li class="toc-entry toc-h3"><a href="#类型和操作合法化">类型和操作合法化</a></li>
-<li class="toc-entry toc-h3"><a href="#指令选择-1">指令选择</a></li>
-<li class="toc-entry toc-h3"><a href="#调度和形成">调度和形成</a></li>
+<li class="toc-entry toc-h3"><a href="#tablegen">TableGen</a></li>
+<li class="toc-entry toc-h3"><a href="#定义寄存器">定义寄存器</a></li>
+<li class="toc-entry toc-h3"><a href="#定义指令">定义指令</a>
+<ul>
+<li class="toc-entry toc-h4"><a href="#定义格式">定义格式</a></li>
+<li class="toc-entry toc-h4"><a href="#定义指令-1">定义指令</a></li>
 </ul>
 </li>
+<li class="toc-entry toc-h3"><a href="#合法化">合法化</a></li>
+<li class="toc-entry toc-h3"><a href="#目标指令选择">目标指令选择</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#结束语">结束语</a></li>
 <li class="toc-entry toc-h2"><a href="#注释">注释</a></li>
 </ul><p>为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！
 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程<sup id="fnref:1" role="doc-noteref"><a href="#fn:1" class="footnote">1</a></sup><sup id="fnref:2" role="doc-noteref"><a href="#fn:2" class="footnote">2</a></sup>。
 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。</p>
 
-<h2 id="指令选择">
-<a class="anchor" href="#%E6%8C%87%E4%BB%A4%E9%80%89%E6%8B%A9" aria-hidden="true"><span class="octicon octicon-link"></span></a>指令选择</h2>
+<h2 id="算术指令">
+<a class="anchor" href="#%E7%AE%97%E6%9C%AF%E6%8C%87%E4%BB%A4" aria-hidden="true"><span class="octicon octicon-link"></span></a>算术指令</h2>
 
-<p>我们先前简要介绍了LLVM后端的工作过程。
-在这篇文章中，我们将更深入地了解这个过程的第一个阶段：指令选择。
-我们的目的是在了解RISCW后端的具体实现之前，了解它的工作原理以及如何配置它。</p>
+<p>现在，我们将把上一篇文章讨论的关于LLVM后端中的指令选择付诸实践。
+我们将通过查看RISCW后端的算术指令(比如加法、减法和乘法)的具体实现来做到这一点。</p>
 
-<p><strong>注意：</strong><a href="https://llvm.org/docs/CodeGenerator.html#instruction-selection-section">LLVM文档</a>对指令选择的工作原理给出了简短而清晰的描述，
-这篇文章通过示例来重新说明这一点。</p>
+<p><strong>注意：</strong>这篇文章中讨论的代码可以在<a href="https://github.com/andresag01/llvm-project/commit/38ac00579c9e84cb4374d34da917a37142f072ca">这里</a>找到。</p>
 
-<p><strong>注意：</strong>本文中显示的示例是使用我们的RISCW后端框架构建的。可以在<a href="https://github.com/andresag01/llvm-project/commit/274cfea0f9662f0ed49f6132b0424323d0b11750">这里</a>找到它的来源。</p>
+<p>RISCW的算术指令相对简单，
+在指令选择过程中仅需要配置指令选择器和合法化器，这主要需编写三部分代码。
+首先，使用TableGen描述目标平台支持的指令集。
+其次，通知LLVM需要合法化的算术运算和类型。
+最后，添加自定义C++代码来增强指令选择器的功能。</p>
 
-<p>指令选择过程将LLVM IR转化为指令序列，该指令序列使用了无穷数量的寄存器。
-该过程分为以下几个阶段：</p>
-<ol>
-  <li>构建初始DAG</li>
-  <li>优化</li>
-  <li>类型合法化</li>
-  <li>优化</li>
-  <li>操作合法化</li>
-  <li>优化</li>
-  <li>目标指令选择</li>
-  <li>调度和形成</li>
-</ol>
+<p><strong>注意：</strong>在为不同体系结构实现指令选择时，总体思路大致相似，但是具体情况将有所不同。
+例如，您的指令集可能具有有趣的/复杂的算术指令，例如长乘或多次累加，可能需要额外的代码来正确地支持这些指令。
+另外，我们不会自定义优化，但是您可以查看其他后端有关自定义优化的内容，例如XCore和ARM有很多很好的例子。</p>
 
-<p>我觉得通过例子来了解发生的事情会比较容易，我们将考虑指令选择如何转换下面的C程序。
-该代码包含一个MUL函数，该函数接受64位参数x和32位参数y。
-参数相乘，并返回32位整数结果。</p>
+<p><strong>注意：</strong>这里显示的大部分代码最初来自LLVM现有的RISCV后端，但是为了照顾本教程的读者，它已经被大大简化了。</p>
 
-<pre><code class="language-C++">unsigned int MUL(unsigned long long int x, unsigned int y)
-{
-    return x * y;
-}
+<h3 id="tablegen">
+<a class="anchor" href="#tablegen" aria-hidden="true"><span class="octicon octicon-link"></span></a>TableGen</h3>
 
-</code></pre>
+<p>TableGen是描述体系结构（包括寄存器，指令集，调用约定等）的专用编程语言，
+其目标是创建可维护、易于阅读的代码来描述体系结构。
+在构建LLVM时，TableGen工具将TableGen代码翻译为C++并将其与手工编码的C++文件一起编译。</p>
 
-<h3 id="构建dag">
-<a class="anchor" href="#%E6%9E%84%E5%BB%BAdag" aria-hidden="true"><span class="octicon octicon-link"></span></a>构建DAG</h3>
+<p><strong>注意：</strong>实际上，我发现TableGen代码很难阅读，更难编码！</p>
 
-<p>这是指令选择的第一阶段。
-它接受LLVM IR作为输入，
-并产生Selection DAG(有向无环图)作为输出。
-指令选择过程中的每个其他阶段都在DAG上执行，直到产生输出指令序列。
-正如前面几篇文章所讨论的，LLVM IR是前端工具(如Clang)根据C代码生成，随后由LLVM优化器进行优化。
-下面是C程序的LLVM IR:</p>
-<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">define</span> <span class="k">dso_local</span> <span class="kt">i32</span> <span class="vg">@MUL</span><span class="p">(</span><span class="kt">i64</span> <span class="nv">%x</span><span class="p">,</span> <span class="kt">i32</span> <span class="nv">%y</span><span class="p">)</span> <span class="k">local_unnamed_addr</span> <span class="vg">#0</span> <span class="p">{</span>
-<span class="nl">entry:</span>
-  <span class="nv">%0</span> <span class="p">=</span> <span class="k">trunc</span> <span class="kt">i64</span> <span class="nv">%x</span> <span class="k">to</span> <span class="kt">i32</span>
-  <span class="nv">%conv1</span> <span class="p">=</span> <span class="k">mul</span> <span class="kt">i32</span> <span class="nv">%0</span><span class="p">,</span> <span class="nv">%y</span>
-  <span class="k">ret</span> <span class="kt">i32</span> <span class="nv">%conv1</span>
-<span class="p">}</span>
-</code></pre></div></div>
-<p>Selection DAG实际上是一种精巧的树型数据结构，它表示LLVM IR中的基本块。 
-基本块是不包含分支目的地（入口除外）和分支指令（出口除外）的指令序列。 
-示例MUL函数非常简单，它只有一个称为入口的基本块，其他函数通常具有多个基本块。 
-例如，下面的<code class="language-plaintext highlighter-rouge">hello</code>函数具有四个基本块：<code class="language-plaintext highlighter-rouge">entry</code>，<code class="language-plaintext highlighter-rouge">if.then</code>，<code class="language-plaintext highlighter-rouge">if.else</code>和<code class="language-plaintext highlighter-rouge">return</code>。
-每个基本块都将被转换为单独的DAG。</p>
-<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">define</span> <span class="k">dso_local</span> <span class="kt">i32</span> <span class="vg">@hello</span><span class="p">(</span><span class="kt">i32</span> <span class="nv">%x</span><span class="p">)</span> <span class="k">local_unnamed_addr</span> <span class="vg">#0</span> <span class="p">{</span>
-<span class="nl">entry:</span>
-  <span class="nv">%cmp</span> <span class="p">=</span> <span class="k">icmp</span> <span class="k">eq</span> <span class="kt">i32</span> <span class="nv">%x</span><span class="p">,</span> <span class="m">100</span>
-  <span class="k">br</span> <span class="kt">i1</span> <span class="nv">%cmp</span><span class="p">,</span> <span class="kt">label</span> <span class="nv">%if.then</span><span class="p">,</span> <span class="kt">label</span> <span class="nv">%if.else</span>
+<p>简而言之，TableGen是具有以下功能的声明性编程语言：</p>
 
-<span class="nl">if.then:</span>                                          <span class="c1">; preds = %entry</span>
-  <span class="nv">%call</span> <span class="p">=</span> <span class="k">tail</span> <span class="k">call</span> <span class="kt">i32</span> <span class="k">bitcast</span> <span class="p">(</span><span class="kt">i32</span> <span class="p">(...)*</span> <span class="vg">@hello100</span> <span class="k">to</span> <span class="kt">i32</span> <span class="p">(</span><span class="kt">i32</span><span class="p">)*)(</span><span class="kt">i32</span> <span class="m">100</span><span class="p">)</span> <span class="vg">#2</span>
-  <span class="k">br</span> <span class="kt">label</span> <span class="nv">%return</span>
-
-<span class="nl">if.else:</span>                                          <span class="c1">; preds = %entry</span>
-  <span class="nv">%call1</span> <span class="p">=</span> <span class="k">tail</span> <span class="k">call</span> <span class="kt">i32</span> <span class="k">bitcast</span> <span class="p">(</span><span class="kt">i32</span> <span class="p">(...)*</span> <span class="vg">@helloOther</span> <span class="k">to</span> <span class="kt">i32</span> <span class="p">(</span><span class="kt">i32</span><span class="p">)*)(</span><span class="kt">i32</span> <span class="nv">%x</span><span class="p">)</span> <span class="vg">#2</span>
-  <span class="k">br</span> <span class="kt">label</span> <span class="nv">%return</span>
-
-<span class="nl">return:</span>                                           <span class="c1">; preds = %if.else, %if.then</span>
-  <span class="nv">%retval.0</span> <span class="p">=</span> <span class="k">phi</span> <span class="kt">i32</span> <span class="p">[</span> <span class="nv">%call</span><span class="p">,</span> <span class="nv">%if.then</span> <span class="p">],</span> <span class="p">[</span> <span class="nv">%call1</span><span class="p">,</span> <span class="nv">%if.else</span> <span class="p">]</span>
-  <span class="k">ret</span> <span class="kt">i32</span> <span class="nv">%retval.0</span>
-<span class="p">}</span>
-</code></pre></div></div>
-<p>Selection DAG具有以下属性：</p>
 <ul>
-  <li>每个节点都是<code class="language-plaintext highlighter-rouge">SDNode</code>类的实例，代表一个操作，如加、减、乘等。
-操作类型都定义在文件<code class="language-plaintext highlighter-rouge">include/llvm/CodeGen/ISDOpcodes.h</code>中。</li>
-  <li>每个节点都有0个或多个操作数，操作数由其他节点定义，用指向该节点的边表示，边是<code class="language-plaintext highlighter-rouge">SDValue</code>类的实例。</li>
-  <li>操作产生的值的类型为<code class="language-plaintext highlighter-rouge">MTV</code>（Machine Value Type），比如<code class="language-plaintext highlighter-rouge">i1</code>和<code class="language-plaintext highlighter-rouge">i8</code>，它们分别表示1位和8位整数。</li>
-  <li>具有副作用的节点会强制对操作进行排序，例如<code class="language-plaintext highlighter-rouge">return</code>和<code class="language-plaintext highlighter-rouge">loads</code>语句，它们具有类型为<code class="language-plaintext highlighter-rouge">MVT::Other</code>的特殊chain值，
-既作为输入操作数又作为输出操作数。</li>
   <li>
-<code class="language-plaintext highlighter-rouge">ISD::EntryToken</code>类型的叶节点是代码的入口。</li>
-  <li>DAG的根节点是带有链操作数的最终副作用节点。这是的代码块的最后一个操作，例如函数结尾处的返回。</li>
+    <p>有两个主要组件： <code class="language-plaintext highlighter-rouge">record</code>和<code class="language-plaintext highlighter-rouge">class</code>。
+<code class="language-plaintext highlighter-rouge">record</code>是<code class="language-plaintext highlighter-rouge">class</code>的实例，包含了名称和相关字段的值。
+<code class="language-plaintext highlighter-rouge">class</code>是<code class="language-plaintext highlighter-rouge">record</code>的抽象，可用于生成具体的<code class="language-plaintext highlighter-rouge">record</code>。
+两者相互配合可以很好地提取公共代码并减少重复。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">record</code>可以从一个或多个<code class="language-plaintext highlighter-rouge">class</code>继承，还可以定义自己的字段。</p>
+  </li>
+  <li>
+    <p>字段具有名称和值（或值列表），值具有特定的类型（如bit或int）。<a href="https://llvm.org/docs/TableGen/ProgRef.html#types">这是</a>类型列表。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">include</code>指令用于将TableGen代码从一个文件包含到另一个文件中，就像C的<code class="language-plaintext highlighter-rouge">#include</code>一样。</p>
+  </li>
 </ul>
 
-<p><strong>警告！</strong>LLVM后端的类型系统非常有限。
-当输入的LLVM IR被转换为DAG时，许多有用的类型信息被丢弃。
-最值得注意的丢弃是指针类型，<code class="language-plaintext highlighter-rouge">MVT</code>类的类型列表完全没有包含指针类型。
-因此，指针在DAG中使用整数类型表示，所以很难判断一个节点(如<code class="language-plaintext highlighter-rouge">add</code>)的操作数是指针还是整数。</p>
+<p>以下是从LLVM<a href="https://llvm.org/docs/TableGen/ProgRef.html#examples-classes-and-records">文档</a>中获取的示例，其中显示了一个非常简单的TableGen文件。
+它包含一个<code class="language-plaintext highlighter-rouge">class</code>C，该<code class="language-plaintext highlighter-rouge">class</code>定义了值为1的bit类型的字段V，
+还声明了一个从类C派生的记录X。</p>
 
-<p>这是我从MUL函数获得的初始Selection DAG。
-<img src="http://localhost:4000/assets/riscw/llvm-4-dag-before-combine1.png" alt="Selection DAG"></p>
-
-<p>入口节点位于图的顶部，而根节点位于底部。
-还有一个由蓝色边连接的节点链，从根节点开始，到入口节点结束。
-这些蓝边就是前面讨论过的链操作数。
-黑色边显示的是值的流动，如整数和浮点数。
-此Selection DAG的等效文本表示如下所示：</p>
-<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nl">t0:</span> <span class="err">ch</span> <span class="p">=</span> <span class="err">EntryToken</span>
-        <span class="nl">t2:</span> <span class="kt">i32</span><span class="p">,</span><span class="err">ch</span> <span class="p">=</span> <span class="err">CopyFromReg</span> <span class="err">t0</span><span class="p">,</span> <span class="nl">Register:</span><span class="kt">i32</span> <span class="nv">%0</span>
-        <span class="nl">t4:</span> <span class="kt">i32</span><span class="p">,</span><span class="err">ch</span> <span class="p">=</span> <span class="err">CopyFromReg</span> <span class="err">t0</span><span class="p">,</span> <span class="nl">Register:</span><span class="kt">i32</span> <span class="nv">%1</span>
-      <span class="nl">t7:</span> <span class="kt">i64</span> <span class="p">=</span> <span class="err">build_pair</span> <span class="err">t2</span><span class="p">,</span> <span class="err">t4</span>
-    <span class="nl">t8:</span> <span class="kt">i32</span> <span class="p">=</span> <span class="err">truncate</span> <span class="err">t7</span>
-    <span class="nl">t6:</span> <span class="kt">i32</span><span class="p">,</span><span class="err">ch</span> <span class="p">=</span> <span class="err">CopyFromReg</span> <span class="err">t0</span><span class="p">,</span> <span class="nl">Register:</span><span class="kt">i32</span> <span class="nv">%2</span>
-  <span class="nl">t9:</span> <span class="kt">i32</span> <span class="p">=</span> <span class="k">mul</span> <span class="err">t8</span><span class="p">,</span> <span class="err">t6</span>
-<span class="nl">t11:</span> <span class="err">ch</span><span class="p">,</span><span class="err">glue</span> <span class="p">=</span> <span class="err">CopyToReg</span> <span class="err">t0</span><span class="p">,</span> <span class="nl">Register:</span><span class="kt">i32</span> <span class="err">$</span><span class="p">x</span><span class="m">0</span><span class="p">,</span> <span class="err">t9</span>
-<span class="nl">t12:</span> <span class="err">ch</span> <span class="p">=</span> <span class="nl">RISCWISD:</span><span class="err">:Ret</span> <span class="err">t11</span><span class="p">,</span> <span class="nl">Register:</span><span class="kt">i32</span> <span class="err">$</span><span class="p">x</span><span class="m">0</span><span class="p">,</span> <span class="nl">t11:</span><span class="m">1</span>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">class</span> <span class="err">C</span> <span class="p">{</span>
+  <span class="k">bit</span> <span class="err">V</span> <span class="p">=</span> <span class="m">1</span><span class="c1">;</span>
+<span class="p">}</span>
+<span class="err">def</span> <span class="nl">X :</span> <span class="err">C</span><span class="c1">;</span>
 </code></pre></div></div>
-<p><strong>注意：</strong>Selection DAG可以同时包含目标独立和目标相关的节点。
-目标独立的操作定义在文件<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/include/llvm/CodeGen/ISDOpcodes.h#L40">ISDOpcodes.h</a>中。
-目标相关的操作由每个后端定义，通常定义在声明TargetLowering子类的同一文件中。 
-您可以在<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/RISCW/RISCWISelLowering.h#L25">llvm/lib/Target/RISCW/RISCWISelLowering.h</a>中找到目标相关节点的定义。
-上面显示的用于MUL的Selection DAG具有节点t12，该节点代表目标相关操作<code class="language-plaintext highlighter-rouge">RISCWISD::Ret</code>，该函数表示从函数返回。</p>
+<p>后端需要定义TableGen的<code class="language-plaintext highlighter-rouge">record</code>，用以声明指令、寄存器等。
+这些<code class="language-plaintext highlighter-rouge">record</code>必须从内部类继承，这样TableGen工具才能魔术地为这些<code class="language-plaintext highlighter-rouge">record</code>生成适当的C++代码。
+例如，声明寄存器的<code class="language-plaintext highlighter-rouge">record</code>必须从内部的Register类继承。
+在这篇文章中，我们将查看声明寄存器和指令的TableGen代码。</p>
 
-<p><strong>注意：</strong>在指令选择过程的各个阶段，您可以通过向<code class="language-plaintext highlighter-rouge">llc</code>命令传递<code class="language-plaintext highlighter-rouge">-view-dag-combine1-dags</code>，<code class="language-plaintext highlighter-rouge">-view-legalize-dags</code>，<code class="language-plaintext highlighter-rouge">-view-dag-combine2-dags</code>参数告诉LLVM生成Selection DAG的可视化表示，还可以通过向<code class="language-plaintext highlighter-rouge">llc</code>命令传递<code class="language-plaintext highlighter-rouge">-debug</code>参数告诉LLVM生成Selection DAG的文本表示。</p>
+<p><strong>注意:</strong>TableGen文档在解释它是什么和语法方面做得很好。
+但是，介绍后端应该重用的内部类和预定义记录的文档却很少；要了解这些内容您必须查看源代码。</p>
 
-<h3 id="优化">
-<a class="anchor" href="#%E4%BC%98%E5%8C%96" aria-hidden="true"><span class="octicon octicon-link"></span></a>优化</h3>
+<p><strong>注意:</strong>回想一下之前的文章，
+我们的CMake文件使用带各种参数的TableGen命令把扩展名为<code class="language-plaintext highlighter-rouge">.td</code>的TableGen代码文件转化为扩展名为<code class="language-plaintext highlighter-rouge">.inc</code>的C++文件。
+在构建系统发出TableGen命令之后，可以在<code class="language-plaintext highlighter-rouge">build/lib/Target/RISCW</code>的构建目录中找到生成的文件。
+Tablegen的参数可以<a href="https://llvm.org/docs/CommandGuide/tblgen.html">这里</a>(非常简短地)查看。</p>
 
-<p>指令选择阶段会有三次DAG优化过程，第一次优化发生在LLVM IR构建Selection DAG之后。
-其余两次将在合法化阶段后执行。
-根据LLVM文档，这些优化旨在简化可能由其他阶段(如合法化)生成的不必要的复杂Selection DAGs。</p>
+<p><strong>注意:</strong>TableGen还可以配置指令选择过程中的调度和形成阶段，但是我不会在本教程中讨论这一点。
+如果你感兴趣，可以看看<a href="https://www.youtube.com/watch?v=brpomKUynEA&amp;ab_channel=LLVM">这个视频</a>。</p>
 
-<p>就我所知，LLVM的优化过程就是通过运行一个编译pass将一组节点组合成更简洁的节点。
-为了实现这一点，LLVM用这个巨大的C++文件(&gt;20,000行)遍历DAG，并通过模式匹配来寻找优化机会。
-例如，合并器可以将Selection DAG的<code class="language-plaintext highlighter-rouge">(add (add x, y) z)</code>节点，转换为<code class="language-plaintext highlighter-rouge">(add x，y + z)</code>节点，从而消除了<code class="language-plaintext highlighter-rouge">add</code>节点。</p>
+<h3 id="定义寄存器">
+<a class="anchor" href="#%E5%AE%9A%E4%B9%89%E5%AF%84%E5%AD%98%E5%99%A8" aria-hidden="true"><span class="octicon octicon-link"></span></a>定义寄存器</h3>
+<p>RISCW的寄存器定义非常简单，
+可以在<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW/RISCWRegisterInfo.td</code>中找到。 
+让我们对其进行剖析，以了解TableGen的工作方式。</p>
 
-<p>下图显示了MUL示例函数第一遍优化后的Selection DAG。
-与上一节中的Selection DAG相比，优化的DAG用节点t13代替了节点t3和t4。
-该优化将丢弃64位整数x的高32位，因为函数MUL的返回值仅依赖x的低32位，
-因此，可以通过消除t3和t4简化DAG。
-<img src="http://localhost:4000/assets/riscw/llvm-4-dag-before-legalize-types.png" alt="Selection DAG"></p>
-
-<p>LLVM的DAG合成器只优化目标独立的操作，即<code class="language-plaintext highlighter-rouge">ISDOpcodes.h</code>中定义的<code class="language-plaintext highlighter-rouge">add</code>、<code class="language-plaintext highlighter-rouge">sub</code>、<code class="language-plaintext highlighter-rouge">load</code>、<code class="language-plaintext highlighter-rouge">store</code>等。
-通过覆盖<code class="language-plaintext highlighter-rouge">targetlower</code>子类中的<code class="language-plaintext highlighter-rouge">PerformDAGCombine</code>函数，
-后端可以为合成器提供额外的优化功能，这些功能可以是目标独立的也可以是目标依赖的。
-此外，后端必须通知优化器受支持的目标独立的节点，
-这通过在<code class="language-plaintext highlighter-rouge">targetlower</code>类的子类的构造函数中调用<code class="language-plaintext highlighter-rouge">setTargetDAGCombine</code>函数完成。</p>
-
-<p><strong>注意：</strong>令人困惑的是，LLVM后端的<code class="language-plaintext highlighter-rouge">TargetLowering</code>子类通常在<code class="language-plaintext highlighter-rouge">&lt;TARGET_NAME&gt;ISelLowering.cpp</code>文件中实现。
-您可以在<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW/RISCWISelLowering.cpp</code>中找到RISCW的实现。</p>
-
-<p><strong>注意：</strong>XCore后端有一个很好的<code class="language-plaintext highlighter-rouge">PerformDAGCombine</code>和<code class="language-plaintext highlighter-rouge">setTargetDAGCombine</code>例子（参见<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/XCore/XCoreISelLowering.cpp#L1590">这里</a>和<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/XCore/XCoreISelLowering.cpp#L170">这里</a>）
-——我的意思是很容易阅读。
-另外，看看<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/XCore/XCoreISelLowering.cpp#L1739">这个后端</a>是如何将<code class="language-plaintext highlighter-rouge">add(add(mul(x，y)，a)，b)</code>节点组合到更简单的目标依赖的<code class="language-plaintext highlighter-rouge">lmul(x，y，a，b)</code>节点，
-因为XCore架构有一个乘法累加指令<sup id="fnref:3" role="doc-noteref"><a href="#fn:3" class="footnote">3</a></sup>。</p>
-
-<h3 id="类型和操作合法化">
-<a class="anchor" href="#%E7%B1%BB%E5%9E%8B%E5%92%8C%E6%93%8D%E4%BD%9C%E5%90%88%E6%B3%95%E5%8C%96" aria-hidden="true"><span class="octicon octicon-link"></span></a>类型和操作合法化</h3>
-
-<p>上面显示的优化的DAG包含一个节点t7，
-它会产生一个i64类型的值，
-但是RISCW机器只支持32位。
-合法化阶段会解决这些问题。</p>
-
-<p>首先执行的是类型合法化，
-它将DAG转换为仅使用本地计算机原生支持的数据类型。
-为了实现这一点，它将小类型转换或提升为较大的类型；
-例如，<code class="language-plaintext highlighter-rouge">i1</code>类型的1位整数转换为<code class="language-plaintext highlighter-rouge">i32</code>类型的32位整数。
-此外，编译器将大整数分解或展开为较小的整数，例如在32位计算机中，<code class="language-plaintext highlighter-rouge">i64</code>类型的64位整数被转换为<code class="language-plaintext highlighter-rouge">i32</code>类型的32位整数。
-下面的DAG是前面展示的DAG的合法化版本。
-在本例中，编译器消除了t3和t7节点，以确保新的DAG只使用<code class="language-plaintext highlighter-rouge">i32</code>整数。</p>
-
-<p><img src="http://localhost:4000/assets/riscw/llvm-4-dag-before-combine2.png" alt="Selection DAG"></p>
-
-<p>操作合法化在第二个优化阶段之后执行。
-它将DAG转换为仅使用本地计算机原生支持的操作。
-例如，DAG可能包含bit-rotate left（rotl）节点，但目标指令集可能不支持该指令，
-因此，操作合法化把该操作转化为移位和或运算的联合操作。</p>
-
-<p>有三种使操作合法化的策略。
-首先，将不受支持的操作扩展为一组受支持的操作来模拟原不受支持的操作。
-其次，把类型提升为更大的类型，以支持缺失的操作。
-第三，使用TargetLowering类的子类中的钩子在C++中实现自定义的合法化。</p>
-
-<p><strong>注意：</strong>在以后的文章中，我将解释后端如何配置合法化阶段。
-这可以在TargetLowering类的子类的构造函数中完成。</p>
-
-<h3 id="指令选择-1">
-<a class="anchor" href="#%E6%8C%87%E4%BB%A4%E9%80%89%E6%8B%A9-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>指令选择</h3>
-<p>此时，DAG包含大部分目标独立（如加和减）节点，以及一小部分目标依赖节点（如<code class="language-plaintext highlighter-rouge">RISCWISD::Ret</code>）。 
-下一步，需要将这些抽象操作映射到目标架构的具体机器指令，
-LLVM在指令选择阶段会对此进行处理。 
-处理方法很简单：编译器通过模式匹配将DAG中的节点映射成机器指令。 
-指令的模式和描述由编译器后端的开发人员通过<a href="https://llvm.org/docs/TableGen/ProgRef.html">TableGen</a>代码提供。 
-另外，可以使用C++直接编写难以使用TableGen描述的复杂模式。</p>
-
-<p>我们将在以后的文章中更仔细地研究TableGen。
-现在，让我们考虑一下LLVM如何将合法且优化的DAG映射成下面显示的新DAG。
-在这种情况下，只有两个节点需要更改。
-t9用指令<code class="language-plaintext highlighter-rouge">MUL</code>替换了mul操作，而t12用指令<code class="language-plaintext highlighter-rouge">PseudoRet</code>替换了<code class="language-plaintext highlighter-rouge">RISCWISD::Ret</code>。</p>
-
-<p><img src="http://localhost:4000/assets/riscw/llvm-4-dag-before-scheduler.png" alt="Selection DAG"></p>
-
-<h3 id="调度和形成">
-<a class="anchor" href="#%E8%B0%83%E5%BA%A6%E5%92%8C%E5%BD%A2%E6%88%90" aria-hidden="true"><span class="octicon octicon-link"></span></a>调度和形成</h3>
-
-<p>谢天谢地，这里没什么好说的，因为帖子已经很长了！
-此阶段根据某些约束将DAG转换为指令列表。
-例如，后端可以通过<code class="language-plaintext highlighter-rouge">TargetLowering</code>子类的构造函数调用<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/include/llvm/CodeGen/TargetLowering.h#L1939">setSchedulingPreference</a>来指定调度选项。</p>
-
-<p><strong>警告！</strong> 一定要尝试不同的调度首选项！
-如果调度策略与体系结构和处理器的特性不匹配，那么调度策略会显著降低所发出的代码的质量。
-<a href="">这里</a>列出了各种调度选项。</p>
-
-<p>下面是我们MUL函数的指令清单。
-有几个重要的事情要注意。
-首先，与实际机器的寄存器相反，生成的代码仍然使用一组无限多的虚拟寄存器；
-编译器稍后会通过寄存器分配器来处理这个问题。
-第二，已经存在一些对寄存器分配过程有用的生命周期信息；例如，有两个寄存器，即<code class="language-plaintext highlighter-rouge">x0</code>和<code class="language-plaintext highlighter-rouge">x2</code>，
-它们在基本块的开始处就处于活动状态。</p>
-<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nl">bb.0.entry:</span>
-  <span class="nl">liveins:</span> <span class="err">$</span><span class="p">x</span><span class="m">0</span><span class="p">,</span> <span class="err">$</span><span class="p">x</span><span class="m">2</span>
-  <span class="nv">%2</span><span class="err">:gpr</span> <span class="p">=</span> <span class="err">COPY</span> <span class="err">$</span><span class="p">x</span><span class="m">2</span>
-  <span class="nv">%0</span><span class="err">:gpr</span> <span class="p">=</span> <span class="err">COPY</span> <span class="err">$</span><span class="p">x</span><span class="m">0</span>
-  <span class="nv">%3</span><span class="err">:gpr</span> <span class="p">=</span> <span class="err">MUL</span> <span class="nv">%0</span><span class="err">:gpr</span><span class="p">,</span> <span class="nv">%2</span><span class="err">:gpr</span>
-  <span class="err">$</span><span class="p">x</span><span class="m">0</span> <span class="p">=</span> <span class="err">COPY</span> <span class="nv">%3</span><span class="err">:gpr</span>
-  <span class="err">PseudoRET</span> <span class="err">implicit</span> <span class="err">$</span><span class="p">x</span><span class="m">0</span>
+<p>在文件的顶部，我们找到以下类。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">let</span> <span class="err">Namespace</span> <span class="p">=</span> <span class="s">"RISCW"</span> <span class="err">in</span> <span class="p">{</span>
+<span class="err">class</span> <span class="err">RISCWReg</span><span class="p">&lt;</span><span class="err">bits</span><span class="p">&lt;</span><span class="m">5</span><span class="p">&gt;</span> <span class="err">Enc</span><span class="p">,</span> <span class="err">string</span> <span class="err">n</span><span class="p">,</span> <span class="err">list</span><span class="p">&lt;</span><span class="err">string</span><span class="p">&gt;</span> <span class="err">alt</span> <span class="p">=</span> <span class="p">[]&gt;</span> <span class="err">:</span> <span class="err">Register</span><span class="p">&lt;</span><span class="err">n</span><span class="p">&gt;</span> <span class="p">{</span>
+  <span class="err">let</span> <span class="err">HWEncoding</span><span class="p">{</span><span class="m">4-0</span><span class="p">}</span> <span class="p">=</span> <span class="err">Enc</span><span class="c1">;</span>
+  <span class="err">let</span> <span class="err">AltNames</span> <span class="p">=</span> <span class="err">alt</span><span class="c1">;</span>
+<span class="p">}</span>
+<span class="p">}</span> <span class="err">//</span> <span class="err">end</span> <span class="err">Namespace</span>
 </code></pre></div></div>
+<p>该代码声明了一个<code class="language-plaintext highlighter-rouge">RISCWReg</code>类，该类继承自在<code class="language-plaintext highlighter-rouge">include/llvm/Target/Target.td</code>中定义的内部类Register。
+该代码还告诉我们，从此类继承时，我们必须提供最多三个参数：</p>
+
+<ul>
+  <li>
+    <p>寄存器编码<code class="language-plaintext highlighter-rouge">Enc</code>，它是类型为<code class="language-plaintext highlighter-rouge">bits&lt;5&gt;</code>的5位整数。</p>
+  </li>
+  <li>
+    <p>字符串<code class="language-plaintext highlighter-rouge">n</code>，表示人类可读的寄存器名称，如RISCV中的<code class="language-plaintext highlighter-rouge">x0</code>、<code class="language-plaintext highlighter-rouge">x1</code>等。</p>
+  </li>
+  <li>
+    <p>寄存器的别名列表，该列表是可选的。
+例如，RISCV中的x2也可以称为sp，即堆栈指针。
+但请注意，此列表是可选的，因为可以声明没有别名的寄存器，如果寄存器没有别名，则把<code class="language-plaintext highlighter-rouge">alt</code>设置<code class="language-plaintext highlighter-rouge">[]</code>。</p>
+  </li>
+</ul>
+
+<p>另外，请注意Register类接受一个参数：类型为字符串的寄存器名称。
+RISCWReg的其余两个参数（<code class="language-plaintext highlighter-rouge">Enc</code>和<code class="language-plaintext highlighter-rouge">alt</code>）被<code class="language-plaintext highlighter-rouge">let</code>语句用于覆盖Register类定义的<code class="language-plaintext highlighter-rouge">HWEncoding</code>和<code class="language-plaintext highlighter-rouge">AltNames</code>域。
+您可以在<a href="https://github.com/andresag01/llvm-project/blob/38ac00579c9e84cb4374d34da917a37142f072ca/llvm/include/llvm/Target/Target.td#L180">这里</a>和<a href="https://github.com/andresag01/llvm-project/blob/38ac00579c9e84cb4374d34da917a37142f072ca/llvm/include/llvm/Target/Target.td#L136">这里</a>阅读Register的代码。</p>
+
+<p>接下来，我们在该文件中找到以下Register定义。
+每一行代码都是一个<code class="language-plaintext highlighter-rouge">record</code>，它定义了一个寄存器。
+这些<code class="language-plaintext highlighter-rouge">record</code>继承自两个类:<code class="language-plaintext highlighter-rouge">RISCWReg</code>(我们已经讨论过了)和<code class="language-plaintext highlighter-rouge">DwarfRegNum</code>。
+<code class="language-plaintext highlighter-rouge">DwarfRegNum</code>是这里定义的另一个内部类，用于为GCC和GDB提供调试信息。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">def</span> <span class="nl">X0  :</span> <span class="err">RISCWReg</span><span class="p">&lt;</span><span class="m">0</span><span class="p">,</span> <span class="s">"x0"</span><span class="p">,</span> <span class="p">[</span><span class="s">"zero"</span><span class="p">]&gt;,</span> <span class="err">DwarfRegNum</span><span class="p">&lt;[</span><span class="m">0</span><span class="p">]&gt;</span><span class="c1">;</span>
+<span class="p">...</span>
+<span class="err">def</span> <span class="nl">X31 :</span> <span class="err">RISCWReg</span><span class="p">&lt;</span><span class="m">31</span><span class="p">,</span><span class="s">"x31"</span><span class="p">,</span> <span class="p">[</span><span class="s">"t6"</span><span class="p">]&gt;,</span> <span class="err">DwarfRegNum</span><span class="p">&lt;[</span><span class="m">31</span><span class="p">]&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p>文件的最后几行定义寄存器组，
+RISCW定义了两种寄存器组：<code class="language-plaintext highlighter-rouge">GPR</code>通用寄存器和堆栈指针<code class="language-plaintext highlighter-rouge">SP</code>寄存器。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">def</span> <span class="nl">GPR :</span> <span class="err">RegisterClass</span><span class="p">&lt;</span><span class="s">"RISCW"</span><span class="p">,</span> <span class="p">[</span><span class="kt">i32</span><span class="p">],</span> <span class="m">32</span><span class="p">,</span> <span class="p">(</span><span class="k">add</span>
+    <span class="p">(</span><span class="err">sequence</span> <span class="s">"X%u"</span><span class="p">,</span> <span class="m">10</span><span class="p">,</span> <span class="m">17</span><span class="p">),</span>
+    <span class="p">(</span><span class="err">sequence</span> <span class="s">"X%u"</span><span class="p">,</span> <span class="m">5</span><span class="p">,</span> <span class="m">7</span><span class="p">),</span>
+    <span class="p">(</span><span class="err">sequence</span> <span class="s">"X%u"</span><span class="p">,</span> <span class="m">28</span><span class="p">,</span> <span class="m">31</span><span class="p">),</span>
+    <span class="p">(</span><span class="err">sequence</span> <span class="s">"X%u"</span><span class="p">,</span> <span class="m">8</span><span class="p">,</span> <span class="m">9</span><span class="p">),</span>
+    <span class="p">(</span><span class="err">sequence</span> <span class="s">"X%u"</span><span class="p">,</span> <span class="m">18</span><span class="p">,</span> <span class="m">27</span><span class="p">),</span>
+    <span class="p">(</span><span class="err">sequence</span> <span class="s">"X%u"</span><span class="p">,</span> <span class="m">0</span><span class="p">,</span> <span class="m">4</span><span class="p">)</span>
+  <span class="p">)&gt;</span><span class="c1">;</span>
+
+<span class="err">def</span> <span class="nl">SP :</span> <span class="err">RegisterClass</span><span class="p">&lt;</span><span class="s">"RISCW"</span><span class="p">,</span> <span class="p">[</span><span class="kt">i32</span><span class="p">],</span> <span class="m">32</span><span class="p">,</span> <span class="p">(</span><span class="k">add</span> <span class="err">X2</span><span class="p">)&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p>定义Register组的<code class="language-plaintext highlighter-rouge">record</code>继承自RegisterClass类，后者具有四个参数（还有一个可选的第五个参数，我们将不讨论）：</p>
+
+<ul>
+  <li>
+    <p>命名空间在我们的例子中是RISCW，这与我们在上面的RISCWReg类中重写的名称空间字段相匹配。</p>
+  </li>
+  <li>
+    <p>此组寄存器支持的数据类型列表。
+这是一个列表，因为某些体系结构中的寄存器可以支持多种数据类型。
+例如，一些64位计算机的寄存器可以在32位和64位模式下工作。
+RISCW只适用于32位机器，因此寄存器总是32位，它们的类型就是i32。</p>
+  </li>
+  <li>
+    <p>从内存中存储或加载寄存器时寄存器的对齐方式。</p>
+  </li>
+  <li>
+    <p>一个DAG，指示此寄存器组包含的寄存器。还有…</p>
+
+    <ul>
+      <li>
+        <p>我是说DAG！注意，<code class="language-plaintext highlighter-rouge">GPR</code>的DAG有一个<code class="language-plaintext highlighter-rouge">ADD</code>模式，该模式有6个<code class="language-plaintext highlighter-rouge">sequence</code>节点。
+  <code class="language-plaintext highlighter-rouge">sequence</code>是一种操作，它接受字符串格式参数以及起始值和结束值。
+  序列中的每个元素都是TableGen工具根据格式参数指定的格式生成。
+  所以，这个DAG的另一种写法是(add X10, X17,…, X3, X4)。</p>
+      </li>
+      <li>
+        <p>此DAG还指定了寄存器分配器使用寄存器的顺序。
+  例如，如果两者都可用，分配器将优先使用来自GPR的<code class="language-plaintext highlighter-rouge">x10</code>而不是<code class="language-plaintext highlighter-rouge">x4</code>。</p>
+      </li>
+    </ul>
+  </li>
+</ul>
+
+<p>寄存器组稍后用于配置合法化器。</p>
+
+<h3 id="定义指令">
+<a class="anchor" href="#%E5%AE%9A%E4%B9%89%E6%8C%87%E4%BB%A4" aria-hidden="true"><span class="octicon octicon-link"></span></a>定义指令</h3>
+
+<p>计算机体系结构使用一组格式对指令进行编码。
+例如，RISCV体系结构使用32位编码和4种基本指令格式来编码指令<sup id="fnref:3" role="doc-noteref"><a href="#fn:3" class="footnote">3</a></sup>。
+此外，每种格式都有一组唯一的操作码(或操作码)。
+然后使用格式和操作码对特定指令进行编码，这使处理器能够识别指令并确定它们的操作数。</p>
+
+<p>在LLVM中，定义指令的方式与定义指令集编码的方式类似。
+定义指令的代码通常由两部分组成: 格式定义和指令定义。</p>
+
+<h4 id="定义格式">
+<a class="anchor" href="#%E5%AE%9A%E4%B9%89%E6%A0%BC%E5%BC%8F" aria-hidden="true"><span class="octicon octicon-link"></span></a>定义格式</h4>
+
+<p>定义格式的同时也定义了唯一的标识符，
+这些标识符指示指令的格式，
+C++代码使用它来正确地发出指令编码。
+RISCW后端定义格式的代码，如下所示:</p>
+
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">class</span> <span class="err">InstFormat</span><span class="p">&lt;</span><span class="err">bits</span><span class="p">&lt;</span><span class="m">5</span><span class="p">&gt;</span> <span class="err">val</span><span class="p">&gt;</span> <span class="p">{</span>
+  <span class="err">bits</span><span class="p">&lt;</span><span class="m">5</span><span class="p">&gt;</span> <span class="err">Value</span> <span class="p">=</span> <span class="err">val</span><span class="c1">;</span>
+<span class="p">}</span>
+<span class="err">def</span> <span class="nl">InstFormatPseudo :</span> <span class="err">InstFormat</span><span class="p">&lt;</span><span class="m">0</span><span class="p">&gt;</span><span class="c1">;</span>
+<span class="err">def</span> <span class="nl">InstFormatR      :</span> <span class="err">InstFormat</span><span class="p">&lt;</span><span class="m">1</span><span class="p">&gt;</span><span class="c1">;</span>
+<span class="p">...</span>
+<span class="err">def</span> <span class="nl">InstFormatOther  :</span> <span class="err">InstFormat</span><span class="p">&lt;</span><span class="m">17</span><span class="p">&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p><strong>注意：</strong>
+在LLVM后端中，定义指令格式的代码通常在文件<code class="language-plaintext highlighter-rouge">llvm/lib/Target/&lt;BACKEND&gt;/&lt;BACKEND&gt;InstrFormats.td</code>中，
+而实际定义指令的代码在文件<code class="language-plaintext highlighter-rouge">llvm/lib/Target/&lt;BACKEND&gt;/&lt;BACKEND&gt;InstrInfo.td</code>中。
+但是在复杂的后端中，
+指令定义可以拆分为多个文件，
+例如，RISCV的每个扩展都对应一个不同的文件。 
+这些文件称为<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCV/RISCVInstrInfo&lt;EXT&gt;.td</code>，
+其中<code class="language-plaintext highlighter-rouge">&lt;EXT&gt;</code>是扩展字母，如M，A等。
+RISCW后端相对简单，
+用于定义格式和指令的TableGen代码分别存储在<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW/RISCWInstrFormats.td</code>和<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCWInstrInfo.td</code>中。</p>
+
+<p><strong>注意:</strong>RISCW后端基于RISCV后端。
+两者都试图严格地根据RISCV的参考手册定义指令，
+但这不是必须的。
+你也可以针对你的体系结构和编译器构造只属于你的TableGen代码。</p>
+
+<p>RISCW后端为操作码定义了如下<code class="language-plaintext highlighter-rouge">record</code>:</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">class</span> <span class="err">RISCWOpcode</span><span class="p">&lt;</span><span class="err">bits</span><span class="p">&lt;</span><span class="m">7</span><span class="p">&gt;</span> <span class="err">val</span><span class="p">&gt;</span> <span class="p">{</span>
+  <span class="err">bits</span><span class="p">&lt;</span><span class="m">7</span><span class="p">&gt;</span> <span class="err">Value</span> <span class="p">=</span> <span class="err">val</span><span class="c1">;</span>
+<span class="p">}</span>
+<span class="err">def</span> <span class="nl">OPC_LOAD      :</span> <span class="err">RISCWOpcode</span><span class="p">&lt;</span><span class="m">0</span><span class="err">b0000011</span><span class="p">&gt;</span><span class="c1">;</span>
+<span class="err">def</span> <span class="nl">OPC_LOAD_FP   :</span> <span class="err">RISCWOpcode</span><span class="p">&lt;</span><span class="m">0</span><span class="err">b0000111</span><span class="p">&gt;</span><span class="c1">;</span>
+<span class="p">...</span>
+<span class="err">def</span> <span class="nl">OPC_SYSTEM    :</span> <span class="err">RISCWOpcode</span><span class="p">&lt;</span><span class="m">0</span><span class="err">b1110011</span><span class="p">&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p>所有指令必须继承自LLVM内部的<code class="language-plaintext highlighter-rouge">Instruction</code>类。
+方便起见，RISCW后端还定义了<code class="language-plaintext highlighter-rouge">Instruction</code>的子类<code class="language-plaintext highlighter-rouge">RWInst</code>，
+它覆盖了许多字段，例如<code class="language-plaintext highlighter-rouge">Size</code>和<code class="language-plaintext highlighter-rouge">TSFlags</code>，同时添加了额外的字段。
+<code class="language-plaintext highlighter-rouge">Instruction</code>类实际上非常庞大，
+需要配置许多选项，
+我建议您通读LLVM的源代码以了解什么样的配置可以满足你的需求。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">class</span> <span class="err">RWInst</span><span class="p">&lt;</span><span class="err">dag</span> <span class="err">outs</span><span class="p">,</span> <span class="err">dag</span> <span class="err">ins</span><span class="p">,</span> <span class="err">string</span> <span class="err">opcodestr</span><span class="p">,</span> <span class="err">string</span> <span class="err">argstr</span><span class="p">,</span>
+             <span class="err">list</span><span class="p">&lt;</span><span class="err">dag</span><span class="p">&gt;</span> <span class="err">pattern</span><span class="p">,</span> <span class="err">InstFormat</span> <span class="err">format</span><span class="p">&gt;</span>
+    <span class="err">:</span> <span class="err">Instruction</span> <span class="p">{</span>
+  <span class="err">field</span> <span class="err">bits</span><span class="p">&lt;</span><span class="m">32</span><span class="p">&gt;</span> <span class="err">Inst</span><span class="c1">;</span>
+  <span class="err">field</span> <span class="err">bits</span><span class="p">&lt;</span><span class="m">32</span><span class="p">&gt;</span> <span class="err">SoftFail</span> <span class="p">=</span> <span class="m">0</span><span class="c1">;</span>
+  <span class="err">let</span> <span class="err">Size</span> <span class="p">=</span> <span class="m">4</span><span class="c1">;</span>
+  <span class="p">...</span>
+  <span class="err">let</span> <span class="err">TSFlags</span><span class="p">{</span><span class="m">4-0</span><span class="p">}</span> <span class="p">=</span> <span class="err">format</span><span class="p">.</span><span class="err">Value</span><span class="c1">;</span>
+<span class="p">}</span>
+
+</code></pre></div></div>
+<p><strong>注意：</strong><code class="language-plaintext highlighter-rouge">Instruction</code>类中的许多字段仅对特定任务有用。
+例如，仅当发出目标代码时才使用<code class="language-plaintext highlighter-rouge">Inst</code>字段和<code class="language-plaintext highlighter-rouge">opcode</code>。
+因此，不要理会您不需要的东西！</p>
+
+<p>再次为方便起见，
+RISCW后端为每种格式定义了<code class="language-plaintext highlighter-rouge">RWInst</code>类的子类。
+我们实际的指令将继承这些“低级的”格式，以避免代码重复。</p>
+
+<p>格式类根据相关格式的编码覆盖<code class="language-plaintext highlighter-rouge">Inst</code>字段的值。
+另外，还有一个特殊的<code class="language-plaintext highlighter-rouge">Pseudo</code>类，用于设置<code class="language-plaintext highlighter-rouge">Instruction</code>类中的<code class="language-plaintext highlighter-rouge">isPseudo</code>字段。
+这些pseudo指令通常是栈调整和函数返回等操作的占位符，
+我们将在后面的文章中进行探讨。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">class</span> <span class="err">Pseudo</span><span class="p">&lt;</span><span class="err">dag</span> <span class="err">outs</span><span class="p">,</span> <span class="err">dag</span> <span class="err">ins</span><span class="p">,</span> <span class="err">list</span><span class="p">&lt;</span><span class="err">dag</span><span class="p">&gt;</span> <span class="err">pattern</span><span class="p">,</span> <span class="err">string</span> <span class="err">opcodestr</span> <span class="p">=</span> <span class="s">""</span><span class="p">,</span>
+             <span class="err">string</span> <span class="err">argstr</span> <span class="p">=</span> <span class="s">""</span><span class="p">&gt;</span>
+    <span class="err">:</span> <span class="err">RWInst</span><span class="p">&lt;</span><span class="err">outs</span><span class="p">,</span> <span class="err">ins</span><span class="p">,</span> <span class="err">opcodestr</span><span class="p">,</span> <span class="err">argstr</span><span class="p">,</span> <span class="err">pattern</span><span class="p">,</span> <span class="err">InstFormatPseudo</span><span class="p">&gt;,</span>
+      <span class="err">Sched</span><span class="p">&lt;[]&gt;</span> <span class="p">{</span>
+  <span class="err">let</span> <span class="err">isPseudo</span> <span class="p">=</span> <span class="m">1</span><span class="c1">;</span>
+  <span class="err">let</span> <span class="err">isCodeGenOnly</span> <span class="p">=</span> <span class="m">1</span><span class="c1">;</span>
+<span class="p">}</span>
+
+<span class="err">class</span> <span class="err">RWInstR</span><span class="p">&lt;</span><span class="err">bits</span><span class="p">&lt;</span><span class="m">7</span><span class="p">&gt;</span> <span class="err">funct7</span><span class="p">,</span> <span class="err">bits</span><span class="p">&lt;</span><span class="m">3</span><span class="p">&gt;</span> <span class="err">funct3</span><span class="p">,</span> <span class="err">RISCWOpcode</span> <span class="err">opcode</span><span class="p">,</span> <span class="err">dag</span> <span class="err">outs</span><span class="p">,</span>
+              <span class="err">dag</span> <span class="err">ins</span><span class="p">,</span> <span class="err">string</span> <span class="err">opcodestr</span><span class="p">,</span> <span class="err">string</span> <span class="err">argstr</span><span class="p">&gt;</span>
+    <span class="err">:</span> <span class="err">RWInst</span><span class="p">&lt;</span><span class="err">outs</span><span class="p">,</span> <span class="err">ins</span><span class="p">,</span> <span class="err">opcodestr</span><span class="p">,</span> <span class="err">argstr</span><span class="p">,</span> <span class="p">[],</span> <span class="err">InstFormatR</span><span class="p">&gt;</span> <span class="p">{</span>
+  <span class="err">bits</span><span class="p">&lt;</span><span class="m">5</span><span class="p">&gt;</span> <span class="err">rs2</span><span class="c1">;</span>
+  <span class="err">bits</span><span class="p">&lt;</span><span class="m">5</span><span class="p">&gt;</span> <span class="err">rs1</span><span class="c1">;</span>
+  <span class="err">bits</span><span class="p">&lt;</span><span class="m">5</span><span class="p">&gt;</span> <span class="err">rd</span><span class="c1">;</span>
+
+  <span class="err">let</span> <span class="err">Inst</span><span class="p">{</span><span class="m">31-25</span><span class="p">}</span> <span class="p">=</span> <span class="err">funct7</span><span class="c1">;</span>
+  <span class="p">...</span>
+  <span class="err">let</span> <span class="err">Opcode</span> <span class="p">=</span> <span class="err">opcode</span><span class="p">.</span><span class="err">Value</span><span class="c1">;</span>
+<span class="p">}</span>
+<span class="p">...</span>
+</code></pre></div></div>
+<p>关于这些TableGen类，有几点需要强调：</p>
+
+<ul>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">funct *</code>和<code class="language-plaintext highlighter-rouge">opcode</code>参数用于形成唯一的操作码，该操作码用于将指令编码为二进制。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">outs</code>和<code class="language-plaintext highlighter-rouge">ins</code>参数是DAG，分别指定指令的输出和输入操作数。 
+操作数通常是寄存器或立即数，但也可以是堆栈帧位置，全局地址等。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">opcodestr</code>是指令的助记符，例如<code class="language-plaintext highlighter-rouge">ADD</code>用于加法，<code class="language-plaintext highlighter-rouge">SUB</code>用于减法，等等。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">argstr</code>参数是一种格式字符串，用于告诉LLVM如何在汇编中打印指令的操作数。
+例如，如果<code class="language-plaintext highlighter-rouge">outs</code>参数说有一个<code class="language-plaintext highlighter-rouge">$r1</code>寄存器操作数，
+而<code class="language-plaintext highlighter-rouge">ins</code>参数说有一个<code class="language-plaintext highlighter-rouge">$r2</code>寄存器操作数并且<code class="language-plaintext highlighter-rouge">argstr</code>的格式为<code class="language-plaintext highlighter-rouge">"$r1,$r2"</code>，
+则该指令的汇编将首先显示输出操作数（即紧随助记符之后）然后显示<code class="language-plaintext highlighter-rouge">,</code>，然后显示输入操作数。</p>
+  </li>
+  <li>
+    <p>在<code class="language-plaintext highlighter-rouge">Pseudo</code>中，还有一个<code class="language-plaintext highlighter-rouge">pattern</code>操作数，
+它告诉LLVM在目标指令选择阶段可以用该指令替换DAG中的哪些节点。 
+更详细的细节以后再讨论！</p>
+  </li>
+</ul>
+
+<h4 id="定义指令-1">
+<a class="anchor" href="#%E5%AE%9A%E4%B9%89%E6%8C%87%E4%BB%A4-1" aria-hidden="true"><span class="octicon octicon-link"></span></a>定义指令</h4>
+
+<p>为了方便起见，还定义了另一个类，
+该类可以根据操作数以及操作是否涉及ALU、内存等来简化指令的定义。
+例如，我们有下面的<code class="language-plaintext highlighter-rouge">ALU_rr</code>类来定义使用ALU（算数逻辑单元）的指令，
+该类有三个GPR类型的操作数:两个是输入，一个是输出。
+显然，所有<code class="language-plaintext highlighter-rouge">ALU_rr</code>指令都是R格式的，因为该类继承自 RWInstR。
+另外，<code class="language-plaintext highlighter-rouge">ALU_rr</code>的定义位于let块中，
+它覆盖了<code class="language-plaintext highlighter-rouge">Instruction</code>中值为0的<code class="language-plaintext highlighter-rouge">hasSideEffects</code>、<code class="language-plaintext highlighter-rouge">mayLoad</code>和<code class="language-plaintext highlighter-rouge">mayStore</code>字段；
+这些字段中的大多数都是不言自明的，不过我鼓励您阅读代码以获得更多信息。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">let</span> <span class="err">hasSideEffects</span> <span class="p">=</span> <span class="m">0</span><span class="p">,</span> <span class="err">mayLoad</span> <span class="p">=</span> <span class="m">0</span><span class="p">,</span> <span class="err">mayStore</span> <span class="p">=</span> <span class="m">0</span> <span class="err">in</span>
+<span class="err">class</span> <span class="err">ALU_rr</span><span class="p">&lt;</span><span class="err">bits</span><span class="p">&lt;</span><span class="m">7</span><span class="p">&gt;</span> <span class="err">funct7</span><span class="p">,</span> <span class="err">bits</span><span class="p">&lt;</span><span class="m">3</span><span class="p">&gt;</span> <span class="err">funct3</span><span class="p">,</span> <span class="err">string</span> <span class="err">opcodestr</span><span class="p">&gt;</span>
+    <span class="err">:</span> <span class="err">RWInstR</span><span class="p">&lt;</span><span class="err">funct7</span><span class="p">,</span> <span class="err">funct3</span><span class="p">,</span> <span class="err">OPC_OP</span><span class="p">,</span> <span class="p">(</span><span class="err">outs</span> <span class="nl">GPR:</span><span class="err">$rd</span><span class="p">),</span> <span class="p">(</span><span class="err">ins</span> <span class="nl">GPR:</span><span class="err">$rs1</span><span class="p">,</span> <span class="nl">GPR:</span><span class="err">$rs2</span><span class="p">),</span>
+              <span class="err">opcodestr</span><span class="p">,</span> <span class="s">"$rd, $rs1, $rs2"</span><span class="p">&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p>通过继承<code class="language-plaintext highlighter-rouge">ALU_rr</code>类来定义指令实际上非常简单。
+例如，以下是定义<code class="language-plaintext highlighter-rouge">ADD</code>指令的代码：</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">def</span> <span class="nl">ADD :</span> <span class="err">ALU_rr</span><span class="p">&lt;</span><span class="m">0</span><span class="err">b0000000</span><span class="p">,</span> <span class="m">0</span><span class="err">b000</span><span class="p">,</span> <span class="s">"add"</span><span class="p">&gt;,</span> <span class="err">Sched</span><span class="p">&lt;[</span><span class="err">WriteIALU</span><span class="p">,</span> <span class="err">ReadIALU</span><span class="p">,</span> <span class="err">ReadIALU</span><span class="p">]&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p>TableGen代码很难理解，因为大多数后端都使用深层继承来减少代码重复。
+您可能需要拿出笔和纸来手动展开一些记录，以了解其工作原理。
+例如，展开<code class="language-plaintext highlighter-rouge">ADD</code>的第一级看起来如下所示。
+这个较长版本的<code class="language-plaintext highlighter-rouge">ADD</code>也是有效的TableGen代码，
+将以前版本的<code class="language-plaintext highlighter-rouge">ADD</code>替换为这个较长的版本，
+LLVM仍然可以毫无问题地构建！</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">let</span> <span class="err">hasSideEffects</span> <span class="p">=</span> <span class="m">0</span><span class="p">,</span> <span class="err">mayLoad</span> <span class="p">=</span> <span class="m">0</span><span class="p">,</span> <span class="err">mayStore</span> <span class="p">=</span> <span class="m">0</span> <span class="err">in</span>
+<span class="err">def</span> <span class="nl">ADD :</span> <span class="err">RWInstR</span><span class="p">&lt;</span><span class="m">0</span><span class="err">b0000000</span><span class="p">,</span> <span class="m">0</span><span class="err">b000</span><span class="p">,</span> <span class="err">OPC_OP</span><span class="p">,</span> <span class="p">(</span><span class="err">outs</span> <span class="nl">GPR:</span><span class="err">$rd</span><span class="p">),</span>
+              <span class="p">(</span><span class="err">ins</span> <span class="nl">GPR:</span><span class="err">$rs1</span><span class="p">,</span> <span class="nl">GPR:</span><span class="err">$rs2</span><span class="p">),</span> <span class="s">"add"</span><span class="p">,</span> <span class="s">"$rd, $rs1, $rs2"</span><span class="p">&gt;,</span>
+          <span class="err">Sched</span><span class="p">&lt;[</span><span class="err">WriteIALU</span><span class="p">,</span> <span class="err">ReadIALU</span><span class="p">,</span> <span class="err">ReadIALU</span><span class="p">]&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p>定义带有立即数(而不是寄存器)的指令的方法大致相同，
+但必须调整输入操作数。
+例如，下面显示的<code class="language-plaintext highlighter-rouge">ALU_ri</code>类的第二个输入是名为<code class="language-plaintext highlighter-rouge">$imm12</code>的12位立即数(类型为simm12)。
+simm12的定义证实该类的类型为i32还指明了编译器后端处理该操作数时，
+解码器和编码器使用的C++类。
+最后，simm12继承自ImmLeaf类，
+该类带有一个必须满足的条件，
+指令选择期间，
+DAG中的叶节点必须满足该条件才能匹配simm12类(稍后将详细介绍!)。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">def</span> <span class="nl">simm12 :</span> <span class="err">Operand</span><span class="p">&lt;</span><span class="kt">i32</span><span class="p">&gt;,</span> <span class="err">ImmLeaf</span><span class="p">&lt;</span><span class="kt">i32</span><span class="p">,</span> <span class="p">[{</span><span class="err">return</span> <span class="err">isInt</span><span class="p">&lt;</span><span class="m">12</span><span class="p">&gt;(</span><span class="err">Imm</span><span class="p">)</span><span class="c1">;}]&gt; {</span>
+  <span class="err">let</span> <span class="err">ParserMatchClass</span> <span class="p">=</span> <span class="err">SImmAsmOperand</span><span class="p">&lt;</span><span class="m">12</span><span class="p">&gt;</span><span class="c1">;</span>
+  <span class="err">let</span> <span class="err">EncoderMethod</span> <span class="p">=</span> <span class="s">"getImmOpValue"</span><span class="c1">;</span>
+  <span class="err">let</span> <span class="err">DecoderMethod</span> <span class="p">=</span> <span class="s">"decodeSImmOperand&lt;12&gt;"</span><span class="c1">;</span>
+  <span class="err">let</span> <span class="err">MCOperandPredicate</span> <span class="p">=</span> <span class="p">[{</span>
+    <span class="err">int64_t</span> <span class="err">Imm</span><span class="c1">;</span>
+    <span class="err">if</span> <span class="p">(</span><span class="err">MCOp</span><span class="p">.</span><span class="err">evaluateAsConstantImm</span><span class="p">(</span><span class="err">Imm</span><span class="p">))</span>
+      <span class="err">return</span> <span class="err">isInt</span><span class="p">&lt;</span><span class="m">12</span><span class="p">&gt;(</span><span class="err">Imm</span><span class="p">)</span><span class="c1">;</span>
+    <span class="err">return</span> <span class="err">MCOp</span><span class="p">.</span><span class="err">isBareSymbolRef</span><span class="p">()</span><span class="c1">;</span>
+  <span class="p">}]</span><span class="c1">;</span>
+  <span class="err">let</span> <span class="err">OperandType</span> <span class="p">=</span> <span class="s">"OPERAND_SIMM12"</span><span class="c1">;</span>
+  <span class="err">let</span> <span class="err">OperandNamespace</span> <span class="p">=</span> <span class="s">"RISCWOp"</span><span class="c1">;</span>
+<span class="p">}</span>
+
+<span class="p">...</span>
+
+<span class="err">let</span> <span class="err">hasSideEffects</span> <span class="p">=</span> <span class="m">0</span><span class="p">,</span> <span class="err">mayLoad</span> <span class="p">=</span> <span class="m">0</span><span class="p">,</span> <span class="err">mayStore</span> <span class="p">=</span> <span class="m">0</span> <span class="err">in</span>
+<span class="err">class</span> <span class="err">ALU_ri</span><span class="p">&lt;</span><span class="err">bits</span><span class="p">&lt;</span><span class="m">3</span><span class="p">&gt;</span> <span class="err">funct3</span><span class="p">,</span> <span class="err">string</span> <span class="err">opcodestr</span><span class="p">&gt;</span>
+    <span class="err">:</span> <span class="err">RWInstI</span><span class="p">&lt;</span><span class="err">funct3</span><span class="p">,</span> <span class="err">OPC_OP_IMM</span><span class="p">,</span> <span class="p">(</span><span class="err">outs</span> <span class="nl">GPR:</span><span class="err">$rd</span><span class="p">),</span> <span class="p">(</span><span class="err">ins</span> <span class="nl">GPR:</span><span class="err">$rs1</span><span class="p">,</span> <span class="nl">simm12:</span><span class="err">$imm12</span><span class="p">)</span>
+              <span class="err">opcodestr</span><span class="p">,</span> <span class="s">"$rd, $rs1, $imm12"</span><span class="p">&gt;,</span>
+      <span class="err">Sched</span><span class="p">&lt;[</span><span class="err">WriteIALU</span><span class="p">,</span> <span class="err">ReadIALU</span><span class="p">]&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p>在一些计算机体系结构中（如RISCV）有一些指令是其他指令的别名。
+通常，这样做只是为了方便或提高汇编代码的可读性。
+例如，RISCV没有专门的寄存器-寄存器移动指令，只能使用不带立即数的<code class="language-plaintext highlighter-rouge">ADDI</code>指令代替。
+我们可以通过<code class="language-plaintext highlighter-rouge">InstAlias</code>和<code class="language-plaintext highlighter-rouge">MnemonicAlias</code>类告诉LLVM我们的别名:</p>
+
+<h3 id="合法化">
+<a class="anchor" href="#%E5%90%88%E6%B3%95%E5%8C%96" aria-hidden="true"><span class="octicon octicon-link"></span></a>合法化</h3>
+
+<p>类型和操作的合法化阶段均在后端的<code class="language-plaintext highlighter-rouge">TargetLowering</code>子类中使用C++代码进行配置。
+在RISCW中，此类为<code class="language-plaintext highlighter-rouge">RISCWTargetLowering</code>，其代码在<code class="language-plaintext highlighter-rouge">lib/Target/RISCW/RISCWISelLowering.cpp</code>和<code class="language-plaintext highlighter-rouge">lib/Target/RISCW/RISCWISelLowering.h</code>中。
+我们为支持算术指令所做的大多数更改实际上都在构造函数中。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nl">RISCWTargetLowering:</span><span class="err">:RISCWTargetLowering</span><span class="p">(</span><span class="err">const</span> <span class="err">TargetMachine</span> <span class="err">&amp;TM</span><span class="p">,</span>
+                                         <span class="err">const</span> <span class="err">RISCWSubtarget</span> <span class="err">&amp;STI</span><span class="p">)</span>
+    <span class="err">:</span> <span class="err">TargetLowering</span><span class="p">(</span><span class="err">TM</span><span class="p">),</span> <span class="err">Subtarget</span><span class="p">(</span><span class="err">STI</span><span class="p">)</span>
+<span class="p">{</span>
+  <span class="err">addRegisterClass</span><span class="p">(</span><span class="nl">MVT:</span><span class="err">:</span><span class="kt">i32</span><span class="p">,</span> <span class="err">&amp;</span><span class="nl">RISCW:</span><span class="err">:GPRRegClass</span><span class="p">)</span><span class="c1">;</span>
+  <span class="p">...</span>
+
+  <span class="err">setSchedulingPreference</span><span class="p">(</span><span class="nl">Sched:</span><span class="err">:RegPressure</span><span class="p">)</span><span class="c1">;</span>
+  <span class="p">...</span>
+
+  <span class="err">setOperationAction</span><span class="p">(</span><span class="nl">ISD:</span><span class="err">:SRA_PARTS</span><span class="p">,</span> <span class="nl">MVT:</span><span class="err">:</span><span class="kt">i32</span><span class="p">,</span> <span class="err">Custom</span><span class="p">)</span><span class="c1">;</span>
+  <span class="p">...</span>
+
+  <span class="err">setOperationAction</span><span class="p">(</span><span class="nl">ISD:</span><span class="err">:ROTL</span><span class="p">,</span>  <span class="nl">MVT:</span><span class="err">:</span><span class="kt">i32</span><span class="p">,</span> <span class="err">Expand</span><span class="p">)</span><span class="c1">;</span>
+  <span class="p">...</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>有几件事值得注意：</p>
+
+<ul>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">addRegisterClass</code>用于配置LLVM寄存器组和对应的寄存器类型，此信息用于类型合法化。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">setSchedulingPreference</code>用于配置调度和形成阶段。这里我们告诉LLVM使用一个最小化寄存器压力的算法。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">setOperationAction</code>用于配置LLVM如何使操作合法化，即合法化Section DAG中的节点。
+回想一下，有三个选项：扩展、提升和自定义。
+LLVM会自动处理前两个操作，
+例如，RISCV没有位旋转指令，因此我们要求编译器将该操作扩展为其他操作，如移位和<code class="language-plaintext highlighter-rouge">ors</code>以模拟旋转。
+标记为自定义的操作在<code class="language-plaintext highlighter-rouge">TargetLowering</code>子类中由C++代码处理。</p>
+  </li>
+</ul>
+
+<p>每当LLVM在合法化过程中遇到具有custom操作的DAG节点时，
+都会生成对<code class="language-plaintext highlighter-rouge">TargetLoweing</code>类的<code class="language-plaintext highlighter-rouge">LowerOperation</code>方法的回调。
+例如，<code class="language-plaintext highlighter-rouge">SHL_PARTS</code>操作用于将64位整数左移。
+我们通过构造函数中的<code class="language-plaintext highlighter-rouge">setOperationAction(ISD:：SHL_PARTS，MVT:：i32，Custom)</code>来告诉LLVM，
+我们实现了一个<code class="language-plaintext highlighter-rouge">LowerShlParts</code>函数来来合法化此操作。
+<code class="language-plaintext highlighter-rouge">LowerShlParts</code>用32位移位和<code class="language-plaintext highlighter-rouge">ors</code>等其他合法操作来代替<code class="language-plaintext highlighter-rouge">SHL_PARTS</code>节点。
+我鼓励您看看代码，看看这是如何工作的！</p>
+
+<p><strong>注意</strong>：需要合法化的操作完全取决于后端实现的指令集，
+以及TableGen代码中DAG节点与指令匹配的程度（下一节将对此进行详细介绍！）。
+如果使某些操作合法化太复杂或发出的代码效率低下，
+则说明您的指令集可能缺少某些指令！</p>
+
+<h3 id="目标指令选择">
+<a class="anchor" href="#%E7%9B%AE%E6%A0%87%E6%8C%87%E4%BB%A4%E9%80%89%E6%8B%A9" aria-hidden="true"><span class="octicon octicon-link"></span></a>目标指令选择</h3>
+
+<p>目标指令选择阶段将后端TableGen文件中提供的DAG模式匹配到Section DAG中的节点。
+匹配成功时，Section DAG中的节点将被替换为具体机器(或伪)指令的节点。
+因此，TableGen定义的模式的质量对于发出好的代码至关重要，
+您应该多花费些时间来调整这些模式!</p>
+
+<p><strong>注意：</strong>TableGen模式通常定义在<code class="language-plaintext highlighter-rouge">llvm/lib/Target/&lt;BACKEND&gt;/&lt;BACKEND&gt;InstrInfo.td</code>文件的末尾。</p>
+
+<p>模式records继承自LLVM的<code class="language-plaintext highlighter-rouge">Pat</code>类，
+该类有两个参数，
+第一个参数是一个包含要匹配的模式DAG，第二个参数是一个带有机器指令的DAG。
+当模式匹配DAG中的某个内容时，匹配的节点被第二个参数中的DAG替换。</p>
+
+<p>不出所料，我们将使用一些类来帮助我们简化模式的定义。
+这里有两个这样的类：</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">class</span> <span class="err">PatGprGpr</span><span class="p">&lt;</span><span class="err">SDPatternOperator</span> <span class="err">OpNode</span><span class="p">,</span> <span class="err">RWInst</span> <span class="err">Inst</span><span class="p">&gt;</span>
+    <span class="err">:</span> <span class="err">Pat</span><span class="p">&lt;(</span><span class="err">OpNode</span> <span class="nl">GPR:</span><span class="err">$rs1</span><span class="p">,</span> <span class="nl">GPR:</span><span class="err">$rs2</span><span class="p">),</span> <span class="p">(</span><span class="err">Inst</span> <span class="nl">GPR:</span><span class="err">$rs1</span><span class="p">,</span> <span class="nl">GPR:</span><span class="err">$rs2</span><span class="p">)&gt;</span><span class="c1">;</span>
+<span class="err">class</span> <span class="err">PatGprSimm12</span><span class="p">&lt;</span><span class="err">SDPatternOperator</span> <span class="err">OpNode</span><span class="p">,</span> <span class="err">RWInstI</span> <span class="err">Inst</span><span class="p">&gt;</span>
+    <span class="err">:</span> <span class="err">Pat</span><span class="p">&lt;(</span><span class="err">OpNode</span> <span class="nl">GPR:</span><span class="err">$rs1</span><span class="p">,</span> <span class="nl">simm12:</span><span class="err">$imm12</span><span class="p">),</span> <span class="p">(</span><span class="err">Inst</span> <span class="nl">GPR:</span><span class="err">$rs1</span><span class="p">,</span> <span class="nl">simm12:</span><span class="err">$imm12</span><span class="p">)&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p><code class="language-plaintext highlighter-rouge">PatGprGpr</code>用带有两个通用寄存器操作数作为输入的指令替换DAG中的节点。
+例如，下面是<code class="language-plaintext highlighter-rouge">ADD</code>指令的模式声明:</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nl">def :</span> <span class="err">PatGprGpr</span><span class="p">&lt;</span><span class="k">add</span><span class="p">,</span> <span class="err">ADD</span><span class="p">&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p><code class="language-plaintext highlighter-rouge">PatGprSimm12</code>将DAG中的节点替换为具有一个通用输入操作数和一个12位立即数的指令。
+为了实现这一点，用<code class="language-plaintext highlighter-rouge">simm12</code>取代了<code class="language-plaintext highlighter-rouge">Pat</code>中第一个和第二个参数中的<code class="language-plaintext highlighter-rouge">GPR</code>。
+回想一下，<code class="language-plaintext highlighter-rouge">simm12</code>是我们在本文前一节中讨论过的一个<code class="language-plaintext highlighter-rouge">record</code>。
+它继承自<code class="language-plaintext highlighter-rouge">Operand</code>类，因此可以在指令的定义中使用。
+<code class="language-plaintext highlighter-rouge">simm12</code>也继承自<code class="language-plaintext highlighter-rouge">ImmLeaf</code>类，因此也可以在模式定义中使用。
+下面是<code class="language-plaintext highlighter-rouge">ADDI</code>指令的定义，该指令接受一个立即数:</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nl">def :</span> <span class="err">PatGprSimm12</span><span class="p">&lt;</span><span class="k">add</span><span class="p">,</span> <span class="err">ADDI</span><span class="p">&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p><strong>注意：</strong><code class="language-plaintext highlighter-rouge">ImmLeaf</code>类是用于匹配立即数的模式。
+它的参数是即时类型，例如<code class="language-plaintext highlighter-rouge">I32</code>、<code class="language-plaintext highlighter-rouge">I16</code>以及谓词等。
+谓词即C++代码块，
+它检查指定模式必须满足的条件。
+例如，<code class="language-plaintext highlighter-rouge">simm12</code>有一个谓词<code class="language-plaintext highlighter-rouge">return isInt&lt;12&gt;(Imm)</code>来检查整数是否在12位范围内。</p>
+
+<p><strong>注意：</strong>有时，同一条指令可以与Selection DAG中的多个模式匹配。
+在这种情况下，使用LLVM的<code class="language-plaintext highlighter-rouge">PatFrag</code>类和<code class="language-plaintext highlighter-rouge">Pat</code>来避免代码重复，
+如RISCW的<code class="language-plaintext highlighter-rouge">bit-shift</code>模式。</p>
+
+<p><strong>注意:</strong>RISCW和RISCV后端首先声明指令，
+并分别提供模式record。
+然而，其他后端，如ARM或XCore，以不同的方式创建Instruction的子类，以便它们接受一个模式参数。
+这种方法减少了代码行数，因为模式可以在定义指令的同一record中提供，
+但在我看来，这使得TableGen代码更难阅读(也更难解释!)</p>
+
+<p>当在DAG中找到匹配时，
+Pat的第二个参数也可以转换操作数(通常是立即数)。
+为此，我们首先需要声明一个继承自<code class="language-plaintext highlighter-rouge">SDNodeXForm</code>的操作节点。
+<code class="language-plaintext highlighter-rouge">SDNodeXForm</code>以实现所需转换的一段c++代码作为参数。
+然后，我们在模式中使用新声明的节点，如下面的示例所示。
+在本例中，HI20节点提取立即数的20个最重要的比特位。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">def</span> <span class="nl">HI20 :</span> <span class="err">SDNodeXForm</span><span class="p">&lt;</span><span class="err">imm</span><span class="p">,</span> <span class="p">[{</span>
+  <span class="err">return</span> <span class="err">CurDAG-</span><span class="p">&gt;</span><span class="err">getTargetConstant</span><span class="p">(((</span><span class="err">N-</span><span class="p">&gt;</span><span class="err">getZExtValue</span><span class="p">()</span><span class="err">+</span><span class="m">0x800</span><span class="p">)</span> <span class="p">&gt;&gt;</span> <span class="m">12</span><span class="p">)</span> <span class="err">&amp;</span> <span class="m">0xfffff</span><span class="p">,</span>
+                                   <span class="err">SDLoc</span><span class="p">(</span><span class="err">N</span><span class="p">),</span> <span class="err">N-</span><span class="p">&gt;</span><span class="err">getValueType</span><span class="p">(</span><span class="m">0</span><span class="p">))</span><span class="c1">;</span>
+<span class="p">}]&gt;</span><span class="c1">;</span>
+
+<span class="nl">def :</span> <span class="err">Pat</span><span class="p">&lt;(</span><span class="nl">simm32hi20:</span><span class="err">$imm</span><span class="p">),</span> <span class="p">(</span><span class="err">LUI</span> <span class="p">(</span><span class="err">HI20</span> <span class="nl">imm:</span><span class="err">$imm</span><span class="p">))&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+
+<p><strong>注意：</strong><code class="language-plaintext highlighter-rouge">SDNodeXForm</code>节点不插入实际指令。
+它们通常用于转换即时数据，因此可以在代码发出之前就完全解析。</p>
+
+<p>随着指令选择的进行，LLVM每个<code class="language-plaintext highlighter-rouge">Selection DAG</code>节点调用<code class="language-plaintext highlighter-rouge">SelectionDAGISel</code>子类的<code class="language-plaintext highlighter-rouge">Select</code>方法。
+因此，后端可以在<code class="language-plaintext highlighter-rouge">Select</code>方法中提供代码，
+实现复杂的模式匹配，
+而这种匹配在TableGen中很难表达。
+例如，RISCW的<code class="language-plaintext highlighter-rouge">Select</code>方法包括用<code class="language-plaintext highlighter-rouge">x0</code>寄存器来替换常量0的代码。</p>
+
+<p><strong>注意:</strong><code class="language-plaintext highlighter-rouge">SelectionDAGISel</code>子类通常在文件<code class="language-plaintext highlighter-rouge">llvm/lib/Target/&lt;backend&gt;/&lt;backend&gt;ISelDAGToDAG.h</code>和<code class="language-plaintext highlighter-rouge">llvm/lib/Target/&lt;backend&gt;/&lt;backend&gt;ISelDAGToDAG.cpp</code>中。
+例如，RISCW后端相关代码在<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW/RISCWISelDAGToDAG.h</code>和<code class="language-plaintext highlighter-rouge">llvm/lib/Target/RISCW/RISCWISelDAGToDAG.cpp</code>中。</p>
+
+<h2 id="结束语">
+<a class="anchor" href="#%E7%BB%93%E6%9D%9F%E8%AF%AD" aria-hidden="true"><span class="octicon octicon-link"></span></a>结束语</h2>
+
+<p>实际上有很多方法可以实现一个体系结构的LLVM后端，
+所以在使用任何一种方法之前，请确保评估最适合您的需求的方法。
+另外，请记住下面的TableGen类的简介，在编写后端时几乎肯定需要这些类。</p>
+
+<p><strong>Register</strong> 	Register declarations</p>
+
+<p><strong>RegisterClass</strong> 	Register Class declarations</p>
+
+<p><strong>Instruction</strong> 	Instruction declarations</p>
+
+<p><strong>Operand</strong> 	Instruction operands</p>
+
+<p><strong>ImmLeaf</strong> 	Pattern-matching immediates</p>
+
+<p><strong>SDNodeXForm</strong> 	Transforming immediates after a match</p>
+
+<p><strong>Pat</strong> 	Providing a pattern to match in the Selection DAG</p>
+
+<p><strong>PatFrag</strong> 	Providing a pattern fragment with multiple patterns to match in the Selection DAG</p>
 
 <h2 id="注释">
 <a class="anchor" href="#%E6%B3%A8%E9%87%8A" aria-hidden="true"><span class="octicon octicon-link"></span></a>注释</h2>
@@ -290,7 +586,7 @@ t9用指令<code class="language-plaintext highlighter-rouge">MUL</code>替换�
       <p><a href="https://jonathan2251.github.io/lbd/">这个教程</a>描述了如何开发LLVM后端，但我发现很难理解。 <a href="#fnref:2" class="reversefootnote" role="doc-backlink">↩</a></p>
     </li>
     <li id="fn:3" role="doc-endnote">
-      <p>查看XCore XS1体系结构<a href="https://www.xmos.ai/download/The-XMOS-XS1-Architecture(X7879A).pdf">参考手册</a>，了解乘法累加（LMUL）指令的详细说明。 <a href="#fnref:3" class="reversefootnote" role="doc-backlink">↩</a></p>
+      <p>关于RISCV指令格式的完整描述见参考手册的第2章 <a href="#fnref:3" class="reversefootnote" role="doc-backlink">↩</a></p>
     </li>
   </ol>
 </div>
