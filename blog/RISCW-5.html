@@ -558,21 +558,22 @@ Pat的第二个参数也可以转换操作数(通常是立即数)。
 所以在使用任何一种方法之前，请确保评估最适合您的需求的方法。
 另外，请记住下面的TableGen类的简介，在编写后端时几乎肯定需要这些类。</p>
 
-<p><strong>Register</strong> 	Register declarations</p>
+<pre><code class="language-C++">Register 	    //Register declarations
 
-<p><strong>RegisterClass</strong> 	Register Class declarations</p>
+RegisterClass 	//Register Class declarations
 
-<p><strong>Instruction</strong> 	Instruction declarations</p>
+Instruction 	//Instruction declarations
 
-<p><strong>Operand</strong> 	Instruction operands</p>
+Operand	        //Instruction operands
 
-<p><strong>ImmLeaf</strong> 	Pattern-matching immediates</p>
+ImmLeaf 	    //Pattern-matching immediates
 
-<p><strong>SDNodeXForm</strong> 	Transforming immediates after a match</p>
+SDNodeXForm 	//Transforming immediates after a match
 
-<p><strong>Pat</strong> 	Providing a pattern to match in the Selection DAG</p>
+Pat 	        //Providing a pattern to match in the Selection DAG
 
-<p><strong>PatFrag</strong> 	Providing a pattern fragment with multiple patterns to match in the Selection DAG</p>
+PatFrag 	    //Providing a pattern fragment with multiple patterns to match in the Selection DAG
+</code></pre>
 
 <h2 id="注释">
 <a class="anchor" href="#%E6%B3%A8%E9%87%8A" aria-hidden="true"><span class="octicon octicon-link"></span></a>注释</h2>
