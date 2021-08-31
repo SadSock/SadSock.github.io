@@ -1,0 +1,724 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="author" content=""><title>编写LLVM后端 | 悲催的袜子</title>
+  <meta name="keywords" content="LLVM">
+  <meta name="description" content="无"><link rel="stylesheet" href="/assets/main.css?v=0.2.5" />
+<script src="/assets/main.js?v=0.2.5" defer></script><link rel="stylesheet" href="/assets/css/tomorrow.css" />
+<script src="/assets/js/highlight.js"></script><script src='https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.5/MathJax.js?config=TeX-MML-AM_CHTML' async></script></head>
+<body class="body-post">
+    <a href="/" class="logo"><img src="/sock.svg" class="logo_img"><h1>悲催的袜子</h1>
+</a><main class="post__wrapper"><nav class="top-nav">
+
+<a href="/" class="nav-link ">主页</a>
+
+
+<a href="/about/" class="nav-link ">关于</a>
+
+
+<a href="/archive.html" class="nav-link ">归档</a>
+
+
+</nav><div class="post__top_navs clearfix">
+    <nav class="post__archive_path"><a href="/" id="archiveBtn">
+        <div class="post__archive_icon">
+          <svg width="40" height="40">
+            <circle class="circle-progress" r="18" cy="20" cx="20"  stroke-linejoin="round" stroke-linecap="round" />
+          </svg>
+          <span class="post__archive_icon"></span>
+        </div>
+        主页
+      </a>
+    </nav>
+  </div>
+  <article class="post">
+    <header class="post__header">
+      <h1 class="post__title">编写LLVM后端</h1>
+      <div class="post__meta">
+        <time>2020-11-01 18:38</time>
+      </div>
+    </header>
+    <div class="post__content content">
+      <ul class="section-nav">
+<li class="toc-entry toc-h1"><a href="#一-简介">一 简介</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#目标读者">目标读者</a></li>
+<li class="toc-entry toc-h2"><a href="#前置知识">前置知识</a></li>
+<li class="toc-entry toc-h2"><a href="#基本步骤">基本步骤</a></li>
+<li class="toc-entry toc-h2"><a href="#准备工作">准备工作</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#二-目标机器">二 目标机器</a></li>
+<li class="toc-entry toc-h1"><a href="#三-目标注册">三 目标注册</a></li>
+<li class="toc-entry toc-h1"><a href="#四-寄存器和寄存器组">四 寄存器和寄存器组</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#41-定义寄存器">4.1 定义寄存器</a></li>
+<li class="toc-entry toc-h2"><a href="#42-定义寄存器组">4.2 定义寄存器组</a></li>
+<li class="toc-entry toc-h2"><a href="#43-实现targetregisterinfo的子类">4.3 实现TargetRegisterInfo的子类</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#五-指令集">五 指令集</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#指令操作数映射">指令操作数映射</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#指令操作数名称映射">指令操作数名称映射</a></li>
+<li class="toc-entry toc-h3"><a href="#指令操作数类型">指令操作数类型</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#指令调度">指令调度</a></li>
+<li class="toc-entry toc-h2"><a href="#指令关系映射">指令关系映射</a></li>
+<li class="toc-entry toc-h2"><a href="#实现targetstrinfo的子类">实现TargetStrInfo的子类</a></li>
+<li class="toc-entry toc-h2"><a href="#分支折叠与if转换">分支折叠与If转换</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#六-指令选择器">六 指令选择器</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#选择合法化阶段">选择合法化阶段</a>
+<ul>
+<li class="toc-entry toc-h3"><a href="#推广">推广</a></li>
+<li class="toc-entry toc-h3"><a href="#展开">展开</a></li>
+<li class="toc-entry toc-h3"><a href="#定制">定制</a></li>
+<li class="toc-entry toc-h3"><a href="#合法的">合法的</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h2"><a href="#调用约定">调用约定</a></li>
+</ul>
+</li>
+<li class="toc-entry toc-h1"><a href="#七-装配式打印机">七 装配式打印机</a></li>
+<li class="toc-entry toc-h1"><a href="#八-子目标支持">八 子目标支持</a></li>
+<li class="toc-entry toc-h1"><a href="#九-jit支持">九 JIT支持</a>
+<ul>
+<li class="toc-entry toc-h2"><a href="#机器码发射器">机器码发射器</a></li>
+<li class="toc-entry toc-h2"><a href="#目标jit信息">目标JIT信息</a></li>
+</ul>
+</li>
+</ul><h1 id="一-简介">
+<a class="anchor" href="#%E4%B8%80-%E7%AE%80%E4%BB%8B" aria-hidden="true"><span class="octicon octicon-link"></span></a>一 简介</h1>
+
+<p>本文档描述了编写编译器后端的技术，
+这些后端将LLVM中间表示（IR）转换为特定机器或其他语言的代码，
+这些代码可以是汇编代码也可以是二进制代码（可用于JIT编译器）。</p>
+
+<p>LLVM的后端是一个平台独立的代码生成器，
+它可以为不同类型的目标CPU生成代码，
+包括X86、PowerPC、ARM和SPARC。
+后端还可以为GPU或Cell处理器的SPU生成代码，
+以支持计算内核的执行。</p>
+
+<p>本文档主要关注<code class="language-plaintext highlighter-rouge">llvm/lib/Target</code>目录中的现有示例，
+特别是为SPARC平台创建静态编译器(也就是发射汇编码)，
+因为SPARC具有相当典型的特征，
+比如RISC指令集和常见的调用约定。</p>
+
+<h2 id="目标读者">
+<a class="anchor" href="#%E7%9B%AE%E6%A0%87%E8%AF%BB%E8%80%85" aria-hidden="true"><span class="octicon octicon-link"></span></a>目标读者</h2>
+
+<p>本文档的受众是需要编写LLVM后端来为特定的硬件或软件平台生成代码的开发者。</p>
+
+<h2 id="前置知识">
+<a class="anchor" href="#%E5%89%8D%E7%BD%AE%E7%9F%A5%E8%AF%86" aria-hidden="true"><span class="octicon octicon-link"></span></a>前置知识</h2>
+
+<p>在阅读本文档之前，必须先阅读以下重要文档：</p>
+
+<ul>
+  <li>
+    <p><a href="https://releases.llvm.org/11.0.0/docs/LangRef.html">LLVM Language Reference Manual</a>–LLVM汇编语言的参考手册。</p>
+  </li>
+  <li>
+    <p><a href="https://releases.llvm.org/11.0.0/docs/CodeGenerator.html">The LLVM Target-Independent Code Generator</a>–
+用于将LLVM内部表示转换为指定平台的机器码的组件（类和代码生成算法）的指南。
+特别注意代码生成阶段：指令选择、调度和形成、基于SSA的优化、寄存器分配、Prolog/Epilog代码插入、后期机器代码优化和代码发射。</p>
+  </li>
+  <li>
+    <p><a href="https://releases.llvm.org/11.0.0/docs/TableGen/index.html">TableGen</a>–TableGen（tblgen）应用程序的描述文档，
+该程序管理LLVM代码生成特定于域的信息。
+TableGen处理来自目标描述文件（后缀.td）的输入，并生成可用于代码生成的C++代码。</p>
+  </li>
+</ul>
+
+<h2 id="基本步骤">
+<a class="anchor" href="#%E5%9F%BA%E6%9C%AC%E6%AD%A5%E9%AA%A4" aria-hidden="true"><span class="octicon octicon-link"></span></a>基本步骤</h2>
+
+<p>编写将LLVM IR转换为指定平台的机器码或其他语言的代码的编译器后端，需要以下步骤：</p>
+
+<ul>
+  <li>创建TargetMachine类的子类，
+该类描述目标计算机的特征，
+这一步可以参考已有后端的TargetMachine类及其头文件；
+例如，直接复制SparcTargetMachine.cpp和SparcTargetMachine.h但更改其文件名，
+并且更改引用“Sparc”的代码以引用您的代码。</li>
+  <li>描述目标平台的寄存器。
+使用TableGen从RegisterInfo.td文件生成定义寄存器、寄存器别名和寄存器组的代码。
+还可能需要为TargetRegisterInfo的子类编写代码，这些代码代用于支持寄存器的分配以及描述寄存器间的约束。</li>
+  <li>描述目标平台的指令集。
+使用TableGen从TargetInstrFormats.td和TargetInstrInfo.td文件生成描述目标平台的指令集的代码。
+您可能需要手动为TargetInstrInfo的子类编写代码，以描述目标平台支持的某些特殊指令。</li>
+  <li>描述指令选择规则，该过程将LLVM IR的有向无环图（DAG）表示转换到目标平台原生指令表示。
+使用TableGen根据TargetInstrInfo.td文件从定义的模式来生成支持指令选择的代码，
+有时需要手动为XXXISelDAGToDAG.cpp编写代码来完成DAG-to-DAG的转换，
+有时还需要手动为XXXISelLowering.cpp文件编写代码来替换不被SelectionDAG原生支持的操作和数据类型。</li>
+  <li>编写汇编生成器，汇编生成器将LLVM IR转换为目标计算机的GAS格式。
+你需要在TargetInstrInfo.td文件中增加assembly strings。
+同时还需要实现AsmPrinter的子类以及TargetAsmInfo的子类，
+来实现LLVM IR到汇编的转换。</li>
+  <li>（可选）添加对子平台(具有不同功能的变体)的支持。
+实现TargetSubtarget的子类，
+该类允许您使用<code class="language-plaintext highlighter-rouge">-mcpu=</code>和<code class="language-plaintext highlighter-rouge">-mattr=</code>命令行选项。</li>
+  <li>（可选）添加JIT支持并创建机器码发射器(TargetJITInfo的子类)，
+它用于直接将二进制代码发送到内存中。</li>
+</ul>
+
+<p>在.cpp和.h文件中，首先为这些方法建立占位，然后在以后实现它们。
+最初，您可能不知道这些类需要哪些私有成员，哪些类需要子类化。</p>
+
+<h2 id="准备工作">
+<a class="anchor" href="#%E5%87%86%E5%A4%87%E5%B7%A5%E4%BD%9C" aria-hidden="true"><span class="octicon octicon-link"></span></a>准备工作</h2>
+
+<p>要创建实际的编译器后端，
+您需要创建和修改一些文件。 
+这里只讨论必须的操作。
+但是要实际使用LLVM的目标独立代码生成器，
+您必须执行<a href="https://releases.llvm.org/11.0.0/docs/CodeGenerator.html">LLVM Target-Independent Code Generator</a>中描述的步骤。</p>
+
+<p>首先，您应该在<code class="language-plaintext highlighter-rouge">lib/Target</code>目录下创建一个子目录来保存与您的目标相关的所有文件。
+如果目标名为“Dummy”，则创建<code class="language-plaintext highlighter-rouge">lib/target/Dummy</code>目录。</p>
+
+<p>在这个新目录中，创建文件<code class="language-plaintext highlighter-rouge">CMakeLists.txt</code>。
+最简单的方法是复制另一个目标的<code class="language-plaintext highlighter-rouge">CMakeLists.txt</code>文件并对其进行修改。
+它至少应该指定<code class="language-plaintext highlighter-rouge">LLVM_TARGET_DEFINITIONS</code>变量。
+这个库可以作为一个整体命名为<code class="language-plaintext highlighter-rouge">LLVMDummy</code>(参见MIPS后端)。
+也可以将库拆分为<code class="language-plaintext highlighter-rouge">LLVMDummyAsmPrinter</code>和<code class="language-plaintext highlighter-rouge">LLVMDummyAsmPrinter</code>，
+后者应该在<code class="language-plaintext highlighter-rouge">lib/Target/Dummy</code>的子目录中实现(参见PowerPC后端)。</p>
+
+<p>注意，这两个命名方案都被硬编码到<code class="language-plaintext highlighter-rouge">llvm-config</code>中。
+使用任何其他命名方案都会迷惑<code class="language-plaintext highlighter-rouge">llvm-config</code>，
+并在链接<code class="language-plaintext highlighter-rouge">llc</code>时产生许多(看起来不相关的)链接器错误。</p>
+
+<p>要使您的后端能执行实际的工作，
+您需要实现<code class="language-plaintext highlighter-rouge">TargetMachine</code>的子类。
+这个实现通常位于文件<code class="language-plaintext highlighter-rouge">lib/Target/DummyTargetMachine.cpp</code>中，
+<code class="language-plaintext highlighter-rouge">lib/Target</code>目录中的其它文件也应该被正确实现。
+要使用LLVM的目标独立代码生成器，
+您应该像所有机器后端一样：
+创建<code class="language-plaintext highlighter-rouge">LLVMTargetMachine</code>的子类。（要从头开始创建目标，请创建TargetMachine的子类。）</p>
+
+<p>要让LLVM真正构建并链接你的后端，
+你需要用<code class="language-plaintext highlighter-rouge">-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=Dummy</code>命令运行cmake。
+这将构建您的后端，而不需要将其添加到后端的列表中。</p>
+
+<p>后端到达稳定版后，可以将其添加到位于主<code class="language-plaintext highlighter-rouge">CMakeLists.txt</code>文件的<code class="language-plaintext highlighter-rouge">LLVM_ALL_TARGETS</code>变量中。</p>
+
+<h1 id="二-目标机器">
+<a class="anchor" href="#%E4%BA%8C-%E7%9B%AE%E6%A0%87%E6%9C%BA%E5%99%A8" aria-hidden="true"><span class="octicon octicon-link"></span></a>二 目标机器</h1>
+
+<p><code class="language-plaintext highlighter-rouge">LLVMTargetMachine</code>被设计成实现了目标无关代码生成器的目标的基类。
+<code class="language-plaintext highlighter-rouge">LLVMTargetMachine</code>类特化为实现了各种虚拟方法的具体目标类。
+<code class="language-plaintext highlighter-rouge">LLVMTargetMachine</code>在<code class="language-plaintext highlighter-rouge">include/llvm/target/TargetMachine.h</code>中定义为<code class="language-plaintext highlighter-rouge">TargetMachine</code>的子类。
+<code class="language-plaintext highlighter-rouge">TargetMachine</code>类(TargetMachine.cpp)还负责处理许多命令行选项。</p>
+
+<p>要为特定的目标创建<code class="language-plaintext highlighter-rouge">LLVMTargetMachine</code>的子类，
+首先要复制现有的<code class="language-plaintext highlighter-rouge">TargetMachine</code>类的类文件和头文件。
+您应该修改您创建的文件的文件名以反映能该目标。
+例如，对于<code class="language-plaintext highlighter-rouge">SPARC</code>，将文件命名为<code class="language-plaintext highlighter-rouge">SparcTargetMachine.h</code>和<code class="language-plaintext highlighter-rouge">SparcTargetMachine.cpp</code>。</p>
+
+<p>对于目标机器XXX，
+<code class="language-plaintext highlighter-rouge">XXXTargetMachine</code>必须实现一系列用于获取后端组件的对象的方法。
+这些方法被命名为<code class="language-plaintext highlighter-rouge">get * Info</code>，
+这些方法可以获取指令集(<code class="language-plaintext highlighter-rouge">getInstrInfo</code>)、寄存器(<code class="language-plaintext highlighter-rouge">getRegisterInfo</code>)、堆栈布局(<code class="language-plaintext highlighter-rouge">getFrameInfo</code>)等信息。
+<code class="language-plaintext highlighter-rouge">XXXTargetMachine</code>还必须实现<code class="language-plaintext highlighter-rouge">getDataLayout</code>方法，
+以访问数据特征(如数据类型大小和对齐要求)对象。</p>
+
+<p>例如，对于SPARC目标，
+头文件<code class="language-plaintext highlighter-rouge">SparcTargetMachine.h</code>声明了<code class="language-plaintext highlighter-rouge">get*Info</code>和<code class="language-plaintext highlighter-rouge">getDataLayout</code>等方法的原型，
+这些方法的返回值都是<code class="language-plaintext highlighter-rouge">SparcTargetMachine</code>类的成员变量。</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">namespace</span> <span class="err">llvm</span> <span class="p">{</span>
+
+<span class="err">class</span> <span class="err">Module</span><span class="c1">;</span>
+
+<span class="err">class</span> <span class="nl">SparcTargetMachine :</span> <span class="err">public</span> <span class="err">LLVMTargetMachine</span> <span class="p">{</span>
+  <span class="err">const</span> <span class="err">DataLayout</span> <span class="err">DataLayout</span><span class="c1">;       // Calculates type size &amp; alignment</span>
+  <span class="err">SparcSubtarget</span> <span class="err">Subtarget</span><span class="c1">;</span>
+  <span class="err">SparcInstrInfo</span> <span class="err">InstrInfo</span><span class="c1">;</span>
+  <span class="err">TargetFrameInfo</span> <span class="err">FrameInfo</span><span class="c1">;</span>
+
+<span class="nl">protected:</span>
+  <span class="err">virtual</span> <span class="err">const</span> <span class="err">TargetAsmInfo</span> <span class="p">*</span><span class="err">createTargetAsmInfo</span><span class="p">()</span> <span class="err">const</span><span class="c1">;</span>
+
+<span class="nl">public:</span>
+  <span class="err">SparcTargetMachine</span><span class="p">(</span><span class="err">const</span> <span class="err">Module</span> <span class="err">&amp;M</span><span class="p">,</span> <span class="err">const</span> <span class="nl">std:</span><span class="err">:string</span> <span class="err">&amp;FS</span><span class="p">)</span><span class="c1">;</span>
+
+  <span class="err">virtual</span> <span class="err">const</span> <span class="err">SparcInstrInfo</span> <span class="p">*</span><span class="err">getInstrInfo</span><span class="p">()</span> <span class="err">const</span> <span class="p">{</span><span class="err">return</span> <span class="err">&amp;InstrInfo</span><span class="c1">; }</span>
+  <span class="err">virtual</span> <span class="err">const</span> <span class="err">TargetFrameInfo</span> <span class="p">*</span><span class="err">getFrameInfo</span><span class="p">()</span> <span class="err">const</span> <span class="p">{</span><span class="err">return</span> <span class="err">&amp;FrameInfo</span><span class="c1">; }</span>
+  <span class="err">virtual</span> <span class="err">const</span> <span class="err">TargetSubtarget</span> <span class="p">*</span><span class="err">getSubtargetImpl</span><span class="p">()</span> <span class="err">const</span><span class="p">{</span><span class="err">return</span> <span class="err">&amp;Subtarget</span><span class="c1">; }</span>
+  <span class="err">virtual</span> <span class="err">const</span> <span class="err">TargetRegisterInfo</span> <span class="p">*</span><span class="err">getRegisterInfo</span><span class="p">()</span> <span class="err">const</span> <span class="p">{</span>
+    <span class="err">return</span> <span class="err">&amp;InstrInfo</span><span class="p">.</span><span class="err">getRegisterInfo</span><span class="p">()</span><span class="c1">;</span>
+  <span class="p">}</span>
+  <span class="err">virtual</span> <span class="err">const</span> <span class="err">DataLayout</span> <span class="p">*</span><span class="err">getDataLayout</span><span class="p">()</span> <span class="err">const</span> <span class="p">{</span> <span class="err">return</span> <span class="err">&amp;DataLayout</span><span class="c1">; }</span>
+  <span class="err">static</span> <span class="err">unsigned</span> <span class="err">getModuleMatchQuality</span><span class="p">(</span><span class="err">const</span> <span class="err">Module</span> <span class="err">&amp;M</span><span class="p">)</span><span class="c1">;</span>
+
+  <span class="err">//</span> <span class="err">Pass</span> <span class="err">Pipeline</span> <span class="err">Configuration</span>
+  <span class="err">virtual</span> <span class="err">bool</span> <span class="err">addInstSelector</span><span class="p">(</span><span class="err">PassManagerBase</span> <span class="err">&amp;PM</span><span class="p">,</span> <span class="err">bool</span> <span class="err">Fast</span><span class="p">)</span><span class="c1">;</span>
+  <span class="err">virtual</span> <span class="err">bool</span> <span class="err">addPreEmitPass</span><span class="p">(</span><span class="err">PassManagerBase</span> <span class="err">&amp;PM</span><span class="p">,</span> <span class="err">bool</span> <span class="err">Fast</span><span class="p">)</span><span class="c1">;</span>
+<span class="p">}</span><span class="c1">;</span>
+
+<span class="p">}</span> <span class="err">//</span> <span class="err">end</span> <span class="err">namespace</span> <span class="err">llvm</span>
+</code></pre></div></div>
+
+<ul>
+  <li>
+    <p>getInstrInfo()</p>
+  </li>
+  <li>
+    <p>getRegisterInfo()</p>
+  </li>
+  <li>
+    <p>getFrameInfo()</p>
+  </li>
+  <li>
+    <p>getDataLayout()</p>
+  </li>
+  <li>
+    <p>getSubtargetImpl()</p>
+  </li>
+</ul>
+
+<p>对于某些目标，还需要支持以下方法：</p>
+
+<ul>
+  <li>
+    <p>getTargetLowering()</p>
+  </li>
+  <li>
+    <p>getJITInfo()</p>
+  </li>
+</ul>
+
+<p>有些体系结构（如gpu）不支持跳转到任意位置，
+使用屏蔽执行来实现分支，
+使用包裹循环体的特殊指令来实现循环。
+为了避免CFG修改引入不可还原的控制流，
+而这些控制流又不被硬件支持，
+目标必须在初始化时调用<code class="language-plaintext highlighter-rouge">setRequiresStructuredCFG(true)</code>。</p>
+
+<p>此外，<code class="language-plaintext highlighter-rouge">XXXTargetMachine</code>构造函数应该指定一个<code class="language-plaintext highlighter-rouge">TargetDescription</code>字符串，
+该字符串确定目标机器的数据布局，
+包括指针大小、对齐方式和端序等特征。
+例如，<code class="language-plaintext highlighter-rouge">SparcTargetMachine</code>的构造函数包含以下内容:</p>
+
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="nl">SparcTargetMachine:</span><span class="err">:SparcTargetMachine</span><span class="p">(</span><span class="err">const</span> <span class="err">Module</span> <span class="err">&amp;M</span><span class="p">,</span> <span class="err">const</span> <span class="nl">std:</span><span class="err">:string</span> <span class="err">&amp;FS</span><span class="p">)</span>
+  <span class="err">:</span> <span class="err">DataLayout</span><span class="p">(</span><span class="s">"E-p:32:32-f128:128:128"</span><span class="p">),</span>
+    <span class="err">Subtarget</span><span class="p">(</span><span class="err">M</span><span class="p">,</span> <span class="err">FS</span><span class="p">),</span> <span class="err">InstrInfo</span><span class="p">(</span><span class="err">Subtarget</span><span class="p">),</span>
+    <span class="err">FrameInfo</span><span class="p">(</span><span class="nl">TargetFrameInfo:</span><span class="err">:StackGrowsDown</span><span class="p">,</span> <span class="m">8</span><span class="p">,</span> <span class="m">0</span><span class="p">)</span> <span class="p">{</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>连字符分隔TargetDescription字符串的各个部分。</p>
+
+<ul>
+  <li>
+    <p>字符串中的大写’e’表示目标数据模型是big-endian，小写’e’表示little-endian。</p>
+  </li>
+  <li>
+    <p>“p:”后面跟着指针信息:大小、ABI对齐和首选对齐。如果”p:”后面只有两个数字，那么第一个值是指针大小，第二个值是ABI和首选对齐方式。</p>
+  </li>
+  <li>
+    <p>然后是表示数字类型对齐的字母：“i”、“f”、“v”或“a”（对应于整数、浮点、向量或
+聚合）。“i”、“v”或“a”后跟ABI对齐和首选
+对齐。“f”后跟三个值：第一个值表示长双精度的大小，然后是ABI对齐，然后是ABI首选对齐。</p>
+  </li>
+</ul>
+
+<h1 id="三-目标注册">
+<a class="anchor" href="#%E4%B8%89-%E7%9B%AE%E6%A0%87%E6%B3%A8%E5%86%8C" aria-hidden="true"><span class="octicon octicon-link"></span></a>三 目标注册</h1>
+<p>您还必须向<code class="language-plaintext highlighter-rouge">TargetRegistry</code>注册您的目标，
+这是其他LLVM工具在运行时查找和使用您的目标的工具。
+<code class="language-plaintext highlighter-rouge">TargetRegistry</code>可以直接使用，
+但是对于大多数目标来说，
+有一些辅助模板可以帮助您完成工作。</p>
+
+<p>所有目标应该声明一个全局<code class="language-plaintext highlighter-rouge">Target</code>对象，
+用于在注册期间表示目标。
+然后，在目标的<code class="language-plaintext highlighter-rouge">TargetInfo</code>库中，
+目标应该定义该对象并使用<code class="language-plaintext highlighter-rouge">RegisterTarget</code>模板注册目标。
+例如，Sparc注册代码如下:</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">Target</span> <span class="nl">llvm:</span><span class="err">:getTheSparcTarget</span><span class="p">()</span><span class="c1">;</span>
+
+<span class="err">extern</span> <span class="s">"C"</span> <span class="kt">void</span> <span class="err">LLVMInitializeSparcTargetInfo</span><span class="p">()</span> <span class="p">{</span>
+  <span class="err">RegisterTarget</span><span class="p">&lt;</span><span class="nl">Triple:</span><span class="err">:sparc</span><span class="p">,</span> <span class="err">/</span><span class="p">*</span><span class="err">HasJIT</span><span class="p">=*</span><span class="err">/</span><span class="k">false</span><span class="p">&gt;</span>
+    <span class="err">X</span><span class="p">(</span><span class="err">getTheSparcTarget</span><span class="p">(),</span> <span class="s">"sparc"</span><span class="p">,</span> <span class="s">"Sparc"</span><span class="p">)</span><span class="c1">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>这允许<code class="language-plaintext highlighter-rouge">TargetRegistry</code>按名称或按目标三元组查找目标。
+此外，大多数目标还将注册在单独的库中可用的其他特性。
+这些注册步骤是分开的，因为有些客户可能希望只链接目标的某些部分–例如，
+JIT代码生成器不需要使用汇编打印机。
+下面是一个注册Sparc汇编输出器的例子:</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">extern</span> <span class="s">"C"</span> <span class="kt">void</span> <span class="err">LLVMInitializeSparcAsmPrinter</span><span class="p">()</span> <span class="p">{</span>
+  <span class="err">RegisterAsmPrinter</span><span class="p">&lt;</span><span class="err">SparcAsmPrinter</span><span class="p">&gt;</span> <span class="err">X</span><span class="p">(</span><span class="err">getTheSparcTarget</span><span class="p">())</span><span class="c1">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>更多信息, 请参照“<a href="https://releases.llvm.org/doxygen/TargetRegistry_8h-source.html">llvm/Target/TargetRegistry.h</a>”.</p>
+
+<h1 id="四-寄存器和寄存器组">
+<a class="anchor" href="#%E5%9B%9B-%E5%AF%84%E5%AD%98%E5%99%A8%E5%92%8C%E5%AF%84%E5%AD%98%E5%99%A8%E7%BB%84" aria-hidden="true"><span class="octicon octicon-link"></span></a>四 寄存器和寄存器组</h1>
+
+<p>（译注：本节及后文将原文中Register Set译为寄存器集合，将Register Class根据原文的含义译为寄存器组或Register类。）</p>
+
+<p>您需要创建一个具体的寄存器描述类，这个类称为XXXRegisterInfo(其中XXX是平台标识符)，它描述了寄存器间的约束并为寄存器分配器提供必要的信息。</p>
+
+<p>您还需要定义寄存器组来对相关寄存器进行分类。同一寄存器组的寄存器可以被某些指令以相同的方式使用。典型的例子是用于整数、浮点或向量的寄存器组。寄存器分配器允许指令以类似的方式使用同一寄存器组中的任何寄存器。寄存器分配器先给指令分配虚拟寄存器，然后会在寄存器分配阶段分配物理寄存器。</p>
+
+<p>描述寄存器的大部分代码，包括寄存器定义、寄存器别名和寄存器组，都可以由TableGen工具自动生成。TableGen会根据开发者编写的xxxRegisterinfo.td文件，生成XXXGenRegisterInfo.h.inc和XXXGenRegisterInfo.inc文件。XXXRegisterInfo的实现过程中的一些代码需要手工编码。</p>
+
+<h2 id="41-定义寄存器">
+<a class="anchor" href="#41-%E5%AE%9A%E4%B9%89%E5%AF%84%E5%AD%98%E5%99%A8" aria-hidden="true"><span class="octicon octicon-link"></span></a>4.1 定义寄存器</h2>
+
+<p>XXXRegisterinfo.td文件通常以目标机器的寄存器定义开始。Register类(在Target.td中定义)用于为每个寄存器定义一个对象。字符串n就是寄存器的名称。基本的Register对象不包含子寄存器，也没有指定别名。</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">Register</span><span class="o">&lt;</span><span class="n">string</span> <span class="n">n</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="n">string</span> <span class="n">Namespace</span> <span class="o">=</span> <span class="s">""</span><span class="p">;</span>
+  <span class="n">string</span> <span class="n">AsmName</span> <span class="o">=</span> <span class="n">n</span><span class="p">;</span>
+  <span class="n">string</span> <span class="n">Name</span> <span class="o">=</span> <span class="n">n</span><span class="p">;</span>
+  <span class="kt">int</span> <span class="n">SpillSize</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="kt">int</span> <span class="n">SpillAlignment</span> <span class="o">=</span> <span class="mi">0</span><span class="p">;</span>
+  <span class="n">list</span><span class="o">&lt;</span><span class="n">Register</span><span class="o">&gt;</span> <span class="n">Aliases</span> <span class="o">=</span> <span class="p">[];</span>
+  <span class="n">list</span><span class="o">&lt;</span><span class="n">Register</span><span class="o">&gt;</span> <span class="n">SubRegs</span> <span class="o">=</span> <span class="p">[];</span>
+  <span class="n">list</span><span class="o">&lt;</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">DwarfNumbers</span> <span class="o">=</span> <span class="p">[];</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>例如，X86RegisterInfo.td文件使用Register类定义寄存器。比如：</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="n">def</span> <span class="n">AL</span> <span class="o">:</span> <span class="n">Register</span><span class="o">&lt;</span><span class="s">"AL"</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">DwarfRegNum</span><span class="o">&lt;</span><span class="p">[</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">]</span><span class="o">&gt;</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>这行代码定义了寄存器AL并使用DwarfRegNum为其赋值，gcc，gdb或其他调试信息工具用该值来识别寄存器。对于AL寄存器来说，DwarfRegNum使用了一个由3个值组成的数组，用来表示3 种不同的模式：第一个值是用于X86-64，第二个值用于X86-32中的异常处理（exception handling），第三个是通用值。-1表示gcc的值未定义，-2表示寄存器在该模式下是非法的。</p>
+
+<p>根据X86RegisterInfo.td文件的描述，TableGen会在X86GenRegisterInfo.inc文件中生成以下代码：</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">static</span> <span class="k">const</span> <span class="kt">unsigned</span> <span class="n">GR8</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span> <span class="n">X86</span><span class="o">::</span><span class="n">AL</span><span class="p">,</span> <span class="p">...</span> <span class="p">};</span>
+
+<span class="k">const</span> <span class="kt">unsigned</span> <span class="n">AL_AliasSet</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span> <span class="n">X86</span><span class="o">::</span><span class="n">AX</span><span class="p">,</span> <span class="n">X86</span><span class="o">::</span><span class="n">EAX</span><span class="p">,</span> <span class="n">X86</span><span class="o">::</span><span class="n">RAX</span><span class="p">,</span> <span class="mi">0</span> <span class="p">};</span>
+
+<span class="k">const</span> <span class="n">TargetRegisterDesc</span> <span class="n">RegisterDescriptors</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="p">...</span>
+<span class="p">{</span> <span class="s">"AL"</span><span class="p">,</span> <span class="s">"AL"</span><span class="p">,</span> <span class="n">AL_AliasSet</span><span class="p">,</span> <span class="n">Empty_SubRegsSet</span><span class="p">,</span> <span class="n">Empty_SubRegsSet</span><span class="p">,</span> <span class="n">AL_SuperRegsSet</span> <span class="p">},</span> <span class="p">...</span>
+</code></pre></div></div>
+
+<p>根据register info文件，TableGen为每个寄存器生成一个TargetRegisterDesc对象。TargetRegisterDesc在<code class="language-plaintext highlighter-rouge">include/llvm/Target/Target.h</code>中被定义，包含以下字段：</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">struct</span> <span class="nc">TargetRegisterDesc</span> <span class="p">{</span>
+  <span class="k">const</span> <span class="kt">char</span>     <span class="o">*</span><span class="n">AsmName</span><span class="p">;</span>      <span class="c1">// Assembly language name for the register</span>
+  <span class="k">const</span> <span class="kt">char</span>     <span class="o">*</span><span class="n">Name</span><span class="p">;</span>         <span class="c1">// Printable name for the reg (for debugging)</span>
+  <span class="k">const</span> <span class="kt">unsigned</span> <span class="o">*</span><span class="n">AliasSet</span><span class="p">;</span>     <span class="c1">// Register Alias Set</span>
+  <span class="k">const</span> <span class="kt">unsigned</span> <span class="o">*</span><span class="n">SubRegs</span><span class="p">;</span>      <span class="c1">// Sub-register set</span>
+  <span class="k">const</span> <span class="kt">unsigned</span> <span class="o">*</span><span class="n">ImmSubRegs</span><span class="p">;</span>   <span class="c1">// Immediate sub-register set</span>
+  <span class="k">const</span> <span class="kt">unsigned</span> <span class="o">*</span><span class="n">SuperRegs</span><span class="p">;</span>    <span class="c1">// Super-register set</span>
+<span class="p">};</span>
+</code></pre></div></div>
+
+<p>TableGen使用名称(TargetRegisterDesc的AsmName和Name字段)以及寄存器间的关系(TargetRegisterDesc的其他字段)来定义寄存器。在这个示例中，寄存器“AX”、“ EAX”和“RAX”为彼此的别名，TableGen为这个寄存器别名集生成一个以null结尾的数组(AL_aliasset)。</p>
+
+<p>Register类通常用作更复杂类的基类。在Target.td中，Register类是RegisterWithSubRegs类的基类，该类用于定义需要在SubRegs列表中指定子寄存器的寄存器，如下所示</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">RegisterWithSubRegs</span><span class="o">&lt;</span><span class="n">string</span> <span class="n">n</span><span class="p">,</span> <span class="n">list</span><span class="o">&lt;</span><span class="n">Register</span><span class="o">&gt;</span> <span class="n">subregs</span><span class="o">&gt;</span> <span class="o">:</span> <span class="n">Register</span><span class="o">&lt;</span><span class="n">n</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="n">let</span> <span class="n">SubRegs</span> <span class="o">=</span> <span class="n">subregs</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>SparcRegisterInfo.td为SPARC定义了额外的寄存器类：register类的子类SparcReg和其进一步的子类：Ri、Rf和Rd。SPARC的寄存器由5位ID号标识，这是这些子类的一个共同特性。“let”表达式可以覆盖最初在父类中定义的值（例如Rd类中的subgros字段）。</p>
+
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">class</span> <span class="nc">SparcReg</span><span class="o">&lt;</span><span class="n">string</span> <span class="n">n</span><span class="o">&gt;</span> <span class="o">:</span> <span class="n">Register</span><span class="o">&lt;</span><span class="n">n</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="n">field</span> <span class="n">bits</span><span class="o">&lt;</span><span class="mi">5</span><span class="o">&gt;</span> <span class="n">Num</span><span class="p">;</span>
+  <span class="n">let</span> <span class="n">Namespace</span> <span class="o">=</span> <span class="s">"SP"</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">// Ri - 32-bit integer registers</span>
+<span class="k">class</span> <span class="nc">Ri</span><span class="o">&lt;</span><span class="n">bits</span><span class="o">&lt;</span><span class="mi">5</span><span class="o">&gt;</span> <span class="n">num</span><span class="p">,</span> <span class="n">string</span> <span class="n">n</span><span class="o">&gt;</span> <span class="o">:</span>
+<span class="n">SparcReg</span><span class="o">&lt;</span><span class="n">n</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="n">let</span> <span class="n">Num</span> <span class="o">=</span> <span class="n">num</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">// Rf - 32-bit floating-point registers</span>
+<span class="k">class</span> <span class="nc">Rf</span><span class="o">&lt;</span><span class="n">bits</span><span class="o">&lt;</span><span class="mi">5</span><span class="o">&gt;</span> <span class="n">num</span><span class="p">,</span> <span class="n">string</span> <span class="n">n</span><span class="o">&gt;</span> <span class="o">:</span>
+<span class="n">SparcReg</span><span class="o">&lt;</span><span class="n">n</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="n">let</span> <span class="n">Num</span> <span class="o">=</span> <span class="n">num</span><span class="p">;</span>
+<span class="p">}</span>
+<span class="c1">// Rd - Slots in the FP register file for 64-bit floating-point values.</span>
+<span class="k">class</span> <span class="nc">Rd</span><span class="o">&lt;</span><span class="n">bits</span><span class="o">&lt;</span><span class="mi">5</span><span class="o">&gt;</span> <span class="n">num</span><span class="p">,</span> <span class="n">string</span> <span class="n">n</span><span class="p">,</span> <span class="n">list</span><span class="o">&lt;</span><span class="n">Register</span><span class="o">&gt;</span> <span class="n">subregs</span><span class="o">&gt;</span> <span class="o">:</span> <span class="n">SparcReg</span><span class="o">&lt;</span><span class="n">n</span><span class="o">&gt;</span> <span class="p">{</span>
+  <span class="n">let</span> <span class="n">Num</span> <span class="o">=</span> <span class="n">num</span><span class="p">;</span>
+  <span class="n">let</span> <span class="n">SubRegs</span> <span class="o">=</span> <span class="n">subregs</span><span class="p">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+
+<p>SparcRegisterInfo.td文件利用Register类的子类来定义寄存器，例如</p>
+
+<div class="language-python highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="k">def</span> <span class="nf">G0</span> <span class="p">:</span> <span class="n">Ri</span><span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s">"G0"</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">DwarfRegNum</span><span class="o">&lt;</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="k">def</span> <span class="nf">G1</span> <span class="p">:</span> <span class="n">Ri</span><span class="o">&lt;</span> <span class="mi">1</span><span class="p">,</span> <span class="s">"G1"</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">DwarfRegNum</span><span class="o">&lt;</span><span class="p">[</span><span class="mi">1</span><span class="p">]</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="k">def</span> <span class="nf">F0</span> <span class="p">:</span> <span class="n">Rf</span><span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s">"F0"</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">DwarfRegNum</span><span class="o">&lt;</span><span class="p">[</span><span class="mi">32</span><span class="p">]</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="k">def</span> <span class="nf">F1</span> <span class="p">:</span> <span class="n">Rf</span><span class="o">&lt;</span> <span class="mi">1</span><span class="p">,</span> <span class="s">"F1"</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">DwarfRegNum</span><span class="o">&lt;</span><span class="p">[</span><span class="mi">33</span><span class="p">]</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="p">...</span>
+<span class="k">def</span> <span class="nf">D0</span> <span class="p">:</span> <span class="n">Rd</span><span class="o">&lt;</span> <span class="mi">0</span><span class="p">,</span> <span class="s">"F0"</span><span class="p">,</span> <span class="p">[</span><span class="n">F0</span><span class="p">,</span> <span class="n">F1</span><span class="p">]</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">DwarfRegNum</span><span class="o">&lt;</span><span class="p">[</span><span class="mi">32</span><span class="p">]</span><span class="o">&gt;</span><span class="p">;</span>
+<span class="k">def</span> <span class="nf">D1</span> <span class="p">:</span> <span class="n">Rd</span><span class="o">&lt;</span> <span class="mi">2</span><span class="p">,</span> <span class="s">"F2"</span><span class="p">,</span> <span class="p">[</span><span class="n">F2</span><span class="p">,</span> <span class="n">F3</span><span class="p">]</span><span class="o">&gt;</span><span class="p">,</span> <span class="n">DwarfRegNum</span><span class="o">&lt;</span><span class="p">[</span><span class="mi">34</span><span class="p">]</span><span class="o">&gt;</span><span class="p">;</span>
+</code></pre></div></div>
+
+<p>上面显示的最后两个寄存器(D0和D1)是双精度浮点寄存器，它们是单精度浮点子寄存器对的别名。除了别名之外，子寄存器和父寄存器的关系也定义在TargetRegisterDesc的某些字段中。</p>
+
+<h2 id="42-定义寄存器组">
+<a class="anchor" href="#42-%E5%AE%9A%E4%B9%89%E5%AF%84%E5%AD%98%E5%99%A8%E7%BB%84" aria-hidden="true"><span class="octicon octicon-link"></span></a>4.2 定义寄存器组</h2>
+
+<p><code class="language-plaintext highlighter-rouge">RegisterClass</code>类（在Target.td中指定）用于定义一个对象，
+该对象表示一组相关的寄存器，
+还定义了寄存器的默认分配顺序。
+使用<code class="language-plaintext highlighter-rouge">Target.td</code>的目标描述文件<code class="language-plaintext highlighter-rouge">XXXRegisterInfo.td</code>可以使用以下类构造寄存器组：</p>
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">class</span> <span class="err">RegisterClass</span><span class="p">&lt;</span><span class="err">string</span> <span class="err">namespace</span><span class="p">,</span>
+<span class="err">list</span><span class="p">&lt;</span><span class="err">ValueType</span><span class="p">&gt;</span> <span class="err">regTypes</span><span class="p">,</span> <span class="err">int</span> <span class="err">alignment</span><span class="p">,</span> <span class="err">dag</span> <span class="err">regList</span><span class="p">&gt;</span> <span class="p">{</span>
+  <span class="err">string</span> <span class="err">Namespace</span> <span class="p">=</span> <span class="err">namespace</span><span class="c1">;</span>
+  <span class="err">list</span><span class="p">&lt;</span><span class="err">ValueType</span><span class="p">&gt;</span> <span class="err">RegTypes</span> <span class="p">=</span> <span class="err">regTypes</span><span class="c1">;</span>
+  <span class="err">int</span> <span class="err">Size</span> <span class="p">=</span> <span class="m">0</span><span class="c1">;  // spill size, in bits; zero lets tblgen pick the size</span>
+  <span class="err">int</span> <span class="err">Alignment</span> <span class="p">=</span> <span class="err">alignment</span><span class="c1">;</span>
+
+  <span class="err">//</span> <span class="err">CopyCost</span> <span class="err">is</span> <span class="err">the</span> <span class="err">cost</span> <span class="err">of</span> <span class="err">copying</span> <span class="err">a</span> <span class="err">value</span> <span class="err">between</span> <span class="err">two</span> <span class="err">registers</span>
+  <span class="err">//</span> <span class="k">default</span> <span class="err">value</span> <span class="m">1</span> <span class="err">means</span> <span class="err">a</span> <span class="k">single</span> <span class="err">instruction</span>
+  <span class="err">//</span> <span class="err">A</span> <span class="err">negative</span> <span class="err">value</span> <span class="err">means</span> <span class="err">copying</span> <span class="err">is</span> <span class="err">extremely</span> <span class="err">expensive</span> <span class="k">or</span> <span class="err">impossible</span>
+  <span class="err">int</span> <span class="err">CopyCost</span> <span class="p">=</span> <span class="m">1</span><span class="c1">;</span>
+  <span class="err">dag</span> <span class="err">MemberList</span> <span class="p">=</span> <span class="err">regList</span><span class="c1">;</span>
+
+  <span class="err">//</span> <span class="err">for</span> <span class="err">register</span> <span class="err">classes</span> <span class="err">that</span> <span class="err">are</span> <span class="err">subregisters</span> <span class="err">of</span> <span class="err">this</span> <span class="err">class</span>
+  <span class="err">list</span><span class="p">&lt;</span><span class="err">RegisterClass</span><span class="p">&gt;</span> <span class="err">SubRegClassList</span> <span class="p">=</span> <span class="p">[]</span><span class="c1">;</span>
+
+  <span class="err">code</span> <span class="err">MethodProtos</span> <span class="p">=</span> <span class="p">[{}]</span><span class="c1">;  // to insert arbitrary code</span>
+  <span class="err">code</span> <span class="err">MethodBodies</span> <span class="p">=</span> <span class="p">[{}]</span><span class="c1">;</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>要定义<code class="language-plaintext highlighter-rouge">RegisterClass</code>，请使用以下4个参数:</p>
+
+<ul>
+  <li>
+    <p>第一个参数定义了命名空间的名称。</p>
+  </li>
+  <li>
+    <p>第二个参数是寄存器类型的列表，寄存器的类型定义在文件<code class="language-plaintext highlighter-rouge">include/llvm/CodeGen/ValueTypes.td</code>中。
+已定义的值包括整数类型(<code class="language-plaintext highlighter-rouge">i16</code>、<code class="language-plaintext highlighter-rouge">i32</code>和<code class="language-plaintext highlighter-rouge">i1</code>(布尔值))、浮点类型(<code class="language-plaintext highlighter-rouge">f32</code>、<code class="language-plaintext highlighter-rouge">f64</code>)和向量类型(例如，<code class="language-plaintext highlighter-rouge">v8i16</code>表示<code class="language-plaintext highlighter-rouge">8xi16</code>向量)。
+<code class="language-plaintext highlighter-rouge">RegisterClass</code>中的所有寄存器必须具有相同的<code class="language-plaintext highlighter-rouge">ValueType</code>，
+但有些寄存器可以不同的配置存储向量数据。
+例如，一个能够处理128位向量的寄存器也能处理16个8位整数元素，8个16位整数，4个32位整数，等等。</p>
+  </li>
+  <li>
+    <p>第三个参数指定寄存器数据在<code class="language-plaintext highlighter-rouge">load</code>或<code class="language-plaintext highlighter-rouge">save</code>时所需的对齐方式。</p>
+  </li>
+  <li>
+    <p>最后一个参数<code class="language-plaintext highlighter-rouge">regList</code>指定这个集合包含的寄存器。
+如果没有指定寄存器的分配顺序，
+那么<code class="language-plaintext highlighter-rouge">regList</code>还暗含了寄存器的分配顺序。
+除了简单地用<code class="language-plaintext highlighter-rouge">(add R0，R1，...)</code>列出寄存器之外，
+还可以用更高级的集合操作符。
+更多信息，请参见<code class="language-plaintext highlighter-rouge">include/llvm/Target/Target.td</code>。</p>
+  </li>
+</ul>
+
+<p>在<code class="language-plaintext highlighter-rouge">SparcRegisterInfo.td</code>中，
+定义了三个<code class="language-plaintext highlighter-rouge">RegisterClass</code>对象：<code class="language-plaintext highlighter-rouge">FPReg</code>，<code class="language-plaintext highlighter-rouge">DFPReg</code>和<code class="language-plaintext highlighter-rouge">IntReg</code>。
+对于所有三个寄存器类，第一个参数都是使用字符串“ SP”定义名称空间。
+<code class="language-plaintext highlighter-rouge">FPRegs</code>定义了一组32个单精度浮点寄存器（F0至F31）。
+<code class="language-plaintext highlighter-rouge">DFPRegs</code>定义了一组16个双精度寄存器（D0-D15）。</p>
+
+<div class="language-llvm highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="err">//</span> <span class="err">F0</span><span class="p">,</span> <span class="err">F1</span><span class="p">,</span> <span class="err">F2</span><span class="p">,</span> <span class="p">...,</span> <span class="err">F31</span>
+<span class="err">def</span> <span class="nl">FPRegs :</span> <span class="err">RegisterClass</span><span class="p">&lt;</span><span class="s">"SP"</span><span class="p">,</span> <span class="p">[</span><span class="err">f32</span><span class="p">],</span> <span class="m">32</span><span class="p">,</span> <span class="p">(</span><span class="err">sequence</span> <span class="s">"F%u"</span><span class="p">,</span> <span class="m">0</span><span class="p">,</span> <span class="m">31</span><span class="p">)&gt;</span><span class="c1">;</span>
+
+<span class="err">def</span> <span class="nl">DFPRegs :</span> <span class="err">RegisterClass</span><span class="p">&lt;</span><span class="s">"SP"</span><span class="p">,</span> <span class="p">[</span><span class="err">f64</span><span class="p">],</span> <span class="m">64</span><span class="p">,</span>
+                            <span class="p">(</span><span class="k">add</span> <span class="err">D0</span><span class="p">,</span> <span class="err">D1</span><span class="p">,</span> <span class="err">D2</span><span class="p">,</span> <span class="err">D3</span><span class="p">,</span> <span class="err">D4</span><span class="p">,</span> <span class="err">D5</span><span class="p">,</span> <span class="err">D6</span><span class="p">,</span> <span class="err">D7</span><span class="p">,</span> <span class="err">D8</span><span class="p">,</span>
+                                 <span class="err">D9</span><span class="p">,</span> <span class="err">D10</span><span class="p">,</span> <span class="err">D11</span><span class="p">,</span> <span class="err">D12</span><span class="p">,</span> <span class="err">D13</span><span class="p">,</span> <span class="err">D14</span><span class="p">,</span> <span class="err">D15</span><span class="p">)&gt;</span><span class="c1">;</span>
+
+<span class="err">def</span> <span class="nl">IntRegs :</span> <span class="err">RegisterClass</span><span class="p">&lt;</span><span class="s">"SP"</span><span class="p">,</span> <span class="p">[</span><span class="kt">i32</span><span class="p">],</span> <span class="m">32</span><span class="p">,</span>
+    <span class="p">(</span><span class="k">add</span> <span class="err">L0</span><span class="p">,</span> <span class="err">L1</span><span class="p">,</span> <span class="err">L2</span><span class="p">,</span> <span class="err">L3</span><span class="p">,</span> <span class="err">L4</span><span class="p">,</span> <span class="err">L5</span><span class="p">,</span> <span class="err">L6</span><span class="p">,</span> <span class="err">L7</span><span class="p">,</span>
+         <span class="err">I0</span><span class="p">,</span> <span class="err">I1</span><span class="p">,</span> <span class="err">I2</span><span class="p">,</span> <span class="err">I3</span><span class="p">,</span> <span class="err">I4</span><span class="p">,</span> <span class="err">I5</span><span class="p">,</span>
+         <span class="err">O0</span><span class="p">,</span> <span class="err">O1</span><span class="p">,</span> <span class="err">O2</span><span class="p">,</span> <span class="err">O3</span><span class="p">,</span> <span class="err">O4</span><span class="p">,</span> <span class="err">O5</span><span class="p">,</span> <span class="err">O7</span><span class="p">,</span>
+         <span class="err">G1</span><span class="p">,</span>
+         <span class="err">//</span> <span class="err">Non-allocatable</span> <span class="nl">regs:</span>
+         <span class="err">G2</span><span class="p">,</span> <span class="err">G3</span><span class="p">,</span> <span class="err">G4</span><span class="p">,</span>
+         <span class="err">O6</span><span class="p">,</span>        <span class="err">//</span> <span class="err">stack</span> <span class="err">ptr</span>
+         <span class="err">I6</span><span class="p">,</span>        <span class="err">//</span> <span class="err">frame</span> <span class="err">ptr</span>
+         <span class="err">I7</span><span class="p">,</span>        <span class="err">//</span> <span class="err">return</span> <span class="err">address</span>
+         <span class="err">G0</span><span class="p">,</span>        <span class="err">//</span> <span class="k">constant</span> <span class="err">zero</span>
+         <span class="err">G5</span><span class="p">,</span> <span class="err">G6</span><span class="p">,</span> <span class="err">G7</span> <span class="err">//</span> <span class="err">reserved</span> <span class="err">for</span> <span class="err">kernel</span>
+    <span class="p">)&gt;</span><span class="c1">;</span>
+</code></pre></div></div>
+<p>TableGen将<code class="language-plaintext highlighter-rouge">SparcRegisterInfo.td</code>编译成多个输出文件，
+这些输出文件将会被包含在您编写的其他源代码中。 
+<code class="language-plaintext highlighter-rouge">SparcRegisterInfo.td</code>被编译成<code class="language-plaintext highlighter-rouge">SparcGenRegisterInfo.h.inc</code>，
+这个文件将被包含在实现SPARC寄存器的头文件<code class="language-plaintext highlighter-rouge">SparcRegisterInfo.h</code>中。
+<code class="language-plaintext highlighter-rouge">SparcGenRegisterInfo.h.inc</code>定义了一个名为<code class="language-plaintext highlighter-rouge">SparcGenRegisterInfo</code>的新结构，
+该结构继承<code class="language-plaintext highlighter-rouge">TargetRegisterInfo</code>，
+还根据预定义的寄存器集（<code class="language-plaintext highlighter-rouge">DFPRegsClass</code>，<code class="language-plaintext highlighter-rouge">FPRegsClass</code>和<code class="language-plaintext highlighter-rouge">IntRegsClass</code>）来指定类型。</p>
+
+<p><code class="language-plaintext highlighter-rouge">Sparcregisterinfo.td</code>还会生成<code class="language-plaintext highlighter-rouge">SparcGenRegisterInfo.inc</code>文件，
+它被包含在文件<code class="language-plaintext highlighter-rouge">SparcRegisterInfo.cpp</code>的底部，
+该文件用于实现Sparc的寄存器。
+下面只显示生成的整数寄存器和关联的寄存器集，
+<code class="language-plaintext highlighter-rouge">IntRegs</code>中寄存器的顺序同目标描述文件中<code class="language-plaintext highlighter-rouge">IntRegs</code>定义的顺序一致。</p>
+<div class="language-cpp highlighter-rouge"><div class="highlight"><pre class="highlight"><code><span class="c1">// IntRegs Register Class...</span>
+<span class="k">static</span> <span class="k">const</span> <span class="kt">unsigned</span> <span class="n">IntRegs</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">SP</span><span class="o">::</span><span class="n">L0</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">L1</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">L2</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">L3</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">L4</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">L5</span><span class="p">,</span>
+  <span class="n">SP</span><span class="o">::</span><span class="n">L6</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">L7</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">I0</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">I1</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">I2</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">I3</span><span class="p">,</span>
+  <span class="n">SP</span><span class="o">::</span><span class="n">I4</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">I5</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">O0</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">O1</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">O2</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">O3</span><span class="p">,</span>
+  <span class="n">SP</span><span class="o">::</span><span class="n">O4</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">O5</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">O7</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">G1</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">G2</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">G3</span><span class="p">,</span>
+  <span class="n">SP</span><span class="o">::</span><span class="n">G4</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">O6</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">I6</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">I7</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">G0</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">G5</span><span class="p">,</span>
+  <span class="n">SP</span><span class="o">::</span><span class="n">G6</span><span class="p">,</span> <span class="n">SP</span><span class="o">::</span><span class="n">G7</span><span class="p">,</span>
+<span class="p">};</span>
+
+<span class="c1">// IntRegsVTs Register Class Value Types...</span>
+<span class="k">static</span> <span class="k">const</span> <span class="n">MVT</span><span class="o">::</span><span class="n">ValueType</span> <span class="n">IntRegsVTs</span><span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+  <span class="n">MVT</span><span class="o">::</span><span class="n">i32</span><span class="p">,</span> <span class="n">MVT</span><span class="o">::</span><span class="n">Other</span>
+<span class="p">};</span>
+
+<span class="k">namespace</span> <span class="n">SP</span> <span class="p">{</span>   <span class="c1">// Register class instances</span>
+  <span class="n">DFPRegsClass</span>    <span class="n">DFPRegsRegClass</span><span class="p">;</span>
+  <span class="n">FPRegsClass</span>     <span class="n">FPRegsRegClass</span><span class="p">;</span>
+  <span class="n">IntRegsClass</span>    <span class="n">IntRegsRegClass</span><span class="p">;</span>
+<span class="p">...</span>
+  <span class="c1">// IntRegs Sub-register Classes...</span>
+  <span class="k">static</span> <span class="k">const</span> <span class="n">TargetRegisterClass</span><span class="o">*</span> <span class="k">const</span> <span class="n">IntRegsSubRegClasses</span> <span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">NULL</span>
+  <span class="p">};</span>
+<span class="p">...</span>
+  <span class="c1">// IntRegs Super-register Classes..</span>
+  <span class="k">static</span> <span class="k">const</span> <span class="n">TargetRegisterClass</span><span class="o">*</span> <span class="k">const</span> <span class="n">IntRegsSuperRegClasses</span> <span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">NULL</span>
+  <span class="p">};</span>
+<span class="p">...</span>
+  <span class="c1">// IntRegs Register Class sub-classes...</span>
+  <span class="k">static</span> <span class="k">const</span> <span class="n">TargetRegisterClass</span><span class="o">*</span> <span class="k">const</span> <span class="n">IntRegsSubclasses</span> <span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">NULL</span>
+  <span class="p">};</span>
+<span class="p">...</span>
+  <span class="c1">// IntRegs Register Class super-classes...</span>
+  <span class="k">static</span> <span class="k">const</span> <span class="n">TargetRegisterClass</span><span class="o">*</span> <span class="k">const</span> <span class="n">IntRegsSuperclasses</span> <span class="p">[]</span> <span class="o">=</span> <span class="p">{</span>
+    <span class="nb">NULL</span>
+  <span class="p">};</span>
+
+  <span class="n">IntRegsClass</span><span class="o">::</span><span class="n">IntRegsClass</span><span class="p">()</span> <span class="o">:</span> <span class="n">TargetRegisterClass</span><span class="p">(</span><span class="n">IntRegsRegClassID</span><span class="p">,</span>
+    <span class="n">IntRegsVTs</span><span class="p">,</span> <span class="n">IntRegsSubclasses</span><span class="p">,</span> <span class="n">IntRegsSuperclasses</span><span class="p">,</span> <span class="n">IntRegsSubRegClasses</span><span class="p">,</span>
+    <span class="n">IntRegsSuperRegClasses</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">4</span><span class="p">,</span> <span class="mi">1</span><span class="p">,</span> <span class="n">IntRegs</span><span class="p">,</span> <span class="n">IntRegs</span> <span class="o">+</span> <span class="mi">32</span><span class="p">)</span> <span class="p">{}</span>
+<span class="p">}</span>
+</code></pre></div></div>
+<p>寄存器分配器将避免使用保留寄存器，
+并且被调用方保存的寄存器在所有易失性寄存器被使用之前都不会被使用。
+这通常已经足够好了，
+但在某些情况下，
+可能需要提供自定义分配命令。</p>
+
+<h2 id="43-实现targetregisterinfo的子类">
+<a class="anchor" href="#43-%E5%AE%9E%E7%8E%B0targetregisterinfo%E7%9A%84%E5%AD%90%E7%B1%BB" aria-hidden="true"><span class="octicon octicon-link"></span></a>4.3 实现TargetRegisterInfo的子类</h2>
+
+<p>最后一步是手工编写<code class="language-plaintext highlighter-rouge">XXXRegisterInfo</code>的部分代码，
+它实现了文件<code class="language-plaintext highlighter-rouge">TargetRegisterInfo.h</code>描述的接口（请参见<code class="language-plaintext highlighter-rouge">TargetRegisterInfo</code>类）。
+如果不实现这些接口，这些接口将返回<code class="language-plaintext highlighter-rouge">0</code>、<code class="language-plaintext highlighter-rouge">NULL</code>或<code class="language-plaintext highlighter-rouge">false</code>。
+下面是为实现SPARC而在文件<code class="language-plaintext highlighter-rouge">SparcRegisterInfo.cpp</code>中手工编写函数列表:</p>
+
+<ul>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">getCalleeSavedRegs</code> —- 返回被叫方保存的寄存器列表，按被叫方所需的堆栈帧偏移量顺序。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">getReservedRegs</code> —- 返回物理寄存器索引的集合，指示特定寄存器是否不可用。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">hasFP</code> —- 返回一个布尔值，指示函数是否应具有专用的帧指针寄存器。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">eliminateCallFramePseudoInstr</code> —- 如果使用调用帧设置或销毁伪指令，则可以调用此命令来消除它们。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">excludeFrameIndex</code> – 从能使用抽象帧索引的指令中删除抽象帧索引。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">emitPrologue</code> – 在函数中插入Prologue代码。</p>
+  </li>
+  <li>
+    <p><code class="language-plaintext highlighter-rouge">emitEpilogue</code> – 在函数中插入Epilogue代码。</p>
+  </li>
+</ul>
+
+<h1 id="五-指令集">
+<a class="anchor" href="#%E4%BA%94-%E6%8C%87%E4%BB%A4%E9%9B%86" aria-hidden="true"><span class="octicon octicon-link"></span></a>五 指令集</h1>
+
+<p>在代码生成的早期阶段，
+LLVM IR代码被转换为Selection DAG，
+节点是<code class="language-plaintext highlighter-rouge">SDNode</code>类的实例，
+<code class="language-plaintext highlighter-rouge">SDNode</code>类包含目标指令，
+具有操作码、操作数、类型要求和操作属性。
+例如，操作是否是可交换的，是否需要从内存加载数据。
+文件<code class="language-plaintext highlighter-rouge">include/llvm/CodeGen/SelectionDAGNodes.h</code>（ISD命名空间中的NodeType枚举）描述了节点的各种类型。</p>
+
+<h2 id="指令操作数映射">
+<a class="anchor" href="#%E6%8C%87%E4%BB%A4%E6%93%8D%E4%BD%9C%E6%95%B0%E6%98%A0%E5%B0%84" aria-hidden="true"><span class="octicon octicon-link"></span></a>指令操作数映射</h2>
+
+<h3 id="指令操作数名称映射">
+<a class="anchor" href="#%E6%8C%87%E4%BB%A4%E6%93%8D%E4%BD%9C%E6%95%B0%E5%90%8D%E7%A7%B0%E6%98%A0%E5%B0%84" aria-hidden="true"><span class="octicon octicon-link"></span></a>指令操作数名称映射</h3>
+
+<h3 id="指令操作数类型">
+<a class="anchor" href="#%E6%8C%87%E4%BB%A4%E6%93%8D%E4%BD%9C%E6%95%B0%E7%B1%BB%E5%9E%8B" aria-hidden="true"><span class="octicon octicon-link"></span></a>指令操作数类型</h3>
+
+<h2 id="指令调度">
+<a class="anchor" href="#%E6%8C%87%E4%BB%A4%E8%B0%83%E5%BA%A6" aria-hidden="true"><span class="octicon octicon-link"></span></a>指令调度</h2>
+
+<h2 id="指令关系映射">
+<a class="anchor" href="#%E6%8C%87%E4%BB%A4%E5%85%B3%E7%B3%BB%E6%98%A0%E5%B0%84" aria-hidden="true"><span class="octicon octicon-link"></span></a>指令关系映射</h2>
+
+<h2 id="实现targetstrinfo的子类">
+<a class="anchor" href="#%E5%AE%9E%E7%8E%B0targetstrinfo%E7%9A%84%E5%AD%90%E7%B1%BB" aria-hidden="true"><span class="octicon octicon-link"></span></a>实现TargetStrInfo的子类</h2>
+
+<h2 id="分支折叠与if转换">
+<a class="anchor" href="#%E5%88%86%E6%94%AF%E6%8A%98%E5%8F%A0%E4%B8%8Eif%E8%BD%AC%E6%8D%A2" aria-hidden="true"><span class="octicon octicon-link"></span></a>分支折叠与If转换</h2>
+
+<h1 id="六-指令选择器">
+<a class="anchor" href="#%E5%85%AD-%E6%8C%87%E4%BB%A4%E9%80%89%E6%8B%A9%E5%99%A8" aria-hidden="true"><span class="octicon octicon-link"></span></a>六 指令选择器</h1>
+
+<h2 id="选择合法化阶段">
+<a class="anchor" href="#%E9%80%89%E6%8B%A9%E5%90%88%E6%B3%95%E5%8C%96%E9%98%B6%E6%AE%B5" aria-hidden="true"><span class="octicon octicon-link"></span></a>选择合法化阶段</h2>
+
+<h3 id="推广">
+<a class="anchor" href="#%E6%8E%A8%E5%B9%BF" aria-hidden="true"><span class="octicon octicon-link"></span></a>推广</h3>
+
+<h3 id="展开">
+<a class="anchor" href="#%E5%B1%95%E5%BC%80" aria-hidden="true"><span class="octicon octicon-link"></span></a>展开</h3>
+
+<h3 id="定制">
+<a class="anchor" href="#%E5%AE%9A%E5%88%B6" aria-hidden="true"><span class="octicon octicon-link"></span></a>定制</h3>
+
+<h3 id="合法的">
+<a class="anchor" href="#%E5%90%88%E6%B3%95%E7%9A%84" aria-hidden="true"><span class="octicon octicon-link"></span></a>合法的</h3>
+
+<h2 id="调用约定">
+<a class="anchor" href="#%E8%B0%83%E7%94%A8%E7%BA%A6%E5%AE%9A" aria-hidden="true"><span class="octicon octicon-link"></span></a>调用约定</h2>
+
+<h1 id="七-装配式打印机">
+<a class="anchor" href="#%E4%B8%83-%E8%A3%85%E9%85%8D%E5%BC%8F%E6%89%93%E5%8D%B0%E6%9C%BA" aria-hidden="true"><span class="octicon octicon-link"></span></a>七 装配式打印机</h1>
+
+<h1 id="八-子目标支持">
+<a class="anchor" href="#%E5%85%AB-%E5%AD%90%E7%9B%AE%E6%A0%87%E6%94%AF%E6%8C%81" aria-hidden="true"><span class="octicon octicon-link"></span></a>八 子目标支持</h1>
+
+<h1 id="九-jit支持">
+<a class="anchor" href="#%E4%B9%9D-jit%E6%94%AF%E6%8C%81" aria-hidden="true"><span class="octicon octicon-link"></span></a>九 JIT支持</h1>
+
+<h2 id="机器码发射器">
+<a class="anchor" href="#%E6%9C%BA%E5%99%A8%E7%A0%81%E5%8F%91%E5%B0%84%E5%99%A8" aria-hidden="true"><span class="octicon octicon-link"></span></a>机器码发射器</h2>
+
+<h2 id="目标jit信息">
+<a class="anchor" href="#%E7%9B%AE%E6%A0%87jit%E4%BF%A1%E6%81%AF" aria-hidden="true"><span class="octicon octicon-link"></span></a>目标JIT信息</h2>
+
+    </div>
+  </article><aside class="post__contact"><h4><a href="/about/">悲催的袜子</a></h4>
+  <p>Write an awesome description for your new site here. You can edit this line in _config.yml. It will appear in your document head meta (for Google search results) and in your feed.xml site description.</p>
+<div class="icon__list"><a href="mailto:mantis-shrimp@outlook.com" class="icon__link" target="_blank"><svg class="icon__stroke" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+  <polyline points="22,6 12,13 2,6"></polyline>
+</svg>
+</a></div>
+</aside>
+</main><script>hljs.initHighlightingOnLoad();</script><footer class="site-footer">
+  © 2021<a href="/">悲催的袜子</a>. Theme<a href="https://github.com/erlzhang/jekyll-theme-persephone" target="_blank">Persephone</a>
+</footer>
+
+  </body>
+</html>
