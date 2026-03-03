@@ -1,0 +1,27 @@
+project:
+  type: website
+  resources:
+    - assets
+    - sock.svg
+    - .nojekyll
+
+website:
+  title: "悲催的袜子"
+  site-url: "https://sadsock.github.io"
+  navbar:
+    left:
+      - text: "主页"
+        href: index.qmd
+      - text: "关于"
+        href: about.qmd
+  page-footer:
+    left: "© 2026 SadSock"
+
+format:
+  html:
+    theme: simplex
+    fontsize: 1.05em
+    toc: true
+    css: styles.css
+
+lang: zh

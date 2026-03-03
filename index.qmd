@@ -1,0 +1,10 @@
+---
+title: "主页"
+listing:
+  contents: posts
+  type: default
+  fields: [date, title]
+  sort: "date desc"
+  page-size: 20
+  feed: true
+---

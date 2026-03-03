@@ -1,5 +1,4 @@
 ---
-layout: post
 title:  "Write an LLVM Backend(零)：简介"
 date:   2020-11-01 18:38:38 +0800
 toc: true

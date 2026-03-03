@@ -1,5 +1,4 @@
 ---
-layout: post
 title: "深入理解 LLVM code generator (一)"
 toc: true
 date: 2021-8-27 19:20:38 +0800
@@ -41,7 +40,7 @@ long imul(long a, long b) {
 代码生成器完成的第一件事是将 IR 转换为 Selection DAG。
 这是最初的 DAG。
 
-![Selection DAG]({{site.url}}/assets/a-deeper-look-into-the-llvm-code-generator-part-1/dag_imul5.png)
+![Selection DAG](/assets/a-deeper-look-into-the-llvm-code-generator-part-1/dag_imul5.png)
 
 这里并没有太多值得关注的内容，所有类型对于目标架构来说都是合法的；
 因此，这个 DAG 可以直接用于指令选择。
@@ -310,7 +309,7 @@ debug 信息显示指令选择器寻找合适指令的过程非常复杂。
 
 下面的 DAG 是在指令选择后的样子：
 
-![Selection DAG]({{site.url}}/assets/a-deeper-look-into-the-llvm-code-generator-part-1/dag_imul_postisel.png)
+![Selection DAG](/assets/a-deeper-look-into-the-llvm-code-generator-part-1/dag_imul_postisel.png)
 
 由于 DAG 的入口是基本项，所以这一部分都很相似；
 主要区别在于乘法和返回节点被选择为实际指令。

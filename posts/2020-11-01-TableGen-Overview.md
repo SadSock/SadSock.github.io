@@ -1,5 +1,4 @@
 ---
-layout: post
 title:  "TableGen 简介"
 toc: true
 date:   2020-11-03 19:30:38 +0800

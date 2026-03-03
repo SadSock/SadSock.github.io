@@ -1,7 +1,9 @@
 .DS_Store
-_site
+.quarto
 .sass-cache
-.jekyll-cache
-.jekyll-metadata
+_site
 vendor
-_posts/.*
+posts/.*
+
+/.quarto/
+**/*.quarto_ipynb

@@ -1,5 +1,4 @@
 ---
-layout: post
 title:  "编写LLVM后端"
 date:   2020-11-01 18:38:38 +0800
 toc: true
