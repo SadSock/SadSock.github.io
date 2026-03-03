@@ -1,0 +1,6 @@
+/* Unify listing date/title sizing on the home page */
+.quarto-listing .listing-title,
+.quarto-listing .listing-date {
+  font-size: 1rem;
+  line-height: 1.5;
+}

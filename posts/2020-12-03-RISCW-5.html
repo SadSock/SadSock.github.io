@@ -1,0 +1,897 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-Hans" xml:lang="zh-Hans"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="keywords" content="LLVM">
+<meta name="description" content="无">
+
+<title>为LLVM添加简易RISCV后端(五)：算术指令 – 悲催的袜子</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-39cdd0f1bff0c792356829953f17b6ac.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "没有结果",
+    "search-matching-documents-text": "匹配的文档",
+    "search-copy-link-title": "复制搜索链接",
+    "search-hide-matches-text": "隐藏其它匹配结果",
+    "search-more-match-text": "更多匹配结果",
+    "search-more-matches-text": "更多匹配结果",
+    "search-clear-button-title": "清除",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "取消",
+    "search-submit-button-title": "提交",
+    "search-label": "搜索"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">悲催的袜子</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="搜索"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="展开或折叠导航栏" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../index.html"> 
+<span class="menu-text">主页</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html"> 
+<span class="menu-text">关于</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">该页面内容</h2>
+   
+  <ul>
+  <li><a href="#算术指令" id="toc-算术指令" class="nav-link active" data-scroll-target="#算术指令">算术指令</a>
+  <ul class="collapse">
+  <li><a href="#tablegen" id="toc-tablegen" class="nav-link" data-scroll-target="#tablegen">TableGen</a></li>
+  <li><a href="#定义寄存器" id="toc-定义寄存器" class="nav-link" data-scroll-target="#定义寄存器">定义寄存器</a></li>
+  <li><a href="#定义指令" id="toc-定义指令" class="nav-link" data-scroll-target="#定义指令">定义指令</a></li>
+  <li><a href="#合法化" id="toc-合法化" class="nav-link" data-scroll-target="#合法化">合法化</a></li>
+  <li><a href="#目标指令选择" id="toc-目标指令选择" class="nav-link" data-scroll-target="#目标指令选择">目标指令选择</a></li>
+  </ul></li>
+  <li><a href="#结束语" id="toc-结束语" class="nav-link" data-scroll-target="#结束语">结束语</a></li>
+  <li><a href="#注释" id="toc-注释" class="nav-link" data-scroll-target="#注释">注释</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">为LLVM添加简易RISCV后端(五)：算术指令</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">LLVM</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    无
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">发布于</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2020年12月11日</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">关键词</div>
+    <p>LLVM</p>
+  </div>
+</div>
+
+</header>
+
+
+<p>为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a><a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。</p>
+<section id="算术指令" class="level2">
+<h2 class="anchored" data-anchor-id="算术指令">算术指令</h2>
+<p>现在，我们将把上一篇文章讨论的关于LLVM后端中的指令选择付诸实践。 我们将通过查看RISCW后端的算术指令(比如加法、减法和乘法)的具体实现来做到这一点。</p>
+<p><strong>注意：</strong>这篇文章中讨论的代码可以在<a href="https://github.com/andresag01/llvm-project/commit/38ac00579c9e84cb4374d34da917a37142f072ca">这里</a>找到。</p>
+<p>RISCW的算术指令相对简单， 在指令选择过程中仅需要配置指令选择器和合法化器，这主要需编写三部分代码。 首先，使用TableGen描述目标平台支持的指令集。 其次，通知LLVM需要合法化的算术运算和类型。 最后，添加自定义C++代码来增强指令选择器的功能。</p>
+<p><strong>注意：</strong>在为不同体系结构实现指令选择时，总体思路大致相似，但是具体情况将有所不同。 例如，您的指令集可能具有有趣的/复杂的算术指令，例如长乘或多次累加，可能需要额外的代码来正确地支持这些指令。 另外，我们不会自定义优化，但是您可以查看其他后端有关自定义优化的内容，例如XCore和ARM有很多很好的例子。</p>
+<p><strong>注意：</strong>这里显示的大部分代码最初来自LLVM现有的RISCV后端，但是为了照顾本教程的读者，它已经被大大简化了。</p>
+<section id="tablegen" class="level3">
+<h3 class="anchored" data-anchor-id="tablegen">TableGen</h3>
+<p>TableGen是描述体系结构（包括寄存器，指令集，调用约定等）的专用编程语言， 其目标是创建可维护、易于阅读的代码来描述体系结构。 在构建LLVM时，TableGen工具将TableGen代码翻译为C++并将其与手工编码的C++文件一起编译。</p>
+<p><strong>注意：</strong>实际上，我发现TableGen代码很难阅读，更难编码！</p>
+<p>简而言之，TableGen是具有以下功能的声明性编程语言：</p>
+<ul>
+<li><p>有两个主要组件： <code>record</code>和<code>class</code>。 <code>record</code>是<code>class</code>的实例，包含了名称和相关字段的值。 <code>class</code>是<code>record</code>的抽象，可用于生成具体的<code>record</code>。 两者相互配合可以很好地提取公共代码并减少重复。</p></li>
+<li><p><code>record</code>可以从一个或多个<code>class</code>继承，还可以定义自己的字段。</p></li>
+<li><p>字段具有名称和值（或值列表），值具有特定的类型（如bit或int）。<a href="https://llvm.org/docs/TableGen/ProgRef.html#types">这是</a>类型列表。</p></li>
+<li><p><code>include</code>指令用于将TableGen代码从一个文件包含到另一个文件中，就像C的<code>#include</code>一样。</p></li>
+</ul>
+<p>以下是从LLVM<a href="https://llvm.org/docs/TableGen/ProgRef.html#examples-classes-and-records">文档</a>中获取的示例，其中显示了一个非常简单的TableGen文件。 它包含一个<code>class</code>C，该<code>class</code>定义了值为1的bit类型的字段V， 还声明了一个从类C派生的记录X。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>class C {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a>  bit V = <span class="dv">1</span><span class="co">;</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a>def X : C<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>后端需要定义TableGen的<code>record</code>，用以声明指令、寄存器等。 这些<code>record</code>必须从内部类继承，这样TableGen工具才能魔术地为这些<code>record</code>生成适当的C++代码。 例如，声明寄存器的<code>record</code>必须从内部的Register类继承。 在这篇文章中，我们将查看声明寄存器和指令的TableGen代码。</p>
+<p><strong>注意:</strong>TableGen文档在解释它是什么和语法方面做得很好。 但是，介绍后端应该重用的内部类和预定义记录的文档却很少；要了解这些内容您必须查看源代码。</p>
+<p><strong>注意:</strong>回想一下之前的文章， 我们的CMake文件使用带各种参数的TableGen命令把扩展名为<code>.td</code>的TableGen代码文件转化为扩展名为<code>.inc</code>的C++文件。 在构建系统发出TableGen命令之后，可以在<code>build/lib/Target/RISCW</code>的构建目录中找到生成的文件。 Tablegen的参数可以<a href="https://llvm.org/docs/CommandGuide/tblgen.html">这里</a>(非常简短地)查看。</p>
+<p><strong>注意:</strong>TableGen还可以配置指令选择过程中的调度和形成阶段，但是我不会在本教程中讨论这一点。 如果你感兴趣，可以看看<a href="https://www.youtube.com/watch?v=brpomKUynEA&amp;ab_channel=LLVM">这个视频</a>。</p>
+</section>
+<section id="定义寄存器" class="level3">
+<h3 class="anchored" data-anchor-id="定义寄存器">定义寄存器</h3>
+<p>RISCW的寄存器定义非常简单， 可以在<code>llvm/lib/Target/RISCW/RISCWRegisterInfo.td</code>中找到。 让我们对其进行剖析，以了解TableGen的工作方式。</p>
+<p>在文件的顶部，我们找到以下类。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a>let Namespace = <span class="st">"RISCW"</span> in {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>class RISCWReg&lt;bits&lt;<span class="dv">5</span>&gt; Enc, string n, list&lt;string&gt; alt = []&gt; : Register&lt;n&gt; {</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  let HWEncoding{<span class="dv">4-0</span>} = Enc<span class="co">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  let AltNames = alt<span class="co">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>} // <span class="kw">end</span> Namespace</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>该代码声明了一个<code>RISCWReg</code>类，该类继承自在<code>include/llvm/Target/Target.td</code>中定义的内部类Register。 该代码还告诉我们，从此类继承时，我们必须提供最多三个参数：</p>
+<ul>
+<li><p>寄存器编码<code>Enc</code>，它是类型为<code>bits&lt;5&gt;</code>的5位整数。</p></li>
+<li><p>字符串<code>n</code>，表示人类可读的寄存器名称，如RISCV中的<code>x0</code>、<code>x1</code>等。</p></li>
+<li><p>寄存器的别名列表，该列表是可选的。 例如，RISCV中的x2也可以称为sp，即堆栈指针。 但请注意，此列表是可选的，因为可以声明没有别名的寄存器，如果寄存器没有别名，则把<code>alt</code>设置<code>[]</code>。</p></li>
+</ul>
+<p>另外，请注意Register类接受一个参数：类型为字符串的寄存器名称。 RISCWReg的其余两个参数（<code>Enc</code>和<code>alt</code>）被<code>let</code>语句用于覆盖Register类定义的<code>HWEncoding</code>和<code>AltNames</code>域。 您可以在<a href="https://github.com/andresag01/llvm-project/blob/38ac00579c9e84cb4374d34da917a37142f072ca/llvm/include/llvm/Target/Target.td#L180">这里</a>和<a href="https://github.com/andresag01/llvm-project/blob/38ac00579c9e84cb4374d34da917a37142f072ca/llvm/include/llvm/Target/Target.td#L136">这里</a>阅读Register的代码。</p>
+<p>接下来，我们在该文件中找到以下Register定义。 每一行代码都是一个<code>record</code>，它定义了一个寄存器。 这些<code>record</code>继承自两个类:<code>RISCWReg</code>(我们已经讨论过了)和<code>DwarfRegNum</code>。 <code>DwarfRegNum</code>是这里定义的另一个内部类，用于为GCC和GDB提供调试信息。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>def X0  : RISCWReg&lt;<span class="dv">0</span>, <span class="st">"x0"</span>, [<span class="st">"zero"</span>]&gt;, DwarfRegNum&lt;[<span class="dv">0</span>]&gt;<span class="co">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>...</span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>def X31 : RISCWReg&lt;<span class="dv">31</span>,<span class="st">"x31"</span>, [<span class="st">"t6"</span>]&gt;, DwarfRegNum&lt;[<span class="dv">31</span>]&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>文件的最后几行定义寄存器组， RISCW定义了两种寄存器组：<code>GPR</code>通用寄存器和堆栈指针<code>SP</code>寄存器。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>def GPR : RegisterClass&lt;<span class="st">"RISCW"</span>, [<span class="dt">i32</span>], <span class="dv">32</span>, (<span class="kw">add</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>    (sequence <span class="st">"X%u"</span>, <span class="dv">10</span>, <span class="dv">17</span>),</span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>    (sequence <span class="st">"X%u"</span>, <span class="dv">5</span>, <span class="dv">7</span>),</span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>    (sequence <span class="st">"X%u"</span>, <span class="dv">28</span>, <span class="dv">31</span>),</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    (sequence <span class="st">"X%u"</span>, <span class="dv">8</span>, <span class="dv">9</span>),</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    (sequence <span class="st">"X%u"</span>, <span class="dv">18</span>, <span class="dv">27</span>),</span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>    (sequence <span class="st">"X%u"</span>, <span class="dv">0</span>, <span class="dv">4</span>)</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a>  )&gt;<span class="co">;</span></span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>def SP : RegisterClass&lt;<span class="st">"RISCW"</span>, [<span class="dt">i32</span>], <span class="dv">32</span>, (<span class="kw">add</span> X2)&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>定义Register组的<code>record</code>继承自RegisterClass类，后者具有四个参数（还有一个可选的第五个参数，我们将不讨论）：</p>
+<ul>
+<li><p>命名空间在我们的例子中是RISCW，这与我们在上面的RISCWReg类中重写的名称空间字段相匹配。</p></li>
+<li><p>此组寄存器支持的数据类型列表。 这是一个列表，因为某些体系结构中的寄存器可以支持多种数据类型。 例如，一些64位计算机的寄存器可以在32位和64位模式下工作。 RISCW只适用于32位机器，因此寄存器总是32位，它们的类型就是i32。</p></li>
+<li><p>从内存中存储或加载寄存器时寄存器的对齐方式。</p></li>
+<li><p>一个DAG，指示此寄存器组包含的寄存器。还有…</p>
+<ul>
+<li><p>我是说DAG！注意，<code>GPR</code>的DAG有一个<code>ADD</code>模式，该模式有6个<code>sequence</code>节点。 <code>sequence</code>是一种操作，它接受字符串格式参数以及起始值和结束值。 序列中的每个元素都是TableGen工具根据格式参数指定的格式生成。 所以，这个DAG的另一种写法是(add X10, X17,…, X3, X4)。</p></li>
+<li><p>此DAG还指定了寄存器分配器使用寄存器的顺序。 例如，如果两者都可用，分配器将优先使用来自GPR的<code>x10</code>而不是<code>x4</code>。</p></li>
+</ul></li>
+</ul>
+<p>寄存器组稍后用于配置合法化器。</p>
+</section>
+<section id="定义指令" class="level3">
+<h3 class="anchored" data-anchor-id="定义指令">定义指令</h3>
+<p>计算机体系结构使用一组格式对指令进行编码。 例如，RISCV体系结构使用32位编码和4种基本指令格式来编码指令<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>。 此外，每种格式都有一组唯一的操作码(或操作码)。 然后使用格式和操作码对特定指令进行编码，这使处理器能够识别指令并确定它们的操作数。</p>
+<p>在LLVM中，定义指令的方式与定义指令集编码的方式类似。 定义指令的代码通常由两部分组成: 格式定义和指令定义。</p>
+<section id="定义格式" class="level4">
+<h4 class="anchored" data-anchor-id="定义格式">定义格式</h4>
+<p>定义格式的同时也定义了唯一的标识符， 这些标识符指示指令的格式， C++代码使用它来正确地发出指令编码。 RISCW后端定义格式的代码，如下所示:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>class InstFormat&lt;bits&lt;<span class="dv">5</span>&gt; val&gt; {</span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  bits&lt;<span class="dv">5</span>&gt; Value = val<span class="co">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>def InstFormatPseudo : InstFormat&lt;<span class="dv">0</span>&gt;<span class="co">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>def InstFormatR      : InstFormat&lt;<span class="dv">1</span>&gt;<span class="co">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>...</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>def InstFormatOther  : InstFormat&lt;<span class="dv">17</span>&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>注意：</strong> 在LLVM后端中，定义指令格式的代码通常在文件<code>llvm/lib/Target/&lt;BACKEND&gt;/&lt;BACKEND&gt;InstrFormats.td</code>中， 而实际定义指令的代码在文件<code>llvm/lib/Target/&lt;BACKEND&gt;/&lt;BACKEND&gt;InstrInfo.td</code>中。 但是在复杂的后端中， 指令定义可以拆分为多个文件， 例如，RISCV的每个扩展都对应一个不同的文件。 这些文件称为<code>llvm/lib/Target/RISCV/RISCVInstrInfo&lt;EXT&gt;.td</code>， 其中<code>&lt;EXT&gt;</code>是扩展字母，如M，A等。 RISCW后端相对简单， 用于定义格式和指令的TableGen代码分别存储在<code>llvm/lib/Target/RISCW/RISCWInstrFormats.td</code>和<code>llvm/lib/Target/RISCWInstrInfo.td</code>中。</p>
+<p><strong>注意:</strong>RISCW后端基于RISCV后端。 两者都试图严格地根据RISCV的参考手册定义指令， 但这不是必须的。 你也可以针对你的体系结构和编译器构造只属于你的TableGen代码。</p>
+<p>RISCW后端为操作码定义了如下<code>record</code>:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>class RISCWOpcode&lt;bits&lt;<span class="dv">7</span>&gt; val&gt; {</span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>  bits&lt;<span class="dv">7</span>&gt; Value = val<span class="co">;</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>def OPC_LOAD      : RISCWOpcode&lt;<span class="dv">0</span>b0000011&gt;<span class="co">;</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>def OPC_LOAD_FP   : RISCWOpcode&lt;<span class="dv">0</span>b0000111&gt;<span class="co">;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a>...</span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>def OPC_SYSTEM    : RISCWOpcode&lt;<span class="dv">0</span>b1110011&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>所有指令必须继承自LLVM内部的<code>Instruction</code>类。 方便起见，RISCW后端还定义了<code>Instruction</code>的子类<code>RWInst</code>， 它覆盖了许多字段，例如<code>Size</code>和<code>TSFlags</code>，同时添加了额外的字段。 <code>Instruction</code>类实际上非常庞大， 需要配置许多选项， 我建议您通读LLVM的源代码以了解什么样的配置可以满足你的需求。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>class RWInst&lt;dag outs, dag ins, string opcodestr, string argstr,</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>             list&lt;dag&gt; pattern, InstFormat format&gt;</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>    : Instruction {</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>  field bits&lt;<span class="dv">32</span>&gt; Inst<span class="co">;</span></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a>  field bits&lt;<span class="dv">32</span>&gt; SoftFail = <span class="dv">0</span><span class="co">;</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  let Size = <span class="dv">4</span><span class="co">;</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a>  ...</span>
+<span id="cb7-8"><a href="#cb7-8" aria-hidden="true" tabindex="-1"></a>  let TSFlags{<span class="dv">4-0</span>} = format.Value<span class="co">;</span></span>
+<span id="cb7-9"><a href="#cb7-9" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>注意：</strong><code>Instruction</code>类中的许多字段仅对特定任务有用。 例如，仅当发出目标代码时才使用<code>Inst</code>字段和<code>opcode</code>。 因此，不要理会您不需要的东西！</p>
+<p>再次为方便起见， RISCW后端为每种格式定义了<code>RWInst</code>类的子类。 我们实际的指令将继承这些“低级的”格式，以避免代码重复。</p>
+<p>格式类根据相关格式的编码覆盖<code>Inst</code>字段的值。 另外，还有一个特殊的<code>Pseudo</code>类，用于设置<code>Instruction</code>类中的<code>isPseudo</code>字段。 这些pseudo指令通常是栈调整和函数返回等操作的占位符， 我们将在后面的文章中进行探讨。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a>class Pseudo&lt;dag outs, dag ins, list&lt;dag&gt; pattern, string opcodestr = <span class="st">""</span>,</span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>             string argstr = <span class="st">""</span>&gt;</span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>    : RWInst&lt;outs, ins, opcodestr, argstr, pattern, InstFormatPseudo&gt;,</span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>      Sched&lt;[]&gt; {</span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  let isPseudo = <span class="dv">1</span><span class="co">;</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  let isCodeGenOnly = <span class="dv">1</span><span class="co">;</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-9"><a href="#cb8-9" aria-hidden="true" tabindex="-1"></a>class RWInstR&lt;bits&lt;<span class="dv">7</span>&gt; funct7, bits&lt;<span class="dv">3</span>&gt; funct3, RISCWOpcode opcode, dag outs,</span>
+<span id="cb8-10"><a href="#cb8-10" aria-hidden="true" tabindex="-1"></a>              dag ins, string opcodestr, string argstr&gt;</span>
+<span id="cb8-11"><a href="#cb8-11" aria-hidden="true" tabindex="-1"></a>    : RWInst&lt;outs, ins, opcodestr, argstr, [], InstFormatR&gt; {</span>
+<span id="cb8-12"><a href="#cb8-12" aria-hidden="true" tabindex="-1"></a>  bits&lt;<span class="dv">5</span>&gt; rs2<span class="co">;</span></span>
+<span id="cb8-13"><a href="#cb8-13" aria-hidden="true" tabindex="-1"></a>  bits&lt;<span class="dv">5</span>&gt; rs1<span class="co">;</span></span>
+<span id="cb8-14"><a href="#cb8-14" aria-hidden="true" tabindex="-1"></a>  bits&lt;<span class="dv">5</span>&gt; rd<span class="co">;</span></span>
+<span id="cb8-15"><a href="#cb8-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-16"><a href="#cb8-16" aria-hidden="true" tabindex="-1"></a>  let Inst{<span class="dv">31-25</span>} = funct7<span class="co">;</span></span>
+<span id="cb8-17"><a href="#cb8-17" aria-hidden="true" tabindex="-1"></a>  ...</span>
+<span id="cb8-18"><a href="#cb8-18" aria-hidden="true" tabindex="-1"></a>  let Opcode = opcode.Value<span class="co">;</span></span>
+<span id="cb8-19"><a href="#cb8-19" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb8-20"><a href="#cb8-20" aria-hidden="true" tabindex="-1"></a>...</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>关于这些TableGen类，有几点需要强调：</p>
+<ul>
+<li><p><code>funct *</code>和<code>opcode</code>参数用于形成唯一的操作码，该操作码用于将指令编码为二进制。</p></li>
+<li><p><code>outs</code>和<code>ins</code>参数是DAG，分别指定指令的输出和输入操作数。 操作数通常是寄存器或立即数，但也可以是堆栈帧位置，全局地址等。</p></li>
+<li><p><code>opcodestr</code>是指令的助记符，例如<code>ADD</code>用于加法，<code>SUB</code>用于减法，等等。</p></li>
+<li><p><code>argstr</code>参数是一种格式字符串，用于告诉LLVM如何在汇编中打印指令的操作数。 例如，如果<code>outs</code>参数说有一个<code>$r1</code>寄存器操作数， 而<code>ins</code>参数说有一个<code>$r2</code>寄存器操作数并且<code>argstr</code>的格式为<code>"$r1,$r2"</code>， 则该指令的汇编将首先显示输出操作数（即紧随助记符之后）然后显示<code>,</code>，然后显示输入操作数。</p></li>
+<li><p>在<code>Pseudo</code>中，还有一个<code>pattern</code>操作数， 它告诉LLVM在目标指令选择阶段可以用该指令替换DAG中的哪些节点。 更详细的细节以后再讨论！</p></li>
+</ul>
+</section>
+<section id="定义指令-1" class="level4">
+<h4 class="anchored" data-anchor-id="定义指令-1">定义指令</h4>
+<p>为了方便起见，还定义了另一个类， 该类可以根据操作数以及操作是否涉及ALU、内存等来简化指令的定义。 例如，我们有下面的<code>ALU_rr</code>类来定义使用ALU（算数逻辑单元）的指令， 该类有三个GPR类型的操作数:两个是输入，一个是输出。 显然，所有<code>ALU_rr</code>指令都是R格式的，因为该类继承自 RWInstR。 另外，<code>ALU_rr</code>的定义位于let块中， 它覆盖了<code>Instruction</code>中值为0的<code>hasSideEffects</code>、<code>mayLoad</code>和<code>mayStore</code>字段； 这些字段中的大多数都是不言自明的，不过我鼓励您阅读代码以获得更多信息。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a>let hasSideEffects = <span class="dv">0</span>, mayLoad = <span class="dv">0</span>, mayStore = <span class="dv">0</span> in</span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>class ALU_rr&lt;bits&lt;<span class="dv">7</span>&gt; funct7, bits&lt;<span class="dv">3</span>&gt; funct3, string opcodestr&gt;</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>    : RWInstR&lt;funct7, funct3, OPC_OP, (outs <span class="fu">GPR:</span>$rd), (ins <span class="fu">GPR:</span>$rs1, <span class="fu">GPR:</span>$rs2),</span>
+<span id="cb9-4"><a href="#cb9-4" aria-hidden="true" tabindex="-1"></a>              opcodestr, <span class="st">"$rd, $rs1, $rs2"</span>&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>通过继承<code>ALU_rr</code>类来定义指令实际上非常简单。 例如，以下是定义<code>ADD</code>指令的代码：</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a>def ADD : ALU_rr&lt;<span class="dv">0</span>b0000000, <span class="dv">0</span>b000, <span class="st">"add"</span>&gt;, Sched&lt;[WriteIALU, ReadIALU, ReadIALU]&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>TableGen代码很难理解，因为大多数后端都使用深层继承来减少代码重复。 您可能需要拿出笔和纸来手动展开一些记录，以了解其工作原理。 例如，展开<code>ADD</code>的第一级看起来如下所示。 这个较长版本的<code>ADD</code>也是有效的TableGen代码， 将以前版本的<code>ADD</code>替换为这个较长的版本， LLVM仍然可以毫无问题地构建！</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a>let hasSideEffects = <span class="dv">0</span>, mayLoad = <span class="dv">0</span>, mayStore = <span class="dv">0</span> in</span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a>def ADD : RWInstR&lt;<span class="dv">0</span>b0000000, <span class="dv">0</span>b000, OPC_OP, (outs <span class="fu">GPR:</span>$rd),</span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>              (ins <span class="fu">GPR:</span>$rs1, <span class="fu">GPR:</span>$rs2), <span class="st">"add"</span>, <span class="st">"$rd, $rs1, $rs2"</span>&gt;,</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a>          Sched&lt;[WriteIALU, ReadIALU, ReadIALU]&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>定义带有立即数(而不是寄存器)的指令的方法大致相同， 但必须调整输入操作数。 例如，下面显示的<code>ALU_ri</code>类的第二个输入是名为<code>$imm12</code>的12位立即数(类型为simm12)。 simm12的定义证实该类的类型为i32还指明了编译器后端处理该操作数时， 解码器和编码器使用的C++类。 最后，simm12继承自ImmLeaf类， 该类带有一个必须满足的条件， 指令选择期间， DAG中的叶节点必须满足该条件才能匹配simm12类(稍后将详细介绍!)。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>def simm12 : Operand&lt;<span class="dt">i32</span>&gt;, ImmLeaf&lt;<span class="dt">i32</span>, [{return isInt&lt;<span class="dv">12</span>&gt;(Imm)<span class="co">;}]&gt; {</span></span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>  let ParserMatchClass = SImmAsmOperand&lt;<span class="dv">12</span>&gt;<span class="co">;</span></span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  let EncoderMethod = <span class="st">"getImmOpValue"</span><span class="co">;</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  let DecoderMethod = <span class="st">"decodeSImmOperand&lt;12&gt;"</span><span class="co">;</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  let MCOperandPredicate = [{</span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>    int64_t Imm<span class="co">;</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a>    if (MCOp.evaluateAsConstantImm(Imm))</span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>      return isInt&lt;<span class="dv">12</span>&gt;(Imm)<span class="co">;</span></span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>    return MCOp.isBareSymbolRef()<span class="co">;</span></span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  }]<span class="co">;</span></span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>  let OperandType = <span class="st">"OPERAND_SIMM12"</span><span class="co">;</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>  let OperandNamespace = <span class="st">"RISCWOp"</span><span class="co">;</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>...</span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>let hasSideEffects = <span class="dv">0</span>, mayLoad = <span class="dv">0</span>, mayStore = <span class="dv">0</span> in</span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>class ALU_ri&lt;bits&lt;<span class="dv">3</span>&gt; funct3, string opcodestr&gt;</span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>    : RWInstI&lt;funct3, OPC_OP_IMM, (outs <span class="fu">GPR:</span>$rd), (ins <span class="fu">GPR:</span>$rs1, <span class="fu">simm12:</span>$imm12)</span>
+<span id="cb12-20"><a href="#cb12-20" aria-hidden="true" tabindex="-1"></a>              opcodestr, <span class="st">"$rd, $rs1, $imm12"</span>&gt;,</span>
+<span id="cb12-21"><a href="#cb12-21" aria-hidden="true" tabindex="-1"></a>      Sched&lt;[WriteIALU, ReadIALU]&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>在一些计算机体系结构中（如RISCV）有一些指令是其他指令的别名。 通常，这样做只是为了方便或提高汇编代码的可读性。 例如，RISCV没有专门的寄存器-寄存器移动指令，只能使用不带立即数的<code>ADDI</code>指令代替。 我们可以通过<code>InstAlias</code>和<code>MnemonicAlias</code>类告诉LLVM我们的别名:</p>
+</section>
+</section>
+<section id="合法化" class="level3">
+<h3 class="anchored" data-anchor-id="合法化">合法化</h3>
+<p>类型和操作的合法化阶段均在后端的<code>TargetLowering</code>子类中使用C++代码进行配置。 在RISCW中，此类为<code>RISCWTargetLowering</code>，其代码在<code>lib/Target/RISCW/RISCWISelLowering.cpp</code>和<code>lib/Target/RISCW/RISCWISelLowering.h</code>中。 我们为支持算术指令所做的大多数更改实际上都在构造函数中。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a><span class="fu">RISCWTargetLowering:</span>:RISCWTargetLowering(const TargetMachine &amp;TM,</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>                                         const RISCWSubtarget &amp;STI)</span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a>    : TargetLowering(TM), Subtarget(STI)</span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>{</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>  addRegisterClass(<span class="fu">MVT:</span>:<span class="dt">i32</span>, &amp;<span class="fu">RISCW:</span>:GPRRegClass)<span class="co">;</span></span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>  ...</span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>  setSchedulingPreference(<span class="fu">Sched:</span>:RegPressure)<span class="co">;</span></span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>  ...</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>  setOperationAction(<span class="fu">ISD:</span>:SRA_PARTS, <span class="fu">MVT:</span>:<span class="dt">i32</span>, Custom)<span class="co">;</span></span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>  ...</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>  setOperationAction(<span class="fu">ISD:</span>:ROTL,  <span class="fu">MVT:</span>:<span class="dt">i32</span>, Expand)<span class="co">;</span></span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>  ...</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>有几件事值得注意：</p>
+<ul>
+<li><p><code>addRegisterClass</code>用于配置LLVM寄存器组和对应的寄存器类型，此信息用于类型合法化。</p></li>
+<li><p><code>setSchedulingPreference</code>用于配置调度和形成阶段。这里我们告诉LLVM使用一个最小化寄存器压力的算法。</p></li>
+<li><p><code>setOperationAction</code>用于配置LLVM如何使操作合法化，即合法化Section DAG中的节点。 回想一下，有三个选项：扩展、提升和自定义。 LLVM会自动处理前两个操作， 例如，RISCV没有位旋转指令，因此我们要求编译器将该操作扩展为其他操作，如移位和<code>ors</code>以模拟旋转。 标记为自定义的操作在<code>TargetLowering</code>子类中由C++代码处理。</p></li>
+</ul>
+<p>每当LLVM在合法化过程中遇到具有custom操作的DAG节点时， 都会生成对<code>TargetLoweing</code>类的<code>LowerOperation</code>方法的回调。 例如，<code>SHL_PARTS</code>操作用于将64位整数左移。 我们通过构造函数中的<code>setOperationAction(ISD:：SHL_PARTS，MVT:：i32，Custom)</code>来告诉LLVM， 我们实现了一个<code>LowerShlParts</code>函数来来合法化此操作。 <code>LowerShlParts</code>用32位移位和<code>ors</code>等其他合法操作来代替<code>SHL_PARTS</code>节点。 我鼓励您看看代码，看看这是如何工作的！</p>
+<p><strong>注意</strong>：需要合法化的操作完全取决于后端实现的指令集， 以及TableGen代码中DAG节点与指令匹配的程度（下一节将对此进行详细介绍！）。 如果使某些操作合法化太复杂或发出的代码效率低下， 则说明您的指令集可能缺少某些指令！</p>
+</section>
+<section id="目标指令选择" class="level3">
+<h3 class="anchored" data-anchor-id="目标指令选择">目标指令选择</h3>
+<p>目标指令选择阶段将后端TableGen文件中提供的DAG模式匹配到Section DAG中的节点。 匹配成功时，Section DAG中的节点将被替换为具体机器(或伪)指令的节点。 因此，TableGen定义的模式的质量对于发出好的代码至关重要， 您应该多花费些时间来调整这些模式!</p>
+<p><strong>注意：</strong>TableGen模式通常定义在<code>llvm/lib/Target/&lt;BACKEND&gt;/&lt;BACKEND&gt;InstrInfo.td</code>文件的末尾。</p>
+<p>模式records继承自LLVM的<code>Pat</code>类， 该类有两个参数， 第一个参数是一个包含要匹配的模式DAG，第二个参数是一个带有机器指令的DAG。 当模式匹配DAG中的某个内容时，匹配的节点被第二个参数中的DAG替换。</p>
+<p>不出所料，我们将使用一些类来帮助我们简化模式的定义。 这里有两个这样的类：</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a>class PatGprGpr&lt;SDPatternOperator OpNode, RWInst Inst&gt;</span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a>    : Pat&lt;(OpNode <span class="fu">GPR:</span>$rs1, <span class="fu">GPR:</span>$rs2), (Inst <span class="fu">GPR:</span>$rs1, <span class="fu">GPR:</span>$rs2)&gt;<span class="co">;</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>class PatGprSimm12&lt;SDPatternOperator OpNode, RWInstI Inst&gt;</span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>    : Pat&lt;(OpNode <span class="fu">GPR:</span>$rs1, <span class="fu">simm12:</span>$imm12), (Inst <span class="fu">GPR:</span>$rs1, <span class="fu">simm12:</span>$imm12)&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>PatGprGpr</code>用带有两个通用寄存器操作数作为输入的指令替换DAG中的节点。 例如，下面是<code>ADD</code>指令的模式声明:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb15"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb15-1"><a href="#cb15-1" aria-hidden="true" tabindex="-1"></a>def : PatGprGpr&lt;<span class="kw">add</span>, ADD&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>PatGprSimm12</code>将DAG中的节点替换为具有一个通用输入操作数和一个12位立即数的指令。 为了实现这一点，用<code>simm12</code>取代了<code>Pat</code>中第一个和第二个参数中的<code>GPR</code>。 回想一下，<code>simm12</code>是我们在本文前一节中讨论过的一个<code>record</code>。 它继承自<code>Operand</code>类，因此可以在指令的定义中使用。 <code>simm12</code>也继承自<code>ImmLeaf</code>类，因此也可以在模式定义中使用。 下面是<code>ADDI</code>指令的定义，该指令接受一个立即数:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb16"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb16-1"><a href="#cb16-1" aria-hidden="true" tabindex="-1"></a>def : PatGprSimm12&lt;<span class="kw">add</span>, ADDI&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>注意：</strong><code>ImmLeaf</code>类是用于匹配立即数的模式。 它的参数是即时类型，例如<code>I32</code>、<code>I16</code>以及谓词等。 谓词即C++代码块， 它检查指定模式必须满足的条件。 例如，<code>simm12</code>有一个谓词<code>return isInt&lt;12&gt;(Imm)</code>来检查整数是否在12位范围内。</p>
+<p><strong>注意：</strong>有时，同一条指令可以与Selection DAG中的多个模式匹配。 在这种情况下，使用LLVM的<code>PatFrag</code>类和<code>Pat</code>来避免代码重复， 如RISCW的<code>bit-shift</code>模式。</p>
+<p><strong>注意:</strong>RISCW和RISCV后端首先声明指令， 并分别提供模式record。 然而，其他后端，如ARM或XCore，以不同的方式创建Instruction的子类，以便它们接受一个模式参数。 这种方法减少了代码行数，因为模式可以在定义指令的同一record中提供， 但在我看来，这使得TableGen代码更难阅读(也更难解释!)</p>
+<p>当在DAG中找到匹配时， Pat的第二个参数也可以转换操作数(通常是立即数)。 为此，我们首先需要声明一个继承自<code>SDNodeXForm</code>的操作节点。 <code>SDNodeXForm</code>以实现所需转换的一段c++代码作为参数。 然后，我们在模式中使用新声明的节点，如下面的示例所示。 在本例中，HI20节点提取立即数的20个最重要的比特位。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb17"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb17-1"><a href="#cb17-1" aria-hidden="true" tabindex="-1"></a>def HI20 : SDNodeXForm&lt;imm, [{</span>
+<span id="cb17-2"><a href="#cb17-2" aria-hidden="true" tabindex="-1"></a>  return CurDAG-&gt;getTargetConstant(((N-&gt;getZExtValue()+<span class="dv">0x800</span>) &gt;&gt; <span class="dv">12</span>) &amp; <span class="dv">0xfffff</span>,</span>
+<span id="cb17-3"><a href="#cb17-3" aria-hidden="true" tabindex="-1"></a>                                   SDLoc(N), N-&gt;getValueType(<span class="dv">0</span>))<span class="co">;</span></span>
+<span id="cb17-4"><a href="#cb17-4" aria-hidden="true" tabindex="-1"></a>}]&gt;<span class="co">;</span></span>
+<span id="cb17-5"><a href="#cb17-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb17-6"><a href="#cb17-6" aria-hidden="true" tabindex="-1"></a>def : Pat&lt;(<span class="fu">simm32hi20:</span>$imm), (LUI (HI20 <span class="fu">imm:</span>$imm))&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>注意：</strong><code>SDNodeXForm</code>节点不插入实际指令。 它们通常用于转换即时数据，因此可以在代码发出之前就完全解析。</p>
+<p>随着指令选择的进行，LLVM每个<code>Selection DAG</code>节点调用<code>SelectionDAGISel</code>子类的<code>Select</code>方法。 因此，后端可以在<code>Select</code>方法中提供代码， 实现复杂的模式匹配， 而这种匹配在TableGen中很难表达。 例如，RISCW的<code>Select</code>方法包括用<code>x0</code>寄存器来替换常量0的代码。</p>
+<p><strong>注意:</strong><code>SelectionDAGISel</code>子类通常在文件<code>llvm/lib/Target/&lt;backend&gt;/&lt;backend&gt;ISelDAGToDAG.h</code>和<code>llvm/lib/Target/&lt;backend&gt;/&lt;backend&gt;ISelDAGToDAG.cpp</code>中。 例如，RISCW后端相关代码在<code>llvm/lib/Target/RISCW/RISCWISelDAGToDAG.h</code>和<code>llvm/lib/Target/RISCW/RISCWISelDAGToDAG.cpp</code>中。</p>
+</section>
+</section>
+<section id="结束语" class="level2">
+<h2 class="anchored" data-anchor-id="结束语">结束语</h2>
+<p>实际上有很多方法可以实现一个体系结构的LLVM后端， 所以在使用任何一种方法之前，请确保评估最适合您的需求的方法。 另外，请记住下面的TableGen类的简介，在编写后端时几乎肯定需要这些类。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb18"><pre class="sourceCode c++ code-with-copy"><code class="sourceCode cpp"><span id="cb18-1"><a href="#cb18-1" aria-hidden="true" tabindex="-1"></a>Register        <span class="co">//Register declarations</span></span>
+<span id="cb18-2"><a href="#cb18-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-3"><a href="#cb18-3" aria-hidden="true" tabindex="-1"></a>RegisterClass   <span class="co">//Register Class declarations</span></span>
+<span id="cb18-4"><a href="#cb18-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-5"><a href="#cb18-5" aria-hidden="true" tabindex="-1"></a>Instruction     <span class="co">//Instruction declarations</span></span>
+<span id="cb18-6"><a href="#cb18-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-7"><a href="#cb18-7" aria-hidden="true" tabindex="-1"></a>Operand         <span class="co">//Instruction operands</span></span>
+<span id="cb18-8"><a href="#cb18-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-9"><a href="#cb18-9" aria-hidden="true" tabindex="-1"></a>ImmLeaf         <span class="co">//Pattern-matching immediates</span></span>
+<span id="cb18-10"><a href="#cb18-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-11"><a href="#cb18-11" aria-hidden="true" tabindex="-1"></a>SDNodeXForm     <span class="co">//Transforming immediates after a match</span></span>
+<span id="cb18-12"><a href="#cb18-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-13"><a href="#cb18-13" aria-hidden="true" tabindex="-1"></a>Pat             <span class="co">//Providing a pattern to match in the Selection DAG</span></span>
+<span id="cb18-14"><a href="#cb18-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb18-15"><a href="#cb18-15" aria-hidden="true" tabindex="-1"></a>PatFrag         <span class="co">//Providing a pattern fragment with multiple patterns to match in the Selection DAG</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="注释" class="level2">
+<h2 class="anchored" data-anchor-id="注释">注释</h2>
+
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">脚注</h2>
+
+<ol>
+<li id="fn1"><p>公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><a href="https://jonathan2251.github.io/lbd/">这个教程</a>描述了如何开发LLVM后端，但我发现很难理解。<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>关于RISCV指令格式的完整描述见参考手册的第2章<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "已复制");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "已复制");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/sadsock\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© 2026 SadSock</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

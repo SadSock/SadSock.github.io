@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-Hans" xml:lang="zh-Hans"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="keywords" content="LLVM">
+<meta name="description" content="无">
+
+<title>TableGen 简介 – 悲催的袜子</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-39cdd0f1bff0c792356829953f17b6ac.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "没有结果",
+    "search-matching-documents-text": "匹配的文档",
+    "search-copy-link-title": "复制搜索链接",
+    "search-hide-matches-text": "隐藏其它匹配结果",
+    "search-more-match-text": "更多匹配结果",
+    "search-more-matches-text": "更多匹配结果",
+    "search-clear-button-title": "清除",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "取消",
+    "search-submit-button-title": "提交",
+    "search-label": "搜索"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">悲催的袜子</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="搜索"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="展开或折叠导航栏" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../index.html"> 
+<span class="menu-text">主页</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html"> 
+<span class="menu-text">关于</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">该页面内容</h2>
+   
+  <ul>
+  <li><a href="#简介" id="toc-简介" class="nav-link active" data-scroll-target="#简介">简介</a></li>
+  <li><a href="#tablegen程序" id="toc-tablegen程序" class="nav-link" data-scroll-target="#tablegen程序">TableGen程序</a>
+  <ul class="collapse">
+  <li><a href="#运行tablegen" id="toc-运行tablegen" class="nav-link" data-scroll-target="#运行tablegen">运行TableGen</a></li>
+  <li><a href="#例子" id="toc-例子" class="nav-link" data-scroll-target="#例子">例子</a></li>
+  </ul></li>
+  <li><a href="#语法" id="toc-语法" class="nav-link" data-scroll-target="#语法">语法</a>
+  <ul class="collapse">
+  <li><a href="#基本概念" id="toc-基本概念" class="nav-link" data-scroll-target="#基本概念">基本概念</a></li>
+  </ul></li>
+  <li><a href="#tablegen后端" id="toc-tablegen后端" class="nav-link" data-scroll-target="#tablegen后端">TableGen后端</a></li>
+  <li><a href="#tablegen缺陷" id="toc-tablegen缺陷" class="nav-link" data-scroll-target="#tablegen缺陷">TableGen缺陷</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">TableGen 简介</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">LLVM</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    无
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">发布于</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2020年11月3日</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">关键词</div>
+    <p>LLVM</p>
+  </div>
+</div>
+
+</header>
+
+
+<section id="简介" class="level1">
+<h1>简介</h1>
+<p>TableGen的目的是帮助开发者开发和维护特定领域的记录。这些记录的数量可能很大，所以它是专门来编写灵活的描述，并提取这些记录的共同特征。这减少了描述的重复量，减少了出错的机会，使构建特定领域的信息更容易。</p>
+<p>TableGen前端解析文件，实例化声明，并将结果交给特定领域的<a href="http://llvm.org/docs/TableGen/index.html#backend">backend</a>进行处理。有关TableGen的详细描述，请参阅 <a href="http://llvm.org/docs/TableGen/ProgRef.html">TableGen Programmer’s Reference</a> 。有关调用TableGen的各种xxx-tblgen命令的详细信息，请参阅<a href="http://llvm.org/docs/CommandGuide/tblgen.html">xxx-tblgen - Target Description to C++ Code</a> 。</p>
+<p>目前TableGen的主要用户有 <a href="http://llvm.org/docs/CodeGenerator.html">The LLVM Target-Independent Code Generator</a>和<a href="https://clang.llvm.org/docs/UsersManual.html#controlling-errors-and-warnings">Clang diagnostics and attributes</a>。</p>
+<p>注意，如果您经常使用TableGen，并且使用emacs或vim，那么您可以在llvm发行版的<code>llvm/utils/emacs</code>和<code>llvm/utils/vim</code>目录中分别找到一个emacs“TableGen mode”和一个vim语言文件。</p>
+</section>
+<section id="tablegen程序" class="level1">
+<h1>TableGen程序</h1>
+<p>TableGen文件由TableGen程序解释：llvm-tblgen在bin下构建目录中。 它没有安装到系统（或您的sysroot设置的位置）中，因为它在LLVM的构建过程之外没有任何用处。</p>
+<section id="运行tablegen" class="level2">
+<h2 class="anchored" data-anchor-id="运行tablegen">运行TableGen</h2>
+<p>TableGen的运行就像其他任何LLVM工具一样。 第一个（可选）参数指定要读取的文件。 如果未指定文件名，则llvm-tblgen从标准输入读取。</p>
+<p>要使用TableGen就必须指定后端，这些后端可以在命令行中选择（输入“ <code>llvm-tblgen -help</code>”获取列表）。例如，要获取特定类型的子类的所有定义的列表(这对于构建这些记录的枚举很有用)，请使用<code>print-enum</code>选项：</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="ex">$</span> llvm-tblgen X86.td <span class="at">-print-enums</span> <span class="at">-class</span><span class="op">=</span>Register</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="ex">AH,</span> AL, AX, BH, BL, BP, BPL, BX, CH, CL, CX, DH, DI, DIL, DL, DX, EAX, EBP, EBX,</span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="ex">ECX,</span> EDI, EDX, EFLAGS, EIP, ESI, ESP, FP0, FP1, FP2, FP3, FP4, FP5, FP6, IP,</span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="ex">MM0,</span> MM1, MM2, MM3, MM4, MM5, MM6, MM7, R10, R10B, R10D, R10W, R11, R11B, R11D,</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="ex">R11W,</span> R12, R12B, R12D, R12W, R13, R13B, R13D, R13W, R14, R14B, R14D, R14W, R15,</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="ex">R15B,</span> R15D, R15W, R8, R8B, R8D, R8W, R9, R9B, R9D, R9W, RAX, RBP, RBX, RCX, RDI,</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="ex">RDX,</span> RIP, RSI, RSP, SI, SIL, SP, SPL, ST0, ST1, ST2, ST3, ST4, ST5, ST6, ST7,</span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="ex">XMM0,</span> XMM1, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM2, XMM3, XMM4, XMM5,</span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="ex">XMM6,</span> XMM7, XMM8, XMM9,</span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="ex">$</span> llvm-tblgen X86.td <span class="at">-print-enums</span> <span class="at">-class</span><span class="op">=</span>Instruction</span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a><span class="ex">ABS_F,</span> ABS_Fp32, ABS_Fp64, ABS_Fp80, ADC32mi, ADC32mi8, ADC32mr, ADC32ri,</span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a><span class="ex">ADC32ri8,</span> ADC32rm, ADC32rr, ADC64mi32, ADC64mi8, ADC64mr, ADC64ri32, ADC64ri8,</span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="ex">ADC64rm,</span> ADC64rr, ADD16mi, ADD16mi8, ADD16mr, ADD16ri, ADD16ri8, ADD16rm,</span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a><span class="ex">ADD16rr,</span> ADD32mi, ADD32mi8, ADD32mr, ADD32ri, ADD32ri8, ADD32rm, ADD32rr,</span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a><span class="ex">ADD64mi32,</span> ADD64mi8, ADD64mr, ADD64ri32, ...</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>默认后端打印出所有记录。 还有一个通用后端，它将所有记录输出为JSON数据结构，并使用-dump-json选项启用。</p>
+<p>如果您计划使用TableGen，那么您很可能必须编写一个后端来提取您需要的信息并以适当的方式格式化它。可以通过用C++扩展TableGen本身，或者用任何可以处理JSON的语言编写脚本来实现这一点。</p>
+</section>
+<section id="例子" class="level2">
+<h2 class="anchored" data-anchor-id="例子">例子</h2>
+<p>在没有其他参数的情况下，llvm-tblgen 解析指定的文件并输出所有的类，然后输出所有的定义。这是查看各种定义扩展到何种程度的好方法。在 X86.td 文件上运行这个命令会输出以下命令(在撰写本文时) :</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>def ADD32rr <span class="op">{</span>   <span class="co">// Instruction X86Inst I</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  string Namespace <span class="op">=</span> <span class="st">"X86"</span><span class="op">;</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  dag OutOperandList <span class="op">=</span> (outs GR32<span class="op">:$</span>dst)<span class="op">;</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  dag InOperandList <span class="op">=</span> (ins GR32<span class="op">:$</span>src1<span class="op">,</span> GR32<span class="op">:$</span>src2)<span class="op">;</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  string AsmString <span class="op">=</span> <span class="st">"add{l}</span><span class="sc">\t</span><span class="st">{$src2, $dst|$dst, $src2}"</span><span class="op">;</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  list<span class="op">&lt;</span>dag<span class="op">&gt;</span> <span class="bu">Pattern</span> <span class="op">=</span> [(set GR32<span class="op">:$</span>dst<span class="op">,</span> (add GR32<span class="op">:$</span>src1<span class="op">,</span> GR32<span class="op">:$</span>src2))]<span class="op">;</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  list<span class="op">&lt;</span>Register<span class="op">&gt;</span> Uses <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  list<span class="op">&lt;</span>Register<span class="op">&gt;</span> Defs <span class="op">=</span> [EFLAGS]<span class="op">;</span></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  list<span class="op">&lt;</span>Predicate<span class="op">&gt;</span> Predicates <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  int CodeSize <span class="op">=</span> <span class="dv">3</span><span class="op">;</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>  int AddedComplexity <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a>  bit isReturn <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a>  bit isBranch <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  bit isIndirectBranch <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a>  bit isBarrier <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a>  bit isCall <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-18"><a href="#cb2-18" aria-hidden="true" tabindex="-1"></a>  bit canFoldAsLoad <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-19"><a href="#cb2-19" aria-hidden="true" tabindex="-1"></a>  bit mayLoad <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-20"><a href="#cb2-20" aria-hidden="true" tabindex="-1"></a>  bit mayStore <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-21"><a href="#cb2-21" aria-hidden="true" tabindex="-1"></a>  bit isImplicitDef <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-22"><a href="#cb2-22" aria-hidden="true" tabindex="-1"></a>  bit isConvertibleToThreeAddress <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-23"><a href="#cb2-23" aria-hidden="true" tabindex="-1"></a>  bit isCommutable <span class="op">=</span> <span class="dv">1</span><span class="op">;</span></span>
+<span id="cb2-24"><a href="#cb2-24" aria-hidden="true" tabindex="-1"></a>  bit isTerminator <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-25"><a href="#cb2-25" aria-hidden="true" tabindex="-1"></a>  bit isReMaterializable <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-26"><a href="#cb2-26" aria-hidden="true" tabindex="-1"></a>  bit isPredicable <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-27"><a href="#cb2-27" aria-hidden="true" tabindex="-1"></a>  bit hasDelaySlot <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-28"><a href="#cb2-28" aria-hidden="true" tabindex="-1"></a>  bit usesCustomInserter <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-29"><a href="#cb2-29" aria-hidden="true" tabindex="-1"></a>  bit hasCtrlDep <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-30"><a href="#cb2-30" aria-hidden="true" tabindex="-1"></a>  bit isNotDuplicable <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-31"><a href="#cb2-31" aria-hidden="true" tabindex="-1"></a>  bit hasSideEffects <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-32"><a href="#cb2-32" aria-hidden="true" tabindex="-1"></a>  InstrItinClass Itinerary <span class="op">=</span> NoItinerary<span class="op">;</span></span>
+<span id="cb2-33"><a href="#cb2-33" aria-hidden="true" tabindex="-1"></a>  string Constraints <span class="op">=</span> <span class="st">""</span><span class="op">;</span></span>
+<span id="cb2-34"><a href="#cb2-34" aria-hidden="true" tabindex="-1"></a>  string DisableEncoding <span class="op">=</span> <span class="st">""</span><span class="op">;</span></span>
+<span id="cb2-35"><a href="#cb2-35" aria-hidden="true" tabindex="-1"></a>  bits<span class="op">&lt;</span><span class="dv">8</span><span class="op">&gt;</span> Opcode <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">1</span> <span class="op">};</span></span>
+<span id="cb2-36"><a href="#cb2-36" aria-hidden="true" tabindex="-1"></a>  Format Form <span class="op">=</span> MRMDestReg<span class="op">;</span></span>
+<span id="cb2-37"><a href="#cb2-37" aria-hidden="true" tabindex="-1"></a>  bits<span class="op">&lt;</span><span class="dv">6</span><span class="op">&gt;</span> FormBits <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> <span class="dv">1</span> <span class="op">};</span></span>
+<span id="cb2-38"><a href="#cb2-38" aria-hidden="true" tabindex="-1"></a>  ImmType ImmT <span class="op">=</span> NoImm<span class="op">;</span></span>
+<span id="cb2-39"><a href="#cb2-39" aria-hidden="true" tabindex="-1"></a>  bits<span class="op">&lt;</span><span class="dv">3</span><span class="op">&gt;</span> ImmTypeBits <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span> <span class="op">};</span></span>
+<span id="cb2-40"><a href="#cb2-40" aria-hidden="true" tabindex="-1"></a>  bit hasOpSizePrefix <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-41"><a href="#cb2-41" aria-hidden="true" tabindex="-1"></a>  bit hasAdSizePrefix <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-42"><a href="#cb2-42" aria-hidden="true" tabindex="-1"></a>  bits<span class="op">&lt;</span><span class="dv">4</span><span class="op">&gt;</span> Prefix <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span> <span class="op">};</span></span>
+<span id="cb2-43"><a href="#cb2-43" aria-hidden="true" tabindex="-1"></a>  bit hasREX_WPrefix <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb2-44"><a href="#cb2-44" aria-hidden="true" tabindex="-1"></a>  FPFormat FPForm <span class="op">=</span> <span class="op">?;</span></span>
+<span id="cb2-45"><a href="#cb2-45" aria-hidden="true" tabindex="-1"></a>  bits<span class="op">&lt;</span><span class="dv">3</span><span class="op">&gt;</span> FPFormBits <span class="op">=</span> <span class="op">{</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span> <span class="op">};</span></span>
+<span id="cb2-46"><a href="#cb2-46" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb2-47"><a href="#cb2-47" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>该定义对应于x86体系结构的32位寄存器-寄存器相加指令。 Def ADD32rr定义了一个名为ADD32rr的记录，行尾的注释表示该定义的父类。 记录体包含TableGen为记录汇编的所有数据，指示该指令是“x86”命名空间的一部分，指示代码生成器如何选择指令的模式，它是双地址指令，具有特定的编码等。记录中信息的内容和语义专用于X86后端，这里仅作为示例。</p>
+<p>正如您所看到的，代码生成器支持的每条指令都需要大量信息，手动指定所有指令将不可维护，容易出错，而且首先要做的事情很累人。因为我们正在使用 TableGen，所有的信息都来自以下定义:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> Defs <span class="op">=</span> [EFLAGS]<span class="op">,</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a>    isCommutable <span class="op">=</span> <span class="dv">1</span><span class="op">,</span>                  <span class="co">// X = ADD Y,Z --&gt; X = ADD Z,Y</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>    isConvertibleToThreeAddress <span class="op">=</span> <span class="dv">1</span> <span class="kw">in</span> <span class="co">// Can transform into LEA.</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>def ADD32rr  <span class="op">:</span> I<span class="op">&lt;</span><span class="dv">0x01</span><span class="op">,</span> MRMDestReg<span class="op">,</span> (outs GR32<span class="op">:$</span>dst)<span class="op">,</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>                                   (ins GR32<span class="op">:$</span>src1<span class="op">,</span> GR32<span class="op">:$</span>src2)<span class="op">,</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>                 <span class="st">"add{l}</span><span class="sc">\t</span><span class="st">{$src2, $dst|$dst, $src2}"</span><span class="op">,</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>                 [(set GR32<span class="op">:$</span>dst<span class="op">,</span> (add GR32<span class="op">:$</span>src1<span class="op">,</span> GR32<span class="op">:$</span>src2))]<span class="op">&gt;;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>这个定义使用定制类 I (从定制类 X86Inst 扩展而来) ，这个定制类是在 x86特定的 TableGen 文件中定义的，可以提取了指令共享的公共特性。TableGen 的一个关键特性是，它允许最终用户定义他们在描述其信息时喜欢使用的抽象。</p>
+</section>
+</section>
+<section id="语法" class="level1">
+<h1>语法</h1>
+<p>TableGen的语法类似c++模板，带有内置的类型和约束。此外，TableGen的语法引入了一些自动化概念，如multiclass、foreach、let等。</p>
+<section id="基本概念" class="level2">
+<h2 class="anchored" data-anchor-id="基本概念">基本概念</h2>
+<p>TableGen文件由两个关键部分组成:“类”和“定义”，这两个部分都被认为是“记录”。</p>
+<p><strong>记录</strong> 有一个唯一的名称、一个值列表和一个父类列表。 值列表是TableGen为每条记录构建的主要数据；正是该列表保存了应用程序的特定信息。 此数据的解释留给特定的后端，但结构和格式规则由TableGen负责。</p>
+<p><strong>定义</strong> 是“记录”的具体形式。它通常不包含任何未定义的值，并用“ def”关键字进行标记。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>def FeatureFPARMv8 <span class="op">:</span> SubtargetFeature<span class="op">&lt;</span><span class="st">"fp-armv8"</span><span class="op">,</span> <span class="st">"HasFPARMv8"</span><span class="op">,</span> <span class="st">"true"</span><span class="op">,</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>                                      <span class="st">"Enable ARMv8 FP"</span><span class="op">&gt;;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>在此示例中，FeatureFPARMv8是使用某些值初始化的SubtargetFeature记录。 这些类通过关键字class定义在同一文件或其他文件中的。 对大多数平台来说，包含通用类的TableGen文件保存在<code>include/llvm/Target</code>中。</p>
+<p><strong>class</strong> 是用于构建和描述其他记录的抽象记录。这些类使最终用户可以为他们所针对的领域（例如LLVM代码生成器中的“ Register”，“ RegisterClass”和“ Instruction”）构建抽象，提取改领域的公共属性（例如“ FPInst”，用于表示X86后端中的浮点指令）。TableGen会跟踪用于建立定义的所有类，因此后端可以找到特定类的所有定义，例如“instruction”。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a>class ProcNoItin<span class="op">&lt;</span>string Name<span class="op">,</span> list<span class="op">&lt;</span>SubtargetFeature<span class="op">&gt;</span> Features<span class="op">&gt;</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>      <span class="op">:</span> Processor<span class="op">&lt;</span>Name<span class="op">,</span> NoItineraries<span class="op">,</span> Features<span class="op">&gt;;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>在这里，类ProcNoItin通过类型为string的参数名、目标特性列表和硬编码的NoItineraries来特化Processor类。</p>
+<p><strong>multiclass</strong> 一次实例化一组抽象记录。每个实例化都会产生多个TableGen定义。如果一个multiclass继承了另一个multiclass，那么子multiclass中的定义将成为当前multiclass的一部分，就像它们是在当前multiclass中声明的一样。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>multiclass ro_signed_pats<span class="op">&lt;</span>string T<span class="op">,</span> string Rm<span class="op">,</span> dag Base<span class="op">,</span> dag Offset<span class="op">,</span> dag <span class="bu">Extend</span><span class="op">,</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a>                        dag address<span class="op">,</span> ValueType sty<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a>def <span class="op">:</span> Pat<span class="op">&lt;</span>(<span class="dt">i32</span> (<span class="op">!</span>cast<span class="op">&lt;</span>SDNode<span class="op">&gt;</span>(<span class="st">"sextload"</span> # sty) address))<span class="op">,</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a>          (<span class="op">!</span>cast<span class="op">&lt;</span>Instruction<span class="op">&gt;</span>(<span class="st">"LDRS"</span> # T # <span class="st">"w_"</span> # Rm # <span class="st">"_RegOffset"</span>)</span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a>            Base<span class="op">,</span> Offset<span class="op">,</span> <span class="bu">Extend</span>)<span class="op">&gt;;</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a>def <span class="op">:</span> Pat<span class="op">&lt;</span>(<span class="dt">i64</span> (<span class="op">!</span>cast<span class="op">&lt;</span>SDNode<span class="op">&gt;</span>(<span class="st">"sextload"</span> # sty) address))<span class="op">,</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a>          (<span class="op">!</span>cast<span class="op">&lt;</span>Instruction<span class="op">&gt;</span>(<span class="st">"LDRS"</span> # T # <span class="st">"x_"</span> # Rm # <span class="st">"_RegOffset"</span>)</span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a>            Base<span class="op">,</span> Offset<span class="op">,</span> <span class="bu">Extend</span>)<span class="op">&gt;;</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a>defm <span class="op">:</span> ro_signed_pats<span class="op">&lt;</span><span class="st">"B"</span><span class="op">,</span> Rm<span class="op">,</span> Base<span class="op">,</span> Offset<span class="op">,</span> <span class="bu">Extend</span><span class="op">,</span></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a>                      <span class="op">!</span>foreach(decls<span class="op">.</span>pattern<span class="op">,</span> address<span class="op">,</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a>                               <span class="op">!</span>subst(SHIFT<span class="op">,</span> imm_eq0<span class="op">,</span> decls<span class="op">.</span>pattern))<span class="op">,</span></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>                      <span class="dt">i8</span><span class="op">&gt;;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>有关TableGen的深入描述，请参阅TableGen的<a href="http://llvm.org/docs/TableGen/ProgRef.html">TableGen Programmer’s Reference</a>。</p>
+</section>
+</section>
+<section id="tablegen后端" class="level1">
+<h1>TableGen后端</h1>
+<p>没有后端，TableGen文件没有实际含义。 运行xxx-tblgen时的默认操作是以文本格式打印信息，但这仅对调试TableGen文件本身有用。 但是，TableGen的功能是将源文件解释为内部表示形式，可以将其生成为所需的任何内容。</p>
+<p>目前TableGen的用法是创建包含表的大型include的文件，您可以直接包含这些文件(如果输出是您正在编码的语言) ，也可以通过包裹include文件的宏进行预处理。</p>
+<p>如果后端已经以C格式打印了表，或者输出仅仅是一列字符串(用于错误和警告消息) ，则可以使用直接输出。如果需要在不同的上下文中使用相同的信息(如指令名) ，则应该使用预处理的输出，因此后端应该打印一个元信息列表，该列表可以形成不同的编译时格式。</p>
+<p>可用后端的列表，请参阅<a href="http://llvm.org/docs/TableGen/BackEnds.html">TableGen BackEnds</a>；有关如何编写和调试新后端的信息，请参阅<a href="http://llvm.org/docs/TableGen/BackGuide.html">TableGen Backend Developer’s Guide</a>。</p>
+</section>
+<section id="tablegen缺陷" class="level1">
+<h1>TableGen缺陷</h1>
+<p>尽管TableGen非常通用，但它有一些已经被多次指出的缺陷。 共同点是，虽然TableGen允许您构建特定于领域的语言，但您创建的最终语言缺乏其他DSL的功能，这反过来又会显著增加TableGen文件的大小和复杂性。</p>
+<p>同时，TableGen允许您通过定制的后端创建基本概念的任何含义，这会扭曲原始设计，使新手很难理解TableGen文件。</p>
+<p>有些人赞成进一步扩展语义，但要确保后端遵守严格的规则。 其他人则建议我们应该改用功能更强大的DSL，这些DSL是为特定目的而设计的，甚至应该重用现有DSL。</p>
+
+
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "已复制");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "已复制");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/sadsock\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© 2026 SadSock</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

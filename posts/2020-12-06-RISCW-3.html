@@ -6,8 +6,10 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="keywords" content="LLVM">
+<meta name="description" content="无">
 
-<title>主页 – 悲催的袜子</title>
+<title>为LLVM添加简易RISCV后端(三)：配置构建系统 – 悲催的袜子</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,29 +22,62 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-listing/list.min.js"></script>
-<script src="site_libs/quarto-listing/quarto-listing.js"></script>
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-39cdd0f1bff0c792356829953f17b6ac.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-39cdd0f1bff0c792356829953f17b6ac.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -70,68 +105,10 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "搜索"
   }
 }</script>
-<script>
 
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-listing .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
 
-    const options = {
-      valueNames: ['listing-date','listing-title',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
-      
-      searchColumns: ["listing-date","listing-title","listing-author","listing-image","listing-description"],
-    };
-
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-listing'] = new List('listing-listing', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  </script>
-
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
-
-<script type="text/javascript">
-const typesetMath = (el) => {
-  if (window.MathJax) {
-    // MathJax Typeset
-    window.MathJax.typeset([el]);
-  } else if (window.katex) {
-    // KaTeX Render
-    var mathElements = el.getElementsByClassName("math");
-    var macros = [];
-    for (var i = 0; i < mathElements.length; i++) {
-      var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
-        window.katex.render(texText.data, mathElements[i], {
-          displayMode: mathElements[i].classList.contains('display'),
-          throwOnError: false,
-          macros: macros,
-          fleqn: false
-        });
-      }
-    }
-  }
-}
-window.Quarto = {
-  typesetMath
-};
-</script>
-
-<link rel="stylesheet" href="styles.css">
-<link rel="alternate" type="application/rss+xml" title="悲催的袜子" href="index.xml" data-external="1"></head>
+<link rel="stylesheet" href="../styles.css">
+</head>
 
 <body class="nav-fixed quarto-light">
 
@@ -140,7 +117,7 @@ window.Quarto = {
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../index.html">
     <span class="navbar-title">悲催的袜子</span>
     </a>
   </div>
@@ -151,11 +128,11 @@ window.Quarto = {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link active" href="./index.html" aria-current="page"> 
+    <a class="nav-link" href="../index.html"> 
 <span class="menu-text">主页</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./about.html"> 
+    <a class="nav-link" href="../about.html"> 
 <span class="menu-text">关于</span></a>
   </li>  
 </ul>
@@ -169,194 +146,153 @@ window.Quarto = {
 <div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
-        
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">该页面内容</h2>
+   
+  <ul>
+  <li><a href="#配置构建系统" id="toc-配置构建系统" class="nav-link active" data-scroll-target="#配置构建系统">配置构建系统</a>
+  <ul class="collapse">
+  <li><a href="#cmake配置文件" id="toc-cmake配置文件" class="nav-link" data-scroll-target="#cmake配置文件">CMake配置文件</a></li>
+  <li><a href="#llvmbuild.txt文件" id="toc-llvmbuild.txt文件" class="nav-link" data-scroll-target="#llvmbuild.txt文件">LLVMBuild.txt文件</a></li>
+  <li><a href="#cmakelists.txt文件" id="toc-cmakelists.txt文件" class="nav-link" data-scroll-target="#cmakelists.txt文件">CMakeLists.txt文件</a></li>
+  </ul></li>
+  <li><a href="#注释" id="toc-注释" class="nav-link" data-scroll-target="#注释">注释</a></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">主页</h1>
-</div>
+<h1 class="title">为LLVM添加简易RISCV后端(三)：配置构建系统</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">LLVM</div>
+  </div>
+  </div>
 
+<div>
+  <div class="description">
+    无
+  </div>
+</div>
 
 
 <div class="quarto-title-meta">
 
     
+    <div>
+    <div class="quarto-title-meta-heading">发布于</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2020年12月8日</p>
+    </div>
+  </div>
   
     
   </div>
   
 
+<div>
+  <div class="keywords">
+    <div class="block-title">关键词</div>
+    <p>LLVM</p>
+  </div>
+</div>
 
 </header>
 
 
+<p>为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a><a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。</p>
+<section id="配置构建系统" class="level2">
+<h2 class="anchored" data-anchor-id="配置构建系统">配置构建系统</h2>
+<p>在前面，我们提到每个LLVM后端都有一个单独的目录<code>LLVM/lib/Target</code>，后端的大部分代码都在其中。 此外，LLVM依赖CMake为实际的构建系统(如Make、Ninja等)生成构建文件。 在这篇文章中，我们将仔细研究其中的一些CMake配置文件。</p>
+<p>注意:RISCW后端代码可以在<a href="https://github.com/andresag01/llvm-project/commit/274cfea0f9662f0ed49f6132b0424323d0b11750">这里</a>找到。</p>
+<section id="cmake配置文件" class="level3">
+<h3 class="anchored" data-anchor-id="cmake配置文件">CMake配置文件</h3>
+<p>回想一下，RISCW后端存放在<code>llvm/lib/Target/RISCW</code>目录下。 该目录及其子目录都有两个构建文件(<code>CMakeLists.txt</code>和<code>LLVMBuild.txt</code>)，描述后端模块的结构，提供链接信息等。 RISCW后端目前非常简单，目录结构是这样的:</p>
+<pre><code>llvm/lib/Target/RISCW
+|- CMakeLists.txt
+|- LLVMBuild.txt
+|- Other C++, TableGen, etc files
+|- TargetInfo/
+|  |- CMakeLists.txt
+|  |- LLVMBuild.txt
+|  |- Other C++, TableGen, etc files
+|- MCTargetDesc/
+   |- CMakeLists.txt
+   |- LLVMBuild.txt
+   |- Other C++, TableGen, etc files</code></pre>
+<p>每个使用CMake的项目都会包含<code>CMakeLists.txt</code>文件<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>，RISCW也不例外。 这些文件包含一系列CMake指令，这些指令用于驱动构建文件的生成。 在LLVM后端中，CMake会根据这些指令执行一些操作，例如指示要编译的C++源文件或生成TableGen指令。 LLVMBuild.txt文件对当前目录中包含的组件提供了描述。</p>
+</section>
+<section id="llvmbuild.txt文件" class="level3">
+<h3 class="anchored" data-anchor-id="llvmbuild.txt文件">LLVMBuild.txt文件</h3>
+<p>让我们看一下<code>llvm/lib/Target/RISCW/LLVMBuild.txt</code>的内容。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode json code-with-copy"><code class="sourceCode json"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="ot">[</span><span class="er">common</span><span class="ot">]</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="er">subdirectories</span> <span class="er">=</span> <span class="er">MCTargetDesc</span> <span class="er">TargetInfo</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="ot">[</span><span class="er">component_</span><span class="dv">0</span><span class="ot">]</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="er">type</span> <span class="er">=</span> <span class="er">TargetGroup</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a><span class="er">name</span> <span class="er">=</span> <span class="er">RISCW</span></span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a><span class="er">parent</span> <span class="er">=</span> <span class="er">Target</span></span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a><span class="er">has_asmprinter</span> <span class="er">=</span> <span class="er">1</span></span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="ot">[</span><span class="er">component_</span><span class="dv">1</span><span class="ot">]</span></span>
+<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a><span class="er">type</span> <span class="er">=</span> <span class="er">Library</span></span>
+<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a><span class="er">name</span> <span class="er">=</span> <span class="er">RISCWCodeGen</span></span>
+<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a><span class="er">parent</span> <span class="er">=</span> <span class="er">RISCW</span></span>
+<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="er">required_libraries</span> <span class="er">=</span> <span class="er">AsmPrinter</span> <span class="er">CodeGen</span> <span class="er">Core</span> <span class="er">MC</span> <span class="er">RISCWDesc</span> <span class="er">RISCWInfo</span></span>
+<span id="cb2-15"><a href="#cb2-15" aria-hidden="true" tabindex="-1"></a>  <span class="er">SelectionDAG</span> <span class="er">Support</span> <span class="er">Target</span></span>
+<span id="cb2-16"><a href="#cb2-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-17"><a href="#cb2-17" aria-hidden="true" tabindex="-1"></a><span class="er">add_to_library_groups</span> <span class="er">=</span> <span class="er">RISCW</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>该文件告诉构建系统RISCW后端具有两个组件。 其中一个是顶级组件RISCW，其类型为TargetGroup，该类型表明RISCW是一个后端，构建系统对该类型有一些特殊处理。 Target是RISCW的父组件。 请注意，此命名与LLVM后端的目录结构匹配，即<code>llvm/lib/Target/RISCW</code>。 RISCW的名称也不是任意的，它必须与后端的TableGen文件中的定义匹配。</p>
+<p>LLVM后端提供了一系列可选功能， 例如assembly printing，assembly parsing等， LLVMBuild.txt文件表明了后端支持哪些可选功能。 比如，最后一行告诉构建系统RISCW后端实现了assembly printing功能。</p>
+<p><strong>注意：</strong>查看现有后端（如ARM或RISCV）中的代码，以了解它们除了has_asmprinter之外还启用了哪些功能。</p>
+<p>LLVMBuild.txt文件还定义了第二个名为RISCWCodeGen的组件，其类型为Library，其父级为RISCW。 另外，文件还指明了RISCWCodeGen需要的依赖库，例如AsmPrinter，CodeGen等，构建LLVM时，缺少库会导致链接错误。</p>
+<p><code>llvm/lib/Target/RISCW</code>的每个子目录也会包含一个LLVMBuild.txt文件，该文件使用RISCW作为父级来定义自己的组件。</p>
+</section>
+<section id="cmakelists.txt文件" class="level3">
+<h3 class="anchored" data-anchor-id="cmakelists.txt文件">CMakeLists.txt文件</h3>
+<p>让我们看一下<code>llvm/lib/Target/RISCW/CMakeLists.txt</code>文件的内容。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode sh code-with-copy"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="bu">set</span><span class="er">(</span><span class="ex">LLVM_TARGET_DEFINITIONS</span> RISCW.td<span class="kw">)</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a><span class="ex">tablegen</span><span class="er">(</span><span class="ex">LLVM</span> RISCWGenRegisterInfo.inc <span class="at">-gen-register-info</span><span class="kw">)</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a><span class="ex">tablegen</span><span class="er">(</span><span class="ex">LLVM</span> RISCWGenInstrInfo.inc <span class="at">-gen-instr-info</span><span class="kw">)</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a><span class="co"># Other TableGen commands</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a><span class="ex">add_public_tablegen_target</span><span class="er">(</span><span class="ex">RISCWCommonTableGen</span><span class="kw">)</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a><span class="co"># RISCWCodeGen should match with LLVMBuild.txt RISCWCodeGen</span></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="ex">add_llvm_target</span><span class="er">(</span><span class="ex">RISCWCodeGen</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="ex">RISCWAsmPrinter.cpp</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="co"># Other files</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a><span class="kw">)</span></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a><span class="co"># Should match with "subdirectories =  MCTargetDesc TargetInfo" in LLVMBuild.txt</span></span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a><span class="ex">add_subdirectory</span><span class="er">(</span><span class="ex">TargetInfo</span><span class="kw">)</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a><span class="ex">add_subdirectory</span><span class="er">(</span><span class="ex">MCTargetDesc</span><span class="kw">)</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>文件顶部的<code>set</code>命令将<code>LLVM_TARGET_DEFINITION</code>定义为`RISCW.td**。 这个文件通常包含一些顶级定义， 并通过包含其他文件的方式来引入其他TableGen定义——我们将在后面的文章中更仔细地研究TableGen， 但是请随时查看代码库中的RISCW.td。</p>
+<p>然后我们在CMake文件中看到一些TableGen命令。 它们命令构建系统使TableGen工具根据<code>*.td</code>文件生成<code>RISCWGen*.inc</code>。 这些<code>*.inc</code>文件实际上就是传统的C++代码，在编译完LLVM之后，你可以在<code>build/lib/Target/RISCW</code>的构建目录中找到它们；它们可以用于调试，但是不容易阅读。</p>
+<p>接下来的命令，也就是<code>add_llvm_target</code>， 指定了当前目录中要构建的C++文件，被指定的文件不能位于子目录中。 <code>add_llvm_target</code>命令的第一个参数是目标的名称，并且应该与<code>LLVMBuild.txt</code>中定义名称匹配。</p>
+<p>最后，CMakeLists.txt指定了CMake应该查看的子目录，在后端RISCW中，只有两个:<code>TargetInfo</code>和<code>MCTargetDesc</code>。 子目录中的CMakeLists.txt与此类似，但要简单得多!</p>
+<p><strong>注意:</strong>后端文件的命名约定通常很重要，显然应该与构建文件的内容相匹配。 例如，<code>set(LLVM_TARGET_DEFINITIONS RISCW.td)</code>命令要求<code>RISCW.td</code>存在! 一定要仔细检查这些错误，因为构建错误可能有点含糊不清。</p>
+</section>
+</section>
+<section id="注释" class="level2">
+<h2 class="anchored" data-anchor-id="注释">注释</h2>
 
 
+</section>
 
 
-<div class="quarto-listing quarto-listing-container-default" id="listing-listing">
-<div class="list quarto-listing-default">
-<div class="quarto-post image-right" data-index="0" data-categories="JUU3JUJGJUJCJUU4JUFGJTkxJTJDQXJjaGl0ZWN0dXJl" data-listing-date-sort="1772496000000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="14" data-listing-word-count-sort="2666">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2026-03-03-modern-nvidia-gpu-core-analysis.html" class="no-external">Analyzing Modern NVIDIA GPU cores</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2026-03-03-modern-nvidia-gpu-core-analysis.html" class="no-external">
-<div class="listing-date">
-2026年3月3日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="1" data-categories="TExWTQ==" data-listing-date-sort="1630063238000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1272">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2021-8-27-deeper-look-llvm-codegen-0.html" class="no-external">深入理解 LLVM code generator (一)</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2021-8-27-deeper-look-llvm-codegen-0.html" class="no-external">
-<div class="listing-date">
-2021年8月27日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="2" data-categories="TExWTQ==" data-listing-date-sort="1607657438000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="5" data-listing-word-count-sort="831">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-03-RISCW-5.html" class="no-external">为LLVM添加简易RISCV后端(五)：算术指令</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-03-RISCW-5.html" class="no-external">
-<div class="listing-date">
-2020年12月11日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="3" data-categories="TExWTQ==" data-listing-date-sort="1607427038000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="435">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-08-RISCW-4.html" class="no-external">为LLVM添加简易RISCV后端(四)：指令选择</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-08-RISCW-4.html" class="no-external">
-<div class="listing-date">
-2020年12月8日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="4" data-categories="TExWTQ==" data-listing-date-sort="1607401838000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="109">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-06-RISCW-3.html" class="no-external">为LLVM添加简易RISCV后端(三)：配置构建系统</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-06-RISCW-3.html" class="no-external">
-<div class="listing-date">
-2020年12月8日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="5" data-categories="TExWTQ==" data-listing-date-sort="1607232638000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="299">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-03-RISCW-2.html" class="no-external">为LLVM添加简易RISCV后端(二)：创建后端</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-03-RISCW-2.html" class="no-external">
-<div class="listing-date">
-2020年12月6日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="6" data-categories="TExWTQ==" data-listing-date-sort="1607081438000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="107">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-03-RISCW-1.html" class="no-external">为LLVM添加简易RISCV后端(一)：入门</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-03-RISCW-1.html" class="no-external">
-<div class="listing-date">
-2020年12月4日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="7" data-categories="TExWTQ==" data-listing-date-sort="1606995038000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="26">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-03-RISCW-0.html" class="no-external">为LLVM添加简易RISCV后端(零)：简介</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-03-RISCW-0.html" class="no-external">
-<div class="listing-date">
-2020年12月3日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="8" data-categories="TExWTQ==" data-listing-date-sort="1604403038000" data-listing-file-modified-sort="1772538723124" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="5" data-listing-word-count-sort="869">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-11-01-TableGen-Overview.html" class="no-external">TableGen 简介</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-11-01-TableGen-Overview.html" class="no-external">
-<div class="listing-date">
-2020年11月3日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="9" data-categories="TExWTQ==" data-listing-date-sort="1604227118000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="6" data-listing-word-count-sort="1157">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-11-01-write-an-LLVM-backend.html" class="no-external">编写LLVM后端</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-11-01-write-an-LLVM-backend.html" class="no-external">
-<div class="listing-date">
-2020年11月1日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="10" data-categories="TExWTQ==" data-listing-date-sort="1604227118000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="27">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-11-01-write-an-LLVM-backend-0.html" class="no-external">Write an LLVM Backend(零)：简介</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-11-01-write-an-LLVM-backend-0.html" class="no-external">
-<div class="listing-date">
-2020年11月1日
-</div>
-</a>
-</div>
-</div>
-</div>
-<div class="listing-no-matching d-none">无匹配项</div>
-</div></main> <!-- /main -->
+<div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">脚注</h2>
+
+<ol>
+<li id="fn1"><p>公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><a href="https://jonathan2251.github.io/lbd/">这个教程</a>描述了如何开发LLVM后端，但我发现很难理解。<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>您可以在<a href="https://cmake.org/overview/">此处</a>找到有关CMake的更多信息。<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";

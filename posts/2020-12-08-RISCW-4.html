@@ -1,0 +1,744 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-Hans" xml:lang="zh-Hans"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="keywords" content="LLVM">
+<meta name="description" content="无">
+
+<title>为LLVM添加简易RISCV后端(四)：指令选择 – 悲催的袜子</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-39cdd0f1bff0c792356829953f17b6ac.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "没有结果",
+    "search-matching-documents-text": "匹配的文档",
+    "search-copy-link-title": "复制搜索链接",
+    "search-hide-matches-text": "隐藏其它匹配结果",
+    "search-more-match-text": "更多匹配结果",
+    "search-more-matches-text": "更多匹配结果",
+    "search-clear-button-title": "清除",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "取消",
+    "search-submit-button-title": "提交",
+    "search-label": "搜索"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">悲催的袜子</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="搜索"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="展开或折叠导航栏" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../index.html"> 
+<span class="menu-text">主页</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html"> 
+<span class="menu-text">关于</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">该页面内容</h2>
+   
+  <ul>
+  <li><a href="#指令选择" id="toc-指令选择" class="nav-link active" data-scroll-target="#指令选择">指令选择</a>
+  <ul class="collapse">
+  <li><a href="#构建dag" id="toc-构建dag" class="nav-link" data-scroll-target="#构建dag">构建DAG</a></li>
+  <li><a href="#优化" id="toc-优化" class="nav-link" data-scroll-target="#优化">优化</a></li>
+  <li><a href="#类型和操作合法化" id="toc-类型和操作合法化" class="nav-link" data-scroll-target="#类型和操作合法化">类型和操作合法化</a></li>
+  <li><a href="#指令选择-1" id="toc-指令选择-1" class="nav-link" data-scroll-target="#指令选择-1">指令选择</a></li>
+  <li><a href="#调度和形成" id="toc-调度和形成" class="nav-link" data-scroll-target="#调度和形成">调度和形成</a></li>
+  </ul></li>
+  <li><a href="#注释" id="toc-注释" class="nav-link" data-scroll-target="#注释">注释</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">为LLVM添加简易RISCV后端(四)：指令选择</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">LLVM</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    无
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">发布于</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2020年12月8日</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">关键词</div>
+    <p>LLVM</p>
+  </div>
+</div>
+
+</header>
+
+
+<p>为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a><a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。</p>
+<section id="指令选择" class="level2">
+<h2 class="anchored" data-anchor-id="指令选择">指令选择</h2>
+<p>我们先前简要介绍了LLVM后端的工作过程。 在这篇文章中，我们将更深入地了解这个过程的第一个阶段：指令选择。 我们的目的是在了解RISCW后端的具体实现之前，了解它的工作原理以及如何配置它。</p>
+<p><strong>注意：</strong><a href="https://llvm.org/docs/CodeGenerator.html#instruction-selection-section">LLVM文档</a>对指令选择的工作原理给出了简短而清晰的描述， 这篇文章通过示例来重新说明这一点。</p>
+<p><strong>注意：</strong>本文中显示的示例是使用我们的RISCW后端框架构建的。可以在<a href="https://github.com/andresag01/llvm-project/commit/274cfea0f9662f0ed49f6132b0424323d0b11750">这里</a>找到它的来源。</p>
+<p>指令选择过程将LLVM IR转化为指令序列，该指令序列使用了无穷数量的寄存器。 该过程分为以下几个阶段： 1. 构建初始DAG 2. 优化 3. 类型合法化 4. 优化 5. 操作合法化 6. 优化 7. 目标指令选择 8. 调度和形成</p>
+<p>我觉得通过例子来了解发生的事情会比较容易，我们将考虑指令选择如何转换下面的C程序。 该代码包含一个MUL函数，该函数接受64位参数x和32位参数y。 参数相乘，并返回32位整数结果。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode c++ code-with-copy"><code class="sourceCode cpp"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="dt">unsigned</span> <span class="dt">int</span> MUL<span class="op">(</span><span class="dt">unsigned</span> <span class="dt">long</span> <span class="dt">long</span> <span class="dt">int</span> x<span class="op">,</span> <span class="dt">unsigned</span> <span class="dt">int</span> y<span class="op">)</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="op">{</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> x <span class="op">*</span> y<span class="op">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<section id="构建dag" class="level3">
+<h3 class="anchored" data-anchor-id="构建dag">构建DAG</h3>
+<p>这是指令选择的第一阶段。 它接受LLVM IR作为输入， 并产生Selection DAG(有向无环图)作为输出。 指令选择过程中的每个其他阶段都在DAG上执行，直到产生输出指令序列。 正如前面几篇文章所讨论的，LLVM IR是前端工具(如Clang)根据C代码生成，随后由LLVM优化器进行优化。 下面是C程序的LLVM IR:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="kw">define</span> dso_local <span class="dt">i32</span> <span class="fu">@MUL</span>(<span class="dt">i64</span> <span class="fu">%x</span>, <span class="dt">i32</span> <span class="fu">%y</span>) local_unnamed_addr #<span class="dv">0</span> {</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="fu">entry:</span></span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">%0</span> = <span class="kw">trunc</span> <span class="dt">i64</span> <span class="fu">%x</span> <span class="kw">to</span> <span class="dt">i32</span></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">%conv1</span> = <span class="kw">mul</span> <span class="dt">i32</span> <span class="fu">%0</span>, <span class="fu">%y</span></span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>  <span class="kw">ret</span> <span class="dt">i32</span> <span class="fu">%conv1</span></span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Selection DAG实际上是一种精巧的树型数据结构，它表示LLVM IR中的基本块。 基本块是不包含分支目的地（入口除外）和分支指令（出口除外）的指令序列。 示例MUL函数非常简单，它只有一个称为入口的基本块，其他函数通常具有多个基本块。 例如，下面的<code>hello</code>函数具有四个基本块：<code>entry</code>，<code>if.then</code>，<code>if.else</code>和<code>return</code>。 每个基本块都将被转换为单独的DAG。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a><span class="kw">define</span> dso_local <span class="dt">i32</span> <span class="fu">@hello</span>(<span class="dt">i32</span> <span class="fu">%x</span>) local_unnamed_addr #<span class="dv">0</span> {</span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a><span class="fu">entry:</span></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">%cmp</span> = <span class="kw">icmp</span> <span class="kw">eq</span> <span class="dt">i32</span> <span class="fu">%x</span>, <span class="dv">100</span></span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  <span class="kw">br</span> <span class="dt">i1</span> <span class="fu">%cmp</span>, <span class="dt">label</span> <span class="fu">%if.then</span>, <span class="dt">label</span> <span class="fu">%if.else</span></span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a><span class="fu">if.then:</span>                                          <span class="co">; preds = %entry</span></span>
+<span id="cb3-7"><a href="#cb3-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">%call</span> = <span class="kw">tail</span> <span class="kw">call</span> <span class="dt">i32</span> <span class="kw">bitcast</span> (<span class="dt">i32</span> (...)* <span class="fu">@hello100</span> <span class="kw">to</span> <span class="dt">i32</span> (<span class="dt">i32</span>)*)(<span class="dt">i32</span> <span class="dv">100</span>) #<span class="dv">2</span></span>
+<span id="cb3-8"><a href="#cb3-8" aria-hidden="true" tabindex="-1"></a>  <span class="kw">br</span> <span class="dt">label</span> <span class="fu">%return</span></span>
+<span id="cb3-9"><a href="#cb3-9" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-10"><a href="#cb3-10" aria-hidden="true" tabindex="-1"></a><span class="fu">if.else:</span>                                          <span class="co">; preds = %entry</span></span>
+<span id="cb3-11"><a href="#cb3-11" aria-hidden="true" tabindex="-1"></a>  <span class="fu">%call1</span> = <span class="kw">tail</span> <span class="kw">call</span> <span class="dt">i32</span> <span class="kw">bitcast</span> (<span class="dt">i32</span> (...)* <span class="fu">@helloOther</span> <span class="kw">to</span> <span class="dt">i32</span> (<span class="dt">i32</span>)*)(<span class="dt">i32</span> <span class="fu">%x</span>) #<span class="dv">2</span></span>
+<span id="cb3-12"><a href="#cb3-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">br</span> <span class="dt">label</span> <span class="fu">%return</span></span>
+<span id="cb3-13"><a href="#cb3-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-14"><a href="#cb3-14" aria-hidden="true" tabindex="-1"></a><span class="fu">return:</span>                                           <span class="co">; preds = %if.else, %if.then</span></span>
+<span id="cb3-15"><a href="#cb3-15" aria-hidden="true" tabindex="-1"></a>  <span class="fu">%retval.0</span> = <span class="kw">phi</span> <span class="dt">i32</span> [ <span class="fu">%call</span>, <span class="fu">%if.then</span> ], [ <span class="fu">%call1</span>, <span class="fu">%if.else</span> ]</span>
+<span id="cb3-16"><a href="#cb3-16" aria-hidden="true" tabindex="-1"></a>  <span class="kw">ret</span> <span class="dt">i32</span> <span class="fu">%retval.0</span></span>
+<span id="cb3-17"><a href="#cb3-17" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>Selection DAG具有以下属性： + 每个节点都是<code>SDNode</code>类的实例，代表一个操作，如加、减、乘等。 操作类型都定义在文件<code>include/llvm/CodeGen/ISDOpcodes.h</code>中。 + 每个节点都有0个或多个操作数，操作数由其他节点定义，用指向该节点的边表示，边是<code>SDValue</code>类的实例。 + 操作产生的值的类型为<code>MTV</code>（Machine Value Type），比如<code>i1</code>和<code>i8</code>，它们分别表示1位和8位整数。 + 具有副作用的节点会强制对操作进行排序，例如<code>return</code>和<code>loads</code>语句，它们具有类型为<code>MVT::Other</code>的特殊chain值， 既作为输入操作数又作为输出操作数。 + <code>ISD::EntryToken</code>类型的叶节点是代码的入口。 + DAG的根节点是带有链操作数的最终副作用节点。这是的代码块的最后一个操作，例如函数结尾处的返回。</p>
+<p><strong>警告！</strong>LLVM后端的类型系统非常有限。 当输入的LLVM IR被转换为DAG时，许多有用的类型信息被丢弃。 最值得注意的丢弃是指针类型，<code>MVT</code>类的类型列表完全没有包含指针类型。 因此，指针在DAG中使用整数类型表示，所以很难判断一个节点(如<code>add</code>)的操作数是指针还是整数。</p>
+<p>这是我从MUL函数获得的初始Selection DAG。 <img src="../assets/riscw/llvm-4-dag-before-combine1.png" class="img-fluid" alt="Selection DAG"></p>
+<p>入口节点位于图的顶部，而根节点位于底部。 还有一个由蓝色边连接的节点链，从根节点开始，到入口节点结束。 这些蓝边就是前面讨论过的链操作数。 黑色边显示的是值的流动，如整数和浮点数。 此Selection DAG的等效文本表示如下所示：</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="fu">t0:</span> ch = EntryToken</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>        <span class="fu">t2:</span> <span class="dt">i32</span>,ch = CopyFromReg t0, <span class="fu">Register:</span><span class="dt">i32</span> <span class="fu">%0</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>        <span class="fu">t4:</span> <span class="dt">i32</span>,ch = CopyFromReg t0, <span class="fu">Register:</span><span class="dt">i32</span> <span class="fu">%1</span></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a>      <span class="fu">t7:</span> <span class="dt">i64</span> = build_pair t2, t4</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    <span class="fu">t8:</span> <span class="dt">i32</span> = truncate t7</span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a>    <span class="fu">t6:</span> <span class="dt">i32</span>,ch = CopyFromReg t0, <span class="fu">Register:</span><span class="dt">i32</span> <span class="fu">%2</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a>  <span class="fu">t9:</span> <span class="dt">i32</span> = <span class="kw">mul</span> t8, t6</span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="fu">t11:</span> ch,glue = CopyToReg t0, <span class="fu">Register:</span><span class="dt">i32</span> $x0, t9</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a><span class="fu">t12:</span> ch = <span class="fu">RISCWISD:</span>:Ret t11, <span class="fu">Register:</span><span class="dt">i32</span> $x0, <span class="fu">t11:</span><span class="dv">1</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p><strong>注意：</strong>Selection DAG可以同时包含目标独立和目标相关的节点。 目标独立的操作定义在文件<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/include/llvm/CodeGen/ISDOpcodes.h#L40">ISDOpcodes.h</a>中。 目标相关的操作由每个后端定义，通常定义在声明TargetLowering子类的同一文件中。 您可以在<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/RISCW/RISCWISelLowering.h#L25">llvm/lib/Target/RISCW/RISCWISelLowering.h</a>中找到目标相关节点的定义。 上面显示的用于MUL的Selection DAG具有节点t12，该节点代表目标相关操作<code>RISCWISD::Ret</code>，该函数表示从函数返回。</p>
+<p><strong>注意：</strong>在指令选择过程的各个阶段，您可以通过向<code>llc</code>命令传递<code>-view-dag-combine1-dags</code>，<code>-view-legalize-dags</code>，<code>-view-dag-combine2-dags</code>参数告诉LLVM生成Selection DAG的可视化表示，还可以通过向<code>llc</code>命令传递<code>-debug</code>参数告诉LLVM生成Selection DAG的文本表示。</p>
+</section>
+<section id="优化" class="level3">
+<h3 class="anchored" data-anchor-id="优化">优化</h3>
+<p>指令选择阶段会有三次DAG优化过程，第一次优化发生在LLVM IR构建Selection DAG之后。 其余两次将在合法化阶段后执行。 根据LLVM文档，这些优化旨在简化可能由其他阶段(如合法化)生成的不必要的复杂Selection DAGs。</p>
+<p>就我所知，LLVM的优化过程就是通过运行一个编译pass将一组节点组合成更简洁的节点。 为了实现这一点，LLVM用这个巨大的C++文件(&gt;20,000行)遍历DAG，并通过模式匹配来寻找优化机会。 例如，合并器可以将Selection DAG的<code>(add (add x, y) z)</code>节点，转换为<code>(add x，y + z)</code>节点，从而消除了<code>add</code>节点。</p>
+<p>下图显示了MUL示例函数第一遍优化后的Selection DAG。 与上一节中的Selection DAG相比，优化的DAG用节点t13代替了节点t3和t4。 该优化将丢弃64位整数x的高32位，因为函数MUL的返回值仅依赖x的低32位， 因此，可以通过消除t3和t4简化DAG。 <img src="../assets/riscw/llvm-4-dag-before-legalize-types.png" class="img-fluid" alt="Selection DAG"></p>
+<p>LLVM的DAG合成器只优化目标独立的操作，即<code>ISDOpcodes.h</code>中定义的<code>add</code>、<code>sub</code>、<code>load</code>、<code>store</code>等。 通过覆盖<code>targetlower</code>子类中的<code>PerformDAGCombine</code>函数， 后端可以为合成器提供额外的优化功能，这些功能可以是目标独立的也可以是目标依赖的。 此外，后端必须通知优化器受支持的目标独立的节点， 这通过在<code>targetlower</code>类的子类的构造函数中调用<code>setTargetDAGCombine</code>函数完成。</p>
+<p><strong>注意：</strong>令人困惑的是，LLVM后端的<code>TargetLowering</code>子类通常在<code>&lt;TARGET_NAME&gt;ISelLowering.cpp</code>文件中实现。 您可以在<code>llvm/lib/Target/RISCW/RISCWISelLowering.cpp</code>中找到RISCW的实现。</p>
+<p><strong>注意：</strong>XCore后端有一个很好的<code>PerformDAGCombine</code>和<code>setTargetDAGCombine</code>例子（参见<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/XCore/XCoreISelLowering.cpp#L1590">这里</a>和<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/XCore/XCoreISelLowering.cpp#L170">这里</a>） ——我的意思是很容易阅读。 另外，看看<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/lib/Target/XCore/XCoreISelLowering.cpp#L1739">这个后端</a>是如何将<code>add(add(mul(x，y)，a)，b)</code>节点组合到更简单的目标依赖的<code>lmul(x，y，a，b)</code>节点， 因为XCore架构有一个乘法累加指令<a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>。</p>
+</section>
+<section id="类型和操作合法化" class="level3">
+<h3 class="anchored" data-anchor-id="类型和操作合法化">类型和操作合法化</h3>
+<p>上面显示的优化的DAG包含一个节点t7， 它会产生一个i64类型的值， 但是RISCW机器只支持32位。 合法化阶段会解决这些问题。</p>
+<p>首先执行的是类型合法化， 它将DAG转换为仅使用本地计算机原生支持的数据类型。 为了实现这一点，它将小类型转换或提升为较大的类型； 例如，<code>i1</code>类型的1位整数转换为<code>i32</code>类型的32位整数。 此外，编译器将大整数分解或展开为较小的整数，例如在32位计算机中，<code>i64</code>类型的64位整数被转换为<code>i32</code>类型的32位整数。 下面的DAG是前面展示的DAG的合法化版本。 在本例中，编译器消除了t3和t7节点，以确保新的DAG只使用<code>i32</code>整数。</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../assets/riscw/llvm-4-dag-before-combine2.png" class="img-fluid figure-img"></p>
+<figcaption>Selection DAG</figcaption>
+</figure>
+</div>
+<p>操作合法化在第二个优化阶段之后执行。 它将DAG转换为仅使用本地计算机原生支持的操作。 例如，DAG可能包含bit-rotate left（rotl）节点，但目标指令集可能不支持该指令， 因此，操作合法化把该操作转化为移位和或运算的联合操作。</p>
+<p>有三种使操作合法化的策略。 首先，将不受支持的操作扩展为一组受支持的操作来模拟原不受支持的操作。 其次，把类型提升为更大的类型，以支持缺失的操作。 第三，使用TargetLowering类的子类中的钩子在C++中实现自定义的合法化。</p>
+<p><strong>注意：</strong>在以后的文章中，我将解释后端如何配置合法化阶段。 这可以在TargetLowering类的子类的构造函数中完成。</p>
+</section>
+<section id="指令选择-1" class="level3">
+<h3 class="anchored" data-anchor-id="指令选择-1">指令选择</h3>
+<p>此时，DAG包含大部分目标独立（如加和减）节点，以及一小部分目标依赖节点（如<code>RISCWISD::Ret</code>）。 下一步，需要将这些抽象操作映射到目标架构的具体机器指令， LLVM在指令选择阶段会对此进行处理。 处理方法很简单：编译器通过模式匹配将DAG中的节点映射成机器指令。 指令的模式和描述由编译器后端的开发人员通过<a href="https://llvm.org/docs/TableGen/ProgRef.html">TableGen</a>代码提供。 另外，可以使用C++直接编写难以使用TableGen描述的复杂模式。</p>
+<p>我们将在以后的文章中更仔细地研究TableGen。 现在，让我们考虑一下LLVM如何将合法且优化的DAG映射成下面显示的新DAG。 在这种情况下，只有两个节点需要更改。 t9用指令<code>MUL</code>替换了mul操作，而t12用指令<code>PseudoRet</code>替换了<code>RISCWISD::Ret</code>。</p>
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="../assets/riscw/llvm-4-dag-before-scheduler.png" class="img-fluid figure-img"></p>
+<figcaption>Selection DAG</figcaption>
+</figure>
+</div>
+</section>
+<section id="调度和形成" class="level3">
+<h3 class="anchored" data-anchor-id="调度和形成">调度和形成</h3>
+<p>谢天谢地，这里没什么好说的，因为帖子已经很长了！ 此阶段根据某些约束将DAG转换为指令列表。 例如，后端可以通过<code>TargetLowering</code>子类的构造函数调用<a href="https://github.com/andresag01/llvm-project/blob/274cfea0f9662f0ed49f6132b0424323d0b11750/llvm/include/llvm/CodeGen/TargetLowering.h#L1939">setSchedulingPreference</a>来指定调度选项。</p>
+<p><strong>警告！</strong> 一定要尝试不同的调度首选项！ 如果调度策略与体系结构和处理器的特性不匹配，那么调度策略会显著降低所发出的代码的质量。 <a href="">这里</a>列出了各种调度选项。</p>
+<p>下面是我们MUL函数的指令清单。 有几个重要的事情要注意。 首先，与实际机器的寄存器相反，生成的代码仍然使用一组无限多的虚拟寄存器； 编译器稍后会通过寄存器分配器来处理这个问题。 第二，已经存在一些对寄存器分配过程有用的生命周期信息；例如，有两个寄存器，即<code>x0</code>和<code>x2</code>， 它们在基本块的开始处就处于活动状态。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="fu">bb.0.entry:</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  <span class="fu">liveins:</span> $x0, $x2</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  <span class="fu">%2</span>:gpr = COPY $x2</span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  <span class="fu">%0</span>:gpr = COPY $x0</span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="fu">%3</span>:gpr = MUL <span class="fu">%0</span>:gpr, <span class="fu">%2</span>:gpr</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  $x0 = COPY <span class="fu">%3</span>:gpr</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  PseudoRET implicit $x0</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+<section id="注释" class="level2">
+<h2 class="anchored" data-anchor-id="注释">注释</h2>
+
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">脚注</h2>
+
+<ol>
+<li id="fn1"><p>公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p><a href="https://jonathan2251.github.io/lbd/">这个教程</a>描述了如何开发LLVM后端，但我发现很难理解。<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>查看XCore XS1体系结构<a href="https://www.xmos.ai/download/The-XMOS-XS1-Architecture(X7879A).pdf">参考手册</a>，了解乘法累加（LMUL）指令的详细说明。<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "已复制");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "已复制");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/sadsock\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© 2026 SadSock</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

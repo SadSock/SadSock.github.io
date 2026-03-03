@@ -6,8 +6,10 @@
 
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
+<meta name="keywords" content="LLVM">
+<meta name="description" content="无">
 
-<title>主页 – 悲催的袜子</title>
+<title>Write an LLVM Backend(零)：简介 – 悲催的袜子</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -23,26 +25,24 @@ ul.task-list li input[type="checkbox"] {
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<script src="site_libs/quarto-listing/list.min.js"></script>
-<script src="site_libs/quarto-listing/quarto-listing.js"></script>
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-39cdd0f1bff0c792356829953f17b6ac.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-39cdd0f1bff0c792356829953f17b6ac.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": false,
@@ -70,68 +70,10 @@ ul.task-list li input[type="checkbox"] {
     "search-label": "搜索"
   }
 }</script>
-<script>
 
-  window.document.addEventListener("DOMContentLoaded", function (_event) {
-    const listingTargetEl = window.document.querySelector('#listing-listing .list');
-    if (!listingTargetEl) {
-      // No listing discovered, do not attach.
-      return; 
-    }
 
-    const options = {
-      valueNames: ['listing-date','listing-title',{ data: ['index'] },{ data: ['categories'] },{ data: ['listing-date-sort'] },{ data: ['listing-file-modified-sort'] }],
-      
-      searchColumns: ["listing-date","listing-title","listing-author","listing-image","listing-description"],
-    };
-
-    window['quarto-listings'] = window['quarto-listings'] || {};
-    window['quarto-listings']['listing-listing'] = new List('listing-listing', options);
-
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  });
-
-  window.addEventListener('hashchange',() => {
-    if (window['quarto-listing-loaded']) {
-      window['quarto-listing-loaded']();
-    }
-  })
-  </script>
-
-  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
-  <script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
-
-<script type="text/javascript">
-const typesetMath = (el) => {
-  if (window.MathJax) {
-    // MathJax Typeset
-    window.MathJax.typeset([el]);
-  } else if (window.katex) {
-    // KaTeX Render
-    var mathElements = el.getElementsByClassName("math");
-    var macros = [];
-    for (var i = 0; i < mathElements.length; i++) {
-      var texText = mathElements[i].firstChild;
-      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
-        window.katex.render(texText.data, mathElements[i], {
-          displayMode: mathElements[i].classList.contains('display'),
-          throwOnError: false,
-          macros: macros,
-          fleqn: false
-        });
-      }
-    }
-  }
-}
-window.Quarto = {
-  typesetMath
-};
-</script>
-
-<link rel="stylesheet" href="styles.css">
-<link rel="alternate" type="application/rss+xml" title="悲催的袜子" href="index.xml" data-external="1"></head>
+<link rel="stylesheet" href="../styles.css">
+</head>
 
 <body class="nav-fixed quarto-light">
 
@@ -140,7 +82,7 @@ window.Quarto = {
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../index.html">
     <span class="navbar-title">悲催的袜子</span>
     </a>
   </div>
@@ -151,11 +93,11 @@ window.Quarto = {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link active" href="./index.html" aria-current="page"> 
+    <a class="nav-link" href="../index.html"> 
 <span class="menu-text">主页</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./about.html"> 
+    <a class="nav-link" href="../about.html"> 
 <span class="menu-text">关于</span></a>
   </li>  
 </ul>
@@ -169,194 +111,103 @@ window.Quarto = {
 <div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
 <!-- margin-sidebar -->
-    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar zindex-bottom">
-        
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">该页面内容</h2>
+   
+  <ul>
+  <li><a href="#简介" id="toc-简介" class="nav-link active" data-scroll-target="#简介">简介</a>
+  <ul class="collapse">
+  <li><a href="#目标读者" id="toc-目标读者" class="nav-link" data-scroll-target="#目标读者">目标读者</a></li>
+  <li><a href="#前置知识" id="toc-前置知识" class="nav-link" data-scroll-target="#前置知识">前置知识</a></li>
+  <li><a href="#基本步骤" id="toc-基本步骤" class="nav-link" data-scroll-target="#基本步骤">基本步骤</a></li>
+  <li><a href="#准备工作" id="toc-准备工作" class="nav-link" data-scroll-target="#准备工作">准备工作</a></li>
+  </ul></li>
+  </ul>
+</nav>
     </div>
 <!-- main -->
 <main class="content" id="quarto-document-content">
 
 <header id="title-block-header" class="quarto-title-block default">
 <div class="quarto-title">
-<h1 class="title">主页</h1>
-</div>
+<h1 class="title">Write an LLVM Backend(零)：简介</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">LLVM</div>
+  </div>
+  </div>
 
+<div>
+  <div class="description">
+    无
+  </div>
+</div>
 
 
 <div class="quarto-title-meta">
 
     
+    <div>
+    <div class="quarto-title-meta-heading">发布于</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2020年11月1日</p>
+    </div>
+  </div>
   
     
   </div>
   
 
+<div>
+  <div class="keywords">
+    <div class="block-title">关键词</div>
+    <p>LLVM</p>
+  </div>
+</div>
 
 </header>
 
 
+<section id="简介" class="level1">
+<h1>简介</h1>
+<p>本文档描述了编写编译器后端的技术， 这些后端将LLVM中间表示（IR）转换为特定机器或其他语言的代码， 这些代码可以是汇编代码也可以是二进制代码（可用于JIT编译器）。</p>
+<p>LLVM的后端是一个平台独立的代码生成器， 它可以为不同类型的目标CPU生成代码， 包括X86、PowerPC、ARM和SPARC。 后端还可以为GPU或Cell处理器的SPU生成代码， 以支持计算内核的执行。</p>
+<p>本文档主要关注<code>llvm/lib/Target</code>目录中的现有示例， 特别是为SPARC平台创建静态编译器(也就是发射汇编码)， 因为SPARC具有相当典型的特征， 比如RISC指令集和常见的调用约定。</p>
+<section id="目标读者" class="level2">
+<h2 class="anchored" data-anchor-id="目标读者">目标读者</h2>
+<p>本文档的受众是需要编写LLVM后端来为特定的硬件或软件平台生成代码的开发者。</p>
+</section>
+<section id="前置知识" class="level2">
+<h2 class="anchored" data-anchor-id="前置知识">前置知识</h2>
+<p>在阅读本文档之前，必须先阅读以下重要文档：</p>
+<ul>
+<li><p><a href="https://releases.llvm.org/11.0.0/docs/LangRef.html">LLVM Language Reference Manual</a>–LLVM汇编语言的参考手册。</p></li>
+<li><p><a href="https://releases.llvm.org/11.0.0/docs/CodeGenerator.html">The LLVM Target-Independent Code Generator</a>– 用于将LLVM内部表示转换为指定平台的机器码的组件（类和代码生成算法）的指南。 特别注意代码生成阶段：指令选择、调度和形成、基于SSA的优化、寄存器分配、Prolog/Epilog代码插入、后期机器代码优化和代码发射。</p></li>
+<li><p><a href="https://releases.llvm.org/11.0.0/docs/TableGen/index.html">TableGen</a>–TableGen（tblgen）应用程序的描述文档， 该程序管理LLVM代码生成所需的特定信息。 TableGen能把目标描述文件（后缀.td）转换成用于代码生成的C++代码。</p></li>
+</ul>
+</section>
+<section id="基本步骤" class="level2">
+<h2 class="anchored" data-anchor-id="基本步骤">基本步骤</h2>
+<p>编写将LLVM IR转换为指定平台的机器码或其他语言的代码的编译器后端，需要以下步骤：</p>
+<ul>
+<li>创建TargetMachine类的子类， 该类描述目标计算机的特征， 这一步可以参考已有后端的TargetMachine类及其头文件； 例如，直接复制SparcTargetMachine.cpp和SparcTargetMachine.h但更改其文件名， 并且更改引用“Sparc”的代码以引用您的代码。</li>
+<li>描述目标平台的寄存器。 使用TableGen从RegisterInfo.td文件生成定义寄存器、寄存器别名和寄存器组的代码。 还可能需要为TargetRegisterInfo的子类编写代码，这些代码代用于支持寄存器的分配以及描述寄存器间的约束。</li>
+<li>描述目标平台的指令集。 使用TableGen从TargetInstrFormats.td和TargetInstrInfo.td文件生成描述目标平台的指令集的代码。 您可能需要手动为TargetInstrInfo的子类编写代码，以描述目标平台支持的某些特殊指令。</li>
+<li>描述指令选择规则，该过程将LLVM IR的有向无环图（DAG）表示转换到目标平台原生指令表示。 使用TableGen根据TargetInstrInfo.td文件从定义的模式来生成支持指令选择的代码， 有时需要手动为XXXISelDAGToDAG.cpp编写代码来完成DAG-to-DAG的转换， 有时还需要手动为XXXISelLowering.cpp文件编写代码来替换不被SelectionDAG原生支持的操作和数据类型。</li>
+<li>编写汇编生成器，汇编生成器将LLVM IR转换为目标计算机的GAS格式。 你需要在TargetInstrInfo.td文件中增加assembly strings。 同时还需要实现AsmPrinter的子类以及TargetAsmInfo的子类， 来实现LLVM IR到汇编的转换。</li>
+<li>（可选）添加对子平台(具有不同功能的变体)的支持。 实现TargetSubtarget的子类， 该类允许您使用<code>-mcpu=</code>和<code>-mattr=</code>命令行选项。</li>
+<li>（可选）添加JIT支持并创建机器码发射器(TargetJITInfo的子类)， 它用于直接将二进制代码发送到内存中。</li>
+</ul>
+<p>在.cpp和.h文件中，首先为这些方法建立占位，然后在以后实现它们。 最初，您可能不知道这些类需要哪些私有成员，哪些类需要子类化。</p>
+</section>
+<section id="准备工作" class="level2">
+<h2 class="anchored" data-anchor-id="准备工作">准备工作</h2>
 
 
+</section>
+</section>
 
-
-<div class="quarto-listing quarto-listing-container-default" id="listing-listing">
-<div class="list quarto-listing-default">
-<div class="quarto-post image-right" data-index="0" data-categories="JUU3JUJGJUJCJUU4JUFGJTkxJTJDQXJjaGl0ZWN0dXJl" data-listing-date-sort="1772496000000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="14" data-listing-word-count-sort="2666">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2026-03-03-modern-nvidia-gpu-core-analysis.html" class="no-external">Analyzing Modern NVIDIA GPU cores</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2026-03-03-modern-nvidia-gpu-core-analysis.html" class="no-external">
-<div class="listing-date">
-2026年3月3日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="1" data-categories="TExWTQ==" data-listing-date-sort="1630063238000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="7" data-listing-word-count-sort="1272">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2021-8-27-deeper-look-llvm-codegen-0.html" class="no-external">深入理解 LLVM code generator (一)</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2021-8-27-deeper-look-llvm-codegen-0.html" class="no-external">
-<div class="listing-date">
-2021年8月27日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="2" data-categories="TExWTQ==" data-listing-date-sort="1607657438000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="5" data-listing-word-count-sort="831">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-03-RISCW-5.html" class="no-external">为LLVM添加简易RISCV后端(五)：算术指令</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-03-RISCW-5.html" class="no-external">
-<div class="listing-date">
-2020年12月11日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="3" data-categories="TExWTQ==" data-listing-date-sort="1607427038000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="3" data-listing-word-count-sort="435">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-08-RISCW-4.html" class="no-external">为LLVM添加简易RISCV后端(四)：指令选择</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-08-RISCW-4.html" class="no-external">
-<div class="listing-date">
-2020年12月8日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="4" data-categories="TExWTQ==" data-listing-date-sort="1607401838000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="109">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-06-RISCW-3.html" class="no-external">为LLVM添加简易RISCV后端(三)：配置构建系统</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-06-RISCW-3.html" class="no-external">
-<div class="listing-date">
-2020年12月8日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="5" data-categories="TExWTQ==" data-listing-date-sort="1607232638000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="2" data-listing-word-count-sort="299">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-03-RISCW-2.html" class="no-external">为LLVM添加简易RISCV后端(二)：创建后端</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-03-RISCW-2.html" class="no-external">
-<div class="listing-date">
-2020年12月6日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="6" data-categories="TExWTQ==" data-listing-date-sort="1607081438000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="107">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-03-RISCW-1.html" class="no-external">为LLVM添加简易RISCV后端(一)：入门</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-03-RISCW-1.html" class="no-external">
-<div class="listing-date">
-2020年12月4日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="7" data-categories="TExWTQ==" data-listing-date-sort="1606995038000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="26">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-12-03-RISCW-0.html" class="no-external">为LLVM添加简易RISCV后端(零)：简介</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-12-03-RISCW-0.html" class="no-external">
-<div class="listing-date">
-2020年12月3日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="8" data-categories="TExWTQ==" data-listing-date-sort="1604403038000" data-listing-file-modified-sort="1772538723124" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="5" data-listing-word-count-sort="869">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-11-01-TableGen-Overview.html" class="no-external">TableGen 简介</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-11-01-TableGen-Overview.html" class="no-external">
-<div class="listing-date">
-2020年11月3日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="9" data-categories="TExWTQ==" data-listing-date-sort="1604227118000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="6" data-listing-word-count-sort="1157">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-11-01-write-an-LLVM-backend.html" class="no-external">编写LLVM后端</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-11-01-write-an-LLVM-backend.html" class="no-external">
-<div class="listing-date">
-2020年11月1日
-</div>
-</a>
-</div>
-</div>
-<div class="quarto-post image-right" data-index="10" data-categories="TExWTQ==" data-listing-date-sort="1604227118000" data-listing-file-modified-sort="1772538723125" data-listing-date-modified-sort="NaN" data-listing-reading-time-sort="1" data-listing-word-count-sort="27">
-<div class="body">
-<h3 class="no-anchor listing-title">
-<a href="./posts/2020-11-01-write-an-LLVM-backend-0.html" class="no-external">Write an LLVM Backend(零)：简介</a>
-</h3>
-</div>
-<div class="metadata">
-<a href="./posts/2020-11-01-write-an-LLVM-backend-0.html" class="no-external">
-<div class="listing-date">
-2020年11月1日
-</div>
-</a>
-</div>
-</div>
-</div>
-<div class="listing-no-matching d-none">无匹配项</div>
-</div></main> <!-- /main -->
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     const icon = "";

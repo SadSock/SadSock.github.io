@@ -1,0 +1,1036 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-Hans" xml:lang="zh-Hans"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.27">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="keywords" content="LLVM">
+<meta name="description" content="无">
+
+<title>编写LLVM后端 – 悲催的袜子</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-ed96de9b727972fe78a7b5d16c58bf87.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-39cdd0f1bff0c792356829953f17b6ac.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "没有结果",
+    "search-matching-documents-text": "匹配的文档",
+    "search-copy-link-title": "复制搜索链接",
+    "search-hide-matches-text": "隐藏其它匹配结果",
+    "search-more-match-text": "更多匹配结果",
+    "search-more-matches-text": "更多匹配结果",
+    "search-clear-button-title": "清除",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "取消",
+    "search-submit-button-title": "提交",
+    "search-label": "搜索"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">悲催的袜子</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="搜索"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="展开或折叠导航栏" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../index.html"> 
+<span class="menu-text">主页</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html"> 
+<span class="menu-text">关于</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">该页面内容</h2>
+   
+  <ul>
+  <li><a href="#一-简介" id="toc-一-简介" class="nav-link active" data-scroll-target="#一-简介">一 简介</a>
+  <ul class="collapse">
+  <li><a href="#目标读者" id="toc-目标读者" class="nav-link" data-scroll-target="#目标读者">目标读者</a></li>
+  <li><a href="#前置知识" id="toc-前置知识" class="nav-link" data-scroll-target="#前置知识">前置知识</a></li>
+  <li><a href="#基本步骤" id="toc-基本步骤" class="nav-link" data-scroll-target="#基本步骤">基本步骤</a></li>
+  <li><a href="#准备工作" id="toc-准备工作" class="nav-link" data-scroll-target="#准备工作">准备工作</a></li>
+  </ul></li>
+  <li><a href="#二-目标机器" id="toc-二-目标机器" class="nav-link" data-scroll-target="#二-目标机器">二 目标机器</a></li>
+  <li><a href="#三-目标注册" id="toc-三-目标注册" class="nav-link" data-scroll-target="#三-目标注册">三 目标注册</a></li>
+  <li><a href="#四-寄存器和寄存器组" id="toc-四-寄存器和寄存器组" class="nav-link" data-scroll-target="#四-寄存器和寄存器组">四 寄存器和寄存器组</a>
+  <ul class="collapse">
+  <li><a href="#定义寄存器" id="toc-定义寄存器" class="nav-link" data-scroll-target="#定义寄存器">4.1 定义寄存器</a></li>
+  <li><a href="#定义寄存器组" id="toc-定义寄存器组" class="nav-link" data-scroll-target="#定义寄存器组">4.2 定义寄存器组</a></li>
+  <li><a href="#实现targetregisterinfo的子类" id="toc-实现targetregisterinfo的子类" class="nav-link" data-scroll-target="#实现targetregisterinfo的子类">4.3 实现TargetRegisterInfo的子类</a></li>
+  </ul></li>
+  <li><a href="#五-指令集" id="toc-五-指令集" class="nav-link" data-scroll-target="#五-指令集">五 指令集</a>
+  <ul class="collapse">
+  <li><a href="#指令操作数映射" id="toc-指令操作数映射" class="nav-link" data-scroll-target="#指令操作数映射">指令操作数映射</a>
+  <ul class="collapse">
+  <li><a href="#指令操作数名称映射" id="toc-指令操作数名称映射" class="nav-link" data-scroll-target="#指令操作数名称映射">指令操作数名称映射</a></li>
+  <li><a href="#指令操作数类型" id="toc-指令操作数类型" class="nav-link" data-scroll-target="#指令操作数类型">指令操作数类型</a></li>
+  </ul></li>
+  <li><a href="#指令调度" id="toc-指令调度" class="nav-link" data-scroll-target="#指令调度">指令调度</a></li>
+  <li><a href="#指令关系映射" id="toc-指令关系映射" class="nav-link" data-scroll-target="#指令关系映射">指令关系映射</a></li>
+  <li><a href="#实现targetstrinfo的子类" id="toc-实现targetstrinfo的子类" class="nav-link" data-scroll-target="#实现targetstrinfo的子类">实现TargetStrInfo的子类</a></li>
+  <li><a href="#分支折叠与if转换" id="toc-分支折叠与if转换" class="nav-link" data-scroll-target="#分支折叠与if转换">分支折叠与If转换</a></li>
+  </ul></li>
+  <li><a href="#六-指令选择器" id="toc-六-指令选择器" class="nav-link" data-scroll-target="#六-指令选择器">六 指令选择器</a>
+  <ul class="collapse">
+  <li><a href="#选择合法化阶段" id="toc-选择合法化阶段" class="nav-link" data-scroll-target="#选择合法化阶段">选择合法化阶段</a>
+  <ul class="collapse">
+  <li><a href="#推广" id="toc-推广" class="nav-link" data-scroll-target="#推广">推广</a></li>
+  <li><a href="#展开" id="toc-展开" class="nav-link" data-scroll-target="#展开">展开</a></li>
+  <li><a href="#定制" id="toc-定制" class="nav-link" data-scroll-target="#定制">定制</a></li>
+  <li><a href="#合法的" id="toc-合法的" class="nav-link" data-scroll-target="#合法的">合法的</a></li>
+  </ul></li>
+  <li><a href="#调用约定" id="toc-调用约定" class="nav-link" data-scroll-target="#调用约定">调用约定</a></li>
+  </ul></li>
+  <li><a href="#七-装配式打印机" id="toc-七-装配式打印机" class="nav-link" data-scroll-target="#七-装配式打印机">七 装配式打印机</a></li>
+  <li><a href="#八-子目标支持" id="toc-八-子目标支持" class="nav-link" data-scroll-target="#八-子目标支持">八 子目标支持</a></li>
+  <li><a href="#九-jit支持" id="toc-九-jit支持" class="nav-link" data-scroll-target="#九-jit支持">九 JIT支持</a>
+  <ul class="collapse">
+  <li><a href="#机器码发射器" id="toc-机器码发射器" class="nav-link" data-scroll-target="#机器码发射器">机器码发射器</a></li>
+  <li><a href="#目标jit信息" id="toc-目标jit信息" class="nav-link" data-scroll-target="#目标jit信息">目标JIT信息</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">编写LLVM后端</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">LLVM</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    无
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">发布于</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2020年11月1日</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">关键词</div>
+    <p>LLVM</p>
+  </div>
+</div>
+
+</header>
+
+
+<section id="一-简介" class="level1">
+<h1>一 简介</h1>
+<p>本文档描述了编写编译器后端的技术， 这些后端将LLVM中间表示（IR）转换为特定机器或其他语言的代码， 这些代码可以是汇编代码也可以是二进制代码（可用于JIT编译器）。</p>
+<p>LLVM的后端是一个平台独立的代码生成器， 它可以为不同类型的目标CPU生成代码， 包括X86、PowerPC、ARM和SPARC。 后端还可以为GPU或Cell处理器的SPU生成代码， 以支持计算内核的执行。</p>
+<p>本文档主要关注<code>llvm/lib/Target</code>目录中的现有示例， 特别是为SPARC平台创建静态编译器(也就是发射汇编码)， 因为SPARC具有相当典型的特征， 比如RISC指令集和常见的调用约定。</p>
+<section id="目标读者" class="level2">
+<h2 class="anchored" data-anchor-id="目标读者">目标读者</h2>
+<p>本文档的受众是需要编写LLVM后端来为特定的硬件或软件平台生成代码的开发者。</p>
+</section>
+<section id="前置知识" class="level2">
+<h2 class="anchored" data-anchor-id="前置知识">前置知识</h2>
+<p>在阅读本文档之前，必须先阅读以下重要文档：</p>
+<ul>
+<li><p><a href="https://releases.llvm.org/11.0.0/docs/LangRef.html">LLVM Language Reference Manual</a>–LLVM汇编语言的参考手册。</p></li>
+<li><p><a href="https://releases.llvm.org/11.0.0/docs/CodeGenerator.html">The LLVM Target-Independent Code Generator</a>– 用于将LLVM内部表示转换为指定平台的机器码的组件（类和代码生成算法）的指南。 特别注意代码生成阶段：指令选择、调度和形成、基于SSA的优化、寄存器分配、Prolog/Epilog代码插入、后期机器代码优化和代码发射。</p></li>
+<li><p><a href="https://releases.llvm.org/11.0.0/docs/TableGen/index.html">TableGen</a>–TableGen（tblgen）应用程序的描述文档， 该程序管理LLVM代码生成特定于域的信息。 TableGen处理来自目标描述文件（后缀.td）的输入，并生成可用于代码生成的C++代码。</p></li>
+</ul>
+</section>
+<section id="基本步骤" class="level2">
+<h2 class="anchored" data-anchor-id="基本步骤">基本步骤</h2>
+<p>编写将LLVM IR转换为指定平台的机器码或其他语言的代码的编译器后端，需要以下步骤：</p>
+<ul>
+<li>创建TargetMachine类的子类， 该类描述目标计算机的特征， 这一步可以参考已有后端的TargetMachine类及其头文件； 例如，直接复制SparcTargetMachine.cpp和SparcTargetMachine.h但更改其文件名， 并且更改引用“Sparc”的代码以引用您的代码。</li>
+<li>描述目标平台的寄存器。 使用TableGen从RegisterInfo.td文件生成定义寄存器、寄存器别名和寄存器组的代码。 还可能需要为TargetRegisterInfo的子类编写代码，这些代码代用于支持寄存器的分配以及描述寄存器间的约束。</li>
+<li>描述目标平台的指令集。 使用TableGen从TargetInstrFormats.td和TargetInstrInfo.td文件生成描述目标平台的指令集的代码。 您可能需要手动为TargetInstrInfo的子类编写代码，以描述目标平台支持的某些特殊指令。</li>
+<li>描述指令选择规则，该过程将LLVM IR的有向无环图（DAG）表示转换到目标平台原生指令表示。 使用TableGen根据TargetInstrInfo.td文件从定义的模式来生成支持指令选择的代码， 有时需要手动为XXXISelDAGToDAG.cpp编写代码来完成DAG-to-DAG的转换， 有时还需要手动为XXXISelLowering.cpp文件编写代码来替换不被SelectionDAG原生支持的操作和数据类型。</li>
+<li>编写汇编生成器，汇编生成器将LLVM IR转换为目标计算机的GAS格式。 你需要在TargetInstrInfo.td文件中增加assembly strings。 同时还需要实现AsmPrinter的子类以及TargetAsmInfo的子类， 来实现LLVM IR到汇编的转换。</li>
+<li>（可选）添加对子平台(具有不同功能的变体)的支持。 实现TargetSubtarget的子类， 该类允许您使用<code>-mcpu=</code>和<code>-mattr=</code>命令行选项。</li>
+<li>（可选）添加JIT支持并创建机器码发射器(TargetJITInfo的子类)， 它用于直接将二进制代码发送到内存中。</li>
+</ul>
+<p>在.cpp和.h文件中，首先为这些方法建立占位，然后在以后实现它们。 最初，您可能不知道这些类需要哪些私有成员，哪些类需要子类化。</p>
+</section>
+<section id="准备工作" class="level2">
+<h2 class="anchored" data-anchor-id="准备工作">准备工作</h2>
+<p>要创建实际的编译器后端， 您需要创建和修改一些文件。 这里只讨论必须的操作。 但是要实际使用LLVM的目标独立代码生成器， 您必须执行<a href="https://releases.llvm.org/11.0.0/docs/CodeGenerator.html">LLVM Target-Independent Code Generator</a>中描述的步骤。</p>
+<p>首先，您应该在<code>lib/Target</code>目录下创建一个子目录来保存与您的目标相关的所有文件。 如果目标名为“Dummy”，则创建<code>lib/target/Dummy</code>目录。</p>
+<p>在这个新目录中，创建文件<code>CMakeLists.txt</code>。 最简单的方法是复制另一个目标的<code>CMakeLists.txt</code>文件并对其进行修改。 它至少应该指定<code>LLVM_TARGET_DEFINITIONS</code>变量。 这个库可以作为一个整体命名为<code>LLVMDummy</code>(参见MIPS后端)。 也可以将库拆分为<code>LLVMDummyAsmPrinter</code>和<code>LLVMDummyAsmPrinter</code>， 后者应该在<code>lib/Target/Dummy</code>的子目录中实现(参见PowerPC后端)。</p>
+<p>注意，这两个命名方案都被硬编码到<code>llvm-config</code>中。 使用任何其他命名方案都会迷惑<code>llvm-config</code>， 并在链接<code>llc</code>时产生许多(看起来不相关的)链接器错误。</p>
+<p>要使您的后端能执行实际的工作， 您需要实现<code>TargetMachine</code>的子类。 这个实现通常位于文件<code>lib/Target/DummyTargetMachine.cpp</code>中， <code>lib/Target</code>目录中的其它文件也应该被正确实现。 要使用LLVM的目标独立代码生成器， 您应该像所有机器后端一样： 创建<code>LLVMTargetMachine</code>的子类。（要从头开始创建目标，请创建TargetMachine的子类。）</p>
+<p>要让LLVM真正构建并链接你的后端， 你需要用<code>-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=Dummy</code>命令运行cmake。 这将构建您的后端，而不需要将其添加到后端的列表中。</p>
+<p>后端到达稳定版后，可以将其添加到位于主<code>CMakeLists.txt</code>文件的<code>LLVM_ALL_TARGETS</code>变量中。</p>
+</section>
+</section>
+<section id="二-目标机器" class="level1">
+<h1>二 目标机器</h1>
+<p><code>LLVMTargetMachine</code>被设计成实现了目标无关代码生成器的目标的基类。 <code>LLVMTargetMachine</code>类特化为实现了各种虚拟方法的具体目标类。 <code>LLVMTargetMachine</code>在<code>include/llvm/target/TargetMachine.h</code>中定义为<code>TargetMachine</code>的子类。 <code>TargetMachine</code>类(TargetMachine.cpp)还负责处理许多命令行选项。</p>
+<p>要为特定的目标创建<code>LLVMTargetMachine</code>的子类， 首先要复制现有的<code>TargetMachine</code>类的类文件和头文件。 您应该修改您创建的文件的文件名以反映能该目标。 例如，对于<code>SPARC</code>，将文件命名为<code>SparcTargetMachine.h</code>和<code>SparcTargetMachine.cpp</code>。</p>
+<p>对于目标机器XXX， <code>XXXTargetMachine</code>必须实现一系列用于获取后端组件的对象的方法。 这些方法被命名为<code>get * Info</code>， 这些方法可以获取指令集(<code>getInstrInfo</code>)、寄存器(<code>getRegisterInfo</code>)、堆栈布局(<code>getFrameInfo</code>)等信息。 <code>XXXTargetMachine</code>还必须实现<code>getDataLayout</code>方法， 以访问数据特征(如数据类型大小和对齐要求)对象。</p>
+<p>例如，对于SPARC目标， 头文件<code>SparcTargetMachine.h</code>声明了<code>get*Info</code>和<code>getDataLayout</code>等方法的原型， 这些方法的返回值都是<code>SparcTargetMachine</code>类的成员变量。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a>namespace llvm {</span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a>class Module<span class="co">;</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>class SparcTargetMachine : public LLVMTargetMachine {</span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  const DataLayout DataLayout<span class="co">;       // Calculates type size &amp; alignment</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  SparcSubtarget Subtarget<span class="co">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  SparcInstrInfo InstrInfo<span class="co">;</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  TargetFrameInfo FrameInfo<span class="co">;</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a><span class="fu">protected:</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  virtual const TargetAsmInfo *createTargetAsmInfo() const<span class="co">;</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a><span class="fu">public:</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  SparcTargetMachine(const Module &amp;M, const <span class="fu">std:</span>:string &amp;FS)<span class="co">;</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a>  virtual const SparcInstrInfo *getInstrInfo() const {return &amp;InstrInfo<span class="co">; }</span></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a>  virtual const TargetFrameInfo *getFrameInfo() const {return &amp;FrameInfo<span class="co">; }</span></span>
+<span id="cb1-19"><a href="#cb1-19" aria-hidden="true" tabindex="-1"></a>  virtual const TargetSubtarget *getSubtargetImpl() const{return &amp;Subtarget<span class="co">; }</span></span>
+<span id="cb1-20"><a href="#cb1-20" aria-hidden="true" tabindex="-1"></a>  virtual const TargetRegisterInfo *getRegisterInfo() const {</span>
+<span id="cb1-21"><a href="#cb1-21" aria-hidden="true" tabindex="-1"></a>    return &amp;InstrInfo.getRegisterInfo()<span class="co">;</span></span>
+<span id="cb1-22"><a href="#cb1-22" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb1-23"><a href="#cb1-23" aria-hidden="true" tabindex="-1"></a>  virtual const DataLayout *getDataLayout() const { return &amp;DataLayout<span class="co">; }</span></span>
+<span id="cb1-24"><a href="#cb1-24" aria-hidden="true" tabindex="-1"></a>  static unsigned getModuleMatchQuality(const Module &amp;M)<span class="co">;</span></span>
+<span id="cb1-25"><a href="#cb1-25" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-26"><a href="#cb1-26" aria-hidden="true" tabindex="-1"></a>  // Pass Pipeline Configuration</span>
+<span id="cb1-27"><a href="#cb1-27" aria-hidden="true" tabindex="-1"></a>  virtual bool addInstSelector(PassManagerBase &amp;PM, bool Fast)<span class="co">;</span></span>
+<span id="cb1-28"><a href="#cb1-28" aria-hidden="true" tabindex="-1"></a>  virtual bool addPreEmitPass(PassManagerBase &amp;PM, bool Fast)<span class="co">;</span></span>
+<span id="cb1-29"><a href="#cb1-29" aria-hidden="true" tabindex="-1"></a>}<span class="co">;</span></span>
+<span id="cb1-30"><a href="#cb1-30" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-31"><a href="#cb1-31" aria-hidden="true" tabindex="-1"></a>} // <span class="kw">end</span> namespace llvm</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<ul>
+<li><p>getInstrInfo()</p></li>
+<li><p>getRegisterInfo()</p></li>
+<li><p>getFrameInfo()</p></li>
+<li><p>getDataLayout()</p></li>
+<li><p>getSubtargetImpl()</p></li>
+</ul>
+<p>对于某些目标，还需要支持以下方法：</p>
+<ul>
+<li><p>getTargetLowering()</p></li>
+<li><p>getJITInfo()</p></li>
+</ul>
+<p>有些体系结构（如gpu）不支持跳转到任意位置， 使用屏蔽执行来实现分支， 使用包裹循环体的特殊指令来实现循环。 为了避免CFG修改引入不可还原的控制流， 而这些控制流又不被硬件支持， 目标必须在初始化时调用<code>setRequiresStructuredCFG(true)</code>。</p>
+<p>此外，<code>XXXTargetMachine</code>构造函数应该指定一个<code>TargetDescription</code>字符串， 该字符串确定目标机器的数据布局， 包括指针大小、对齐方式和端序等特征。 例如，<code>SparcTargetMachine</code>的构造函数包含以下内容:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="fu">SparcTargetMachine:</span>:SparcTargetMachine(const Module &amp;M, const <span class="fu">std:</span>:string &amp;FS)</span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>  : DataLayout(<span class="st">"E-p:32:32-f128:128:128"</span>),</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a>    Subtarget(M, FS), InstrInfo(Subtarget),</span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a>    FrameInfo(<span class="fu">TargetFrameInfo:</span>:StackGrowsDown, <span class="dv">8</span>, <span class="dv">0</span>) {</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>连字符分隔TargetDescription字符串的各个部分。</p>
+<ul>
+<li><p>字符串中的大写’e’表示目标数据模型是big-endian，小写’e’表示little-endian。</p></li>
+<li><p>“p:”后面跟着指针信息:大小、ABI对齐和首选对齐。如果”p:“后面只有两个数字，那么第一个值是指针大小，第二个值是ABI和首选对齐方式。</p></li>
+<li><p>然后是表示数字类型对齐的字母：“i”、“f”、“v”或“a”（对应于整数、浮点、向量或 聚合）。“i”、“v”或“a”后跟ABI对齐和首选 对齐。“f”后跟三个值：第一个值表示长双精度的大小，然后是ABI对齐，然后是ABI首选对齐。</p></li>
+</ul>
+</section>
+<section id="三-目标注册" class="level1">
+<h1>三 目标注册</h1>
+<p>您还必须向<code>TargetRegistry</code>注册您的目标， 这是其他LLVM工具在运行时查找和使用您的目标的工具。 <code>TargetRegistry</code>可以直接使用， 但是对于大多数目标来说， 有一些辅助模板可以帮助您完成工作。</p>
+<p>所有目标应该声明一个全局<code>Target</code>对象， 用于在注册期间表示目标。 然后，在目标的<code>TargetInfo</code>库中， 目标应该定义该对象并使用<code>RegisterTarget</code>模板注册目标。 例如，Sparc注册代码如下:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>Target <span class="fu">llvm:</span>:getTheSparcTarget()<span class="co">;</span></span>
+<span id="cb3-2"><a href="#cb3-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb3-3"><a href="#cb3-3" aria-hidden="true" tabindex="-1"></a>extern <span class="st">"C"</span> <span class="dt">void</span> LLVMInitializeSparcTargetInfo() {</span>
+<span id="cb3-4"><a href="#cb3-4" aria-hidden="true" tabindex="-1"></a>  RegisterTarget&lt;<span class="fu">Triple:</span>:sparc, /*HasJIT=*/<span class="kw">false</span>&gt;</span>
+<span id="cb3-5"><a href="#cb3-5" aria-hidden="true" tabindex="-1"></a>    X(getTheSparcTarget(), <span class="st">"sparc"</span>, <span class="st">"Sparc"</span>)<span class="co">;</span></span>
+<span id="cb3-6"><a href="#cb3-6" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>这允许<code>TargetRegistry</code>按名称或按目标三元组查找目标。 此外，大多数目标还将注册在单独的库中可用的其他特性。 这些注册步骤是分开的，因为有些客户可能希望只链接目标的某些部分–例如， JIT代码生成器不需要使用汇编打印机。 下面是一个注册Sparc汇编输出器的例子:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a>extern <span class="st">"C"</span> <span class="dt">void</span> LLVMInitializeSparcAsmPrinter() {</span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a>  RegisterAsmPrinter&lt;SparcAsmPrinter&gt; X(getTheSparcTarget())<span class="co">;</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>更多信息, 请参照“<a href="https://releases.llvm.org/doxygen/TargetRegistry_8h-source.html">llvm/Target/TargetRegistry.h</a>”.</p>
+</section>
+<section id="四-寄存器和寄存器组" class="level1">
+<h1>四 寄存器和寄存器组</h1>
+<p>（译注：本节及后文将原文中Register Set译为寄存器集合，将Register Class根据原文的含义译为寄存器组或Register类。）</p>
+<p>您需要创建一个具体的寄存器描述类，这个类称为XXXRegisterInfo(其中XXX是平台标识符)，它描述了寄存器间的约束并为寄存器分配器提供必要的信息。</p>
+<p>您还需要定义寄存器组来对相关寄存器进行分类。同一寄存器组的寄存器可以被某些指令以相同的方式使用。典型的例子是用于整数、浮点或向量的寄存器组。寄存器分配器允许指令以类似的方式使用同一寄存器组中的任何寄存器。寄存器分配器先给指令分配虚拟寄存器，然后会在寄存器分配阶段分配物理寄存器。</p>
+<p>描述寄存器的大部分代码，包括寄存器定义、寄存器别名和寄存器组，都可以由TableGen工具自动生成。TableGen会根据开发者编写的xxxRegisterinfo.td文件，生成XXXGenRegisterInfo.h.inc和XXXGenRegisterInfo.inc文件。XXXRegisterInfo的实现过程中的一些代码需要手工编码。</p>
+<section id="定义寄存器" class="level2">
+<h2 class="anchored" data-anchor-id="定义寄存器">4.1 定义寄存器</h2>
+<p>XXXRegisterinfo.td文件通常以目标机器的寄存器定义开始。Register类(在Target.td中定义)用于为每个寄存器定义一个对象。字符串n就是寄存器的名称。基本的Register对象不包含子寄存器，也没有指定别名。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Register<span class="op">&lt;</span>string n<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>  string Namespace <span class="op">=</span> <span class="st">""</span><span class="op">;</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a>  string AsmName <span class="op">=</span> n<span class="op">;</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a>  string Name <span class="op">=</span> n<span class="op">;</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span> SpillSize <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">int</span> SpillAlignment <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a>  list<span class="op">&lt;</span>Register<span class="op">&gt;</span> Aliases <span class="op">=</span> <span class="op">[];</span></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  list<span class="op">&lt;</span>Register<span class="op">&gt;</span> SubRegs <span class="op">=</span> <span class="op">[];</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  list<span class="op">&lt;</span><span class="dt">int</span><span class="op">&gt;</span> DwarfNumbers <span class="op">=</span> <span class="op">[];</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>例如，X86RegisterInfo.td文件使用Register类定义寄存器。比如：</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a>def AL <span class="op">:</span> Register<span class="op">&lt;</span><span class="st">"AL"</span><span class="op">&gt;,</span> DwarfRegNum<span class="op">&lt;[</span><span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">,</span> <span class="dv">0</span><span class="op">]&gt;;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>这行代码定义了寄存器AL并使用DwarfRegNum为其赋值，gcc，gdb或其他调试信息工具用该值来识别寄存器。对于AL寄存器来说，DwarfRegNum使用了一个由3个值组成的数组，用来表示3 种不同的模式：第一个值是用于X86-64，第二个值用于X86-32中的异常处理（exception handling），第三个是通用值。-1表示gcc的值未定义，-2表示寄存器在该模式下是非法的。</p>
+<p>根据X86RegisterInfo.td文件的描述，TableGen会在X86GenRegisterInfo.inc文件中生成以下代码：</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a><span class="at">static</span> <span class="at">const</span> <span class="dt">unsigned</span> GR8<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span> X86<span class="op">::</span>AL<span class="op">,</span> <span class="op">...</span> <span class="op">};</span></span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> <span class="dt">unsigned</span> AL_AliasSet<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span> X86<span class="op">::</span>AX<span class="op">,</span> X86<span class="op">::</span>EAX<span class="op">,</span> X86<span class="op">::</span>RAX<span class="op">,</span> <span class="dv">0</span> <span class="op">};</span></span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="at">const</span> TargetRegisterDesc RegisterDescriptors<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb7-6"><a href="#cb7-6" aria-hidden="true" tabindex="-1"></a>  <span class="op">...</span></span>
+<span id="cb7-7"><a href="#cb7-7" aria-hidden="true" tabindex="-1"></a><span class="op">{</span> <span class="st">"AL"</span><span class="op">,</span> <span class="st">"AL"</span><span class="op">,</span> AL_AliasSet<span class="op">,</span> Empty_SubRegsSet<span class="op">,</span> Empty_SubRegsSet<span class="op">,</span> AL_SuperRegsSet <span class="op">},</span> <span class="op">...</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>根据register info文件，TableGen为每个寄存器生成一个TargetRegisterDesc对象。TargetRegisterDesc在<code>include/llvm/Target/Target.h</code>中被定义，包含以下字段：</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> TargetRegisterDesc <span class="op">{</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a>  <span class="at">const</span> <span class="dt">char</span>     <span class="op">*</span>AsmName<span class="op">;</span>      <span class="co">// Assembly language name for the register</span></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a>  <span class="at">const</span> <span class="dt">char</span>     <span class="op">*</span>Name<span class="op">;</span>         <span class="co">// Printable name for the reg (for debugging)</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a>  <span class="at">const</span> <span class="dt">unsigned</span> <span class="op">*</span>AliasSet<span class="op">;</span>     <span class="co">// Register Alias Set</span></span>
+<span id="cb8-5"><a href="#cb8-5" aria-hidden="true" tabindex="-1"></a>  <span class="at">const</span> <span class="dt">unsigned</span> <span class="op">*</span>SubRegs<span class="op">;</span>      <span class="co">// Sub-register set</span></span>
+<span id="cb8-6"><a href="#cb8-6" aria-hidden="true" tabindex="-1"></a>  <span class="at">const</span> <span class="dt">unsigned</span> <span class="op">*</span>ImmSubRegs<span class="op">;</span>   <span class="co">// Immediate sub-register set</span></span>
+<span id="cb8-7"><a href="#cb8-7" aria-hidden="true" tabindex="-1"></a>  <span class="at">const</span> <span class="dt">unsigned</span> <span class="op">*</span>SuperRegs<span class="op">;</span>    <span class="co">// Super-register set</span></span>
+<span id="cb8-8"><a href="#cb8-8" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>TableGen使用名称(TargetRegisterDesc的AsmName和Name字段)以及寄存器间的关系(TargetRegisterDesc的其他字段)来定义寄存器。在这个示例中，寄存器“AX”、“ EAX”和“RAX”为彼此的别名，TableGen为这个寄存器别名集生成一个以null结尾的数组(AL_aliasset)。</p>
+<p>Register类通常用作更复杂类的基类。在Target.td中，Register类是RegisterWithSubRegs类的基类，该类用于定义需要在SubRegs列表中指定子寄存器的寄存器，如下所示</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> RegisterWithSubRegs<span class="op">&lt;</span>string n<span class="op">,</span> list<span class="op">&lt;</span>Register<span class="op">&gt;</span> subregs<span class="op">&gt;</span> <span class="op">:</span> Register<span class="op">&lt;</span>n<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a>  let SubRegs <span class="op">=</span> subregs<span class="op">;</span></span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>SparcRegisterInfo.td为SPARC定义了额外的寄存器类：register类的子类SparcReg和其进一步的子类：Ri、Rf和Rd。SPARC的寄存器由5位ID号标识，这是这些子类的一个共同特性。“let”表达式可以覆盖最初在父类中定义的值（例如Rd类中的subgros字段）。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> SparcReg<span class="op">&lt;</span>string n<span class="op">&gt;</span> <span class="op">:</span> Register<span class="op">&lt;</span>n<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>  field bits<span class="op">&lt;</span><span class="dv">5</span><span class="op">&gt;</span> Num<span class="op">;</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>  let Namespace <span class="op">=</span> <span class="st">"SP"</span><span class="op">;</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a><span class="co">// Ri - 32-bit integer registers</span></span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Ri<span class="op">&lt;</span>bits<span class="op">&lt;</span><span class="dv">5</span><span class="op">&gt;</span> num<span class="op">,</span> string n<span class="op">&gt;</span> <span class="op">:</span></span>
+<span id="cb10-7"><a href="#cb10-7" aria-hidden="true" tabindex="-1"></a>SparcReg<span class="op">&lt;</span>n<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb10-8"><a href="#cb10-8" aria-hidden="true" tabindex="-1"></a>  let Num <span class="op">=</span> num<span class="op">;</span></span>
+<span id="cb10-9"><a href="#cb10-9" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb10-10"><a href="#cb10-10" aria-hidden="true" tabindex="-1"></a><span class="co">// Rf - 32-bit floating-point registers</span></span>
+<span id="cb10-11"><a href="#cb10-11" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Rf<span class="op">&lt;</span>bits<span class="op">&lt;</span><span class="dv">5</span><span class="op">&gt;</span> num<span class="op">,</span> string n<span class="op">&gt;</span> <span class="op">:</span></span>
+<span id="cb10-12"><a href="#cb10-12" aria-hidden="true" tabindex="-1"></a>SparcReg<span class="op">&lt;</span>n<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb10-13"><a href="#cb10-13" aria-hidden="true" tabindex="-1"></a>  let Num <span class="op">=</span> num<span class="op">;</span></span>
+<span id="cb10-14"><a href="#cb10-14" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb10-15"><a href="#cb10-15" aria-hidden="true" tabindex="-1"></a><span class="co">// Rd - Slots in the FP register file for 64-bit floating-point values.</span></span>
+<span id="cb10-16"><a href="#cb10-16" aria-hidden="true" tabindex="-1"></a><span class="kw">class</span> Rd<span class="op">&lt;</span>bits<span class="op">&lt;</span><span class="dv">5</span><span class="op">&gt;</span> num<span class="op">,</span> string n<span class="op">,</span> list<span class="op">&lt;</span>Register<span class="op">&gt;</span> subregs<span class="op">&gt;</span> <span class="op">:</span> SparcReg<span class="op">&lt;</span>n<span class="op">&gt;</span> <span class="op">{</span></span>
+<span id="cb10-17"><a href="#cb10-17" aria-hidden="true" tabindex="-1"></a>  let Num <span class="op">=</span> num<span class="op">;</span></span>
+<span id="cb10-18"><a href="#cb10-18" aria-hidden="true" tabindex="-1"></a>  let SubRegs <span class="op">=</span> subregs<span class="op">;</span></span>
+<span id="cb10-19"><a href="#cb10-19" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>SparcRegisterInfo.td文件利用Register类的子类来定义寄存器，例如</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><a href="#cb11-1" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> G0 : Ri<span class="op">&lt;</span> <span class="dv">0</span>, <span class="st">"G0"</span><span class="op">&gt;</span>, DwarfRegNum<span class="op">&lt;</span>[<span class="dv">0</span>]<span class="op">&gt;;</span></span>
+<span id="cb11-2"><a href="#cb11-2" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> G1 : Ri<span class="op">&lt;</span> <span class="dv">1</span>, <span class="st">"G1"</span><span class="op">&gt;</span>, DwarfRegNum<span class="op">&lt;</span>[<span class="dv">1</span>]<span class="op">&gt;;</span></span>
+<span id="cb11-3"><a href="#cb11-3" aria-hidden="true" tabindex="-1"></a>...</span>
+<span id="cb11-4"><a href="#cb11-4" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> F0 : Rf<span class="op">&lt;</span> <span class="dv">0</span>, <span class="st">"F0"</span><span class="op">&gt;</span>, DwarfRegNum<span class="op">&lt;</span>[<span class="dv">32</span>]<span class="op">&gt;;</span></span>
+<span id="cb11-5"><a href="#cb11-5" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> F1 : Rf<span class="op">&lt;</span> <span class="dv">1</span>, <span class="st">"F1"</span><span class="op">&gt;</span>, DwarfRegNum<span class="op">&lt;</span>[<span class="dv">33</span>]<span class="op">&gt;;</span></span>
+<span id="cb11-6"><a href="#cb11-6" aria-hidden="true" tabindex="-1"></a>...</span>
+<span id="cb11-7"><a href="#cb11-7" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> D0 : Rd<span class="op">&lt;</span> <span class="dv">0</span>, <span class="st">"F0"</span>, [F0, F1]<span class="op">&gt;</span>, DwarfRegNum<span class="op">&lt;</span>[<span class="dv">32</span>]<span class="op">&gt;;</span></span>
+<span id="cb11-8"><a href="#cb11-8" aria-hidden="true" tabindex="-1"></a><span class="kw">def</span> D1 : Rd<span class="op">&lt;</span> <span class="dv">2</span>, <span class="st">"F2"</span>, [F2, F3]<span class="op">&gt;</span>, DwarfRegNum<span class="op">&lt;</span>[<span class="dv">34</span>]<span class="op">&gt;;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>上面显示的最后两个寄存器(D0和D1)是双精度浮点寄存器，它们是单精度浮点子寄存器对的别名。除了别名之外，子寄存器和父寄存器的关系也定义在TargetRegisterDesc的某些字段中。</p>
+</section>
+<section id="定义寄存器组" class="level2">
+<h2 class="anchored" data-anchor-id="定义寄存器组">4.2 定义寄存器组</h2>
+<p><code>RegisterClass</code>类（在Target.td中指定）用于定义一个对象， 该对象表示一组相关的寄存器， 还定义了寄存器的默认分配顺序。 使用<code>Target.td</code>的目标描述文件<code>XXXRegisterInfo.td</code>可以使用以下类构造寄存器组：</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb12-1"><a href="#cb12-1" aria-hidden="true" tabindex="-1"></a>class RegisterClass&lt;string namespace,</span>
+<span id="cb12-2"><a href="#cb12-2" aria-hidden="true" tabindex="-1"></a>list&lt;ValueType&gt; regTypes, int alignment, dag regList&gt; {</span>
+<span id="cb12-3"><a href="#cb12-3" aria-hidden="true" tabindex="-1"></a>  string Namespace = namespace<span class="co">;</span></span>
+<span id="cb12-4"><a href="#cb12-4" aria-hidden="true" tabindex="-1"></a>  list&lt;ValueType&gt; RegTypes = regTypes<span class="co">;</span></span>
+<span id="cb12-5"><a href="#cb12-5" aria-hidden="true" tabindex="-1"></a>  int Size = <span class="dv">0</span><span class="co">;  // spill size, in bits; zero lets tblgen pick the size</span></span>
+<span id="cb12-6"><a href="#cb12-6" aria-hidden="true" tabindex="-1"></a>  int Alignment = alignment<span class="co">;</span></span>
+<span id="cb12-7"><a href="#cb12-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-8"><a href="#cb12-8" aria-hidden="true" tabindex="-1"></a>  // CopyCost is the cost of copying a value between two registers</span>
+<span id="cb12-9"><a href="#cb12-9" aria-hidden="true" tabindex="-1"></a>  // <span class="kw">default</span> value <span class="dv">1</span> means a single instruction</span>
+<span id="cb12-10"><a href="#cb12-10" aria-hidden="true" tabindex="-1"></a>  // A negative value means copying is extremely expensive <span class="kw">or</span> impossible</span>
+<span id="cb12-11"><a href="#cb12-11" aria-hidden="true" tabindex="-1"></a>  int CopyCost = <span class="dv">1</span><span class="co">;</span></span>
+<span id="cb12-12"><a href="#cb12-12" aria-hidden="true" tabindex="-1"></a>  dag MemberList = regList<span class="co">;</span></span>
+<span id="cb12-13"><a href="#cb12-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-14"><a href="#cb12-14" aria-hidden="true" tabindex="-1"></a>  // for register classes that are subregisters of this class</span>
+<span id="cb12-15"><a href="#cb12-15" aria-hidden="true" tabindex="-1"></a>  list&lt;RegisterClass&gt; SubRegClassList = []<span class="co">;</span></span>
+<span id="cb12-16"><a href="#cb12-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb12-17"><a href="#cb12-17" aria-hidden="true" tabindex="-1"></a>  code MethodProtos = [{}]<span class="co">;  // to insert arbitrary code</span></span>
+<span id="cb12-18"><a href="#cb12-18" aria-hidden="true" tabindex="-1"></a>  code MethodBodies = [{}]<span class="co">;</span></span>
+<span id="cb12-19"><a href="#cb12-19" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>要定义<code>RegisterClass</code>，请使用以下4个参数:</p>
+<ul>
+<li><p>第一个参数定义了命名空间的名称。</p></li>
+<li><p>第二个参数是寄存器类型的列表，寄存器的类型定义在文件<code>include/llvm/CodeGen/ValueTypes.td</code>中。 已定义的值包括整数类型(<code>i16</code>、<code>i32</code>和<code>i1</code>(布尔值))、浮点类型(<code>f32</code>、<code>f64</code>)和向量类型(例如，<code>v8i16</code>表示<code>8xi16</code>向量)。 <code>RegisterClass</code>中的所有寄存器必须具有相同的<code>ValueType</code>， 但有些寄存器可以不同的配置存储向量数据。 例如，一个能够处理128位向量的寄存器也能处理16个8位整数元素，8个16位整数，4个32位整数，等等。</p></li>
+<li><p>第三个参数指定寄存器数据在<code>load</code>或<code>save</code>时所需的对齐方式。</p></li>
+<li><p>最后一个参数<code>regList</code>指定这个集合包含的寄存器。 如果没有指定寄存器的分配顺序， 那么<code>regList</code>还暗含了寄存器的分配顺序。 除了简单地用<code>(add R0，R1，...)</code>列出寄存器之外， 还可以用更高级的集合操作符。 更多信息，请参见<code>include/llvm/Target/Target.td</code>。</p></li>
+</ul>
+<p>在<code>SparcRegisterInfo.td</code>中， 定义了三个<code>RegisterClass</code>对象：<code>FPReg</code>，<code>DFPReg</code>和<code>IntReg</code>。 对于所有三个寄存器类，第一个参数都是使用字符串“ SP”定义名称空间。 <code>FPRegs</code>定义了一组32个单精度浮点寄存器（F0至F31）。 <code>DFPRegs</code>定义了一组16个双精度寄存器（D0-D15）。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb13-1"><a href="#cb13-1" aria-hidden="true" tabindex="-1"></a>// F0, F1, F2, ..., F31</span>
+<span id="cb13-2"><a href="#cb13-2" aria-hidden="true" tabindex="-1"></a>def FPRegs : RegisterClass&lt;<span class="st">"SP"</span>, [f32], <span class="dv">32</span>, (sequence <span class="st">"F%u"</span>, <span class="dv">0</span>, <span class="dv">31</span>)&gt;<span class="co">;</span></span>
+<span id="cb13-3"><a href="#cb13-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-4"><a href="#cb13-4" aria-hidden="true" tabindex="-1"></a>def DFPRegs : RegisterClass&lt;<span class="st">"SP"</span>, [f64], <span class="dv">64</span>,</span>
+<span id="cb13-5"><a href="#cb13-5" aria-hidden="true" tabindex="-1"></a>                            (<span class="kw">add</span> D0, D1, D2, D3, D4, D5, D6, D7, D8,</span>
+<span id="cb13-6"><a href="#cb13-6" aria-hidden="true" tabindex="-1"></a>                                 D9, D10, D11, D12, D13, D14, D15)&gt;<span class="co">;</span></span>
+<span id="cb13-7"><a href="#cb13-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" aria-hidden="true" tabindex="-1"></a>def IntRegs : RegisterClass&lt;<span class="st">"SP"</span>, [<span class="dt">i32</span>], <span class="dv">32</span>,</span>
+<span id="cb13-9"><a href="#cb13-9" aria-hidden="true" tabindex="-1"></a>    (<span class="kw">add</span> L0, L1, L2, L3, L4, L5, L6, L7,</span>
+<span id="cb13-10"><a href="#cb13-10" aria-hidden="true" tabindex="-1"></a>         I0, I1, I2, I3, I4, I5,</span>
+<span id="cb13-11"><a href="#cb13-11" aria-hidden="true" tabindex="-1"></a>         O0, O1, O2, O3, O4, O5, O7,</span>
+<span id="cb13-12"><a href="#cb13-12" aria-hidden="true" tabindex="-1"></a>         G1,</span>
+<span id="cb13-13"><a href="#cb13-13" aria-hidden="true" tabindex="-1"></a>         // Non-allocatable <span class="fu">regs:</span></span>
+<span id="cb13-14"><a href="#cb13-14" aria-hidden="true" tabindex="-1"></a>         G2, G3, G4,</span>
+<span id="cb13-15"><a href="#cb13-15" aria-hidden="true" tabindex="-1"></a>         O6,        // stack ptr</span>
+<span id="cb13-16"><a href="#cb13-16" aria-hidden="true" tabindex="-1"></a>         I6,        // frame ptr</span>
+<span id="cb13-17"><a href="#cb13-17" aria-hidden="true" tabindex="-1"></a>         I7,        // return address</span>
+<span id="cb13-18"><a href="#cb13-18" aria-hidden="true" tabindex="-1"></a>         G0,        // <span class="kw">constant</span> zero</span>
+<span id="cb13-19"><a href="#cb13-19" aria-hidden="true" tabindex="-1"></a>         G5, G6, G7 // reserved for kernel</span>
+<span id="cb13-20"><a href="#cb13-20" aria-hidden="true" tabindex="-1"></a>    )&gt;<span class="co">;</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>TableGen将<code>SparcRegisterInfo.td</code>编译成多个输出文件， 这些输出文件将会被包含在您编写的其他源代码中。 <code>SparcRegisterInfo.td</code>被编译成<code>SparcGenRegisterInfo.h.inc</code>， 这个文件将被包含在实现SPARC寄存器的头文件<code>SparcRegisterInfo.h</code>中。 <code>SparcGenRegisterInfo.h.inc</code>定义了一个名为<code>SparcGenRegisterInfo</code>的新结构， 该结构继承<code>TargetRegisterInfo</code>， 还根据预定义的寄存器集（<code>DFPRegsClass</code>，<code>FPRegsClass</code>和<code>IntRegsClass</code>）来指定类型。</p>
+<p><code>Sparcregisterinfo.td</code>还会生成<code>SparcGenRegisterInfo.inc</code>文件， 它被包含在文件<code>SparcRegisterInfo.cpp</code>的底部， 该文件用于实现Sparc的寄存器。 下面只显示生成的整数寄存器和关联的寄存器集， <code>IntRegs</code>中寄存器的顺序同目标描述文件中<code>IntRegs</code>定义的顺序一致。</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb14-1"><a href="#cb14-1" aria-hidden="true" tabindex="-1"></a><span class="co">// IntRegs Register Class...</span></span>
+<span id="cb14-2"><a href="#cb14-2" aria-hidden="true" tabindex="-1"></a><span class="at">static</span> <span class="at">const</span> <span class="dt">unsigned</span> IntRegs<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb14-3"><a href="#cb14-3" aria-hidden="true" tabindex="-1"></a>  SP<span class="op">::</span>L0<span class="op">,</span> SP<span class="op">::</span>L1<span class="op">,</span> SP<span class="op">::</span>L2<span class="op">,</span> SP<span class="op">::</span>L3<span class="op">,</span> SP<span class="op">::</span>L4<span class="op">,</span> SP<span class="op">::</span>L5<span class="op">,</span></span>
+<span id="cb14-4"><a href="#cb14-4" aria-hidden="true" tabindex="-1"></a>  SP<span class="op">::</span>L6<span class="op">,</span> SP<span class="op">::</span>L7<span class="op">,</span> SP<span class="op">::</span>I0<span class="op">,</span> SP<span class="op">::</span>I1<span class="op">,</span> SP<span class="op">::</span>I2<span class="op">,</span> SP<span class="op">::</span>I3<span class="op">,</span></span>
+<span id="cb14-5"><a href="#cb14-5" aria-hidden="true" tabindex="-1"></a>  SP<span class="op">::</span>I4<span class="op">,</span> SP<span class="op">::</span>I5<span class="op">,</span> SP<span class="op">::</span>O0<span class="op">,</span> SP<span class="op">::</span>O1<span class="op">,</span> SP<span class="op">::</span>O2<span class="op">,</span> SP<span class="op">::</span>O3<span class="op">,</span></span>
+<span id="cb14-6"><a href="#cb14-6" aria-hidden="true" tabindex="-1"></a>  SP<span class="op">::</span>O4<span class="op">,</span> SP<span class="op">::</span>O5<span class="op">,</span> SP<span class="op">::</span>O7<span class="op">,</span> SP<span class="op">::</span>G1<span class="op">,</span> SP<span class="op">::</span>G2<span class="op">,</span> SP<span class="op">::</span>G3<span class="op">,</span></span>
+<span id="cb14-7"><a href="#cb14-7" aria-hidden="true" tabindex="-1"></a>  SP<span class="op">::</span>G4<span class="op">,</span> SP<span class="op">::</span>O6<span class="op">,</span> SP<span class="op">::</span>I6<span class="op">,</span> SP<span class="op">::</span>I7<span class="op">,</span> SP<span class="op">::</span>G0<span class="op">,</span> SP<span class="op">::</span>G5<span class="op">,</span></span>
+<span id="cb14-8"><a href="#cb14-8" aria-hidden="true" tabindex="-1"></a>  SP<span class="op">::</span>G6<span class="op">,</span> SP<span class="op">::</span>G7<span class="op">,</span></span>
+<span id="cb14-9"><a href="#cb14-9" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb14-10"><a href="#cb14-10" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-11"><a href="#cb14-11" aria-hidden="true" tabindex="-1"></a><span class="co">// IntRegsVTs Register Class Value Types...</span></span>
+<span id="cb14-12"><a href="#cb14-12" aria-hidden="true" tabindex="-1"></a><span class="at">static</span> <span class="at">const</span> MVT<span class="op">::</span>ValueType IntRegsVTs<span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb14-13"><a href="#cb14-13" aria-hidden="true" tabindex="-1"></a>  MVT<span class="op">::</span>i32<span class="op">,</span> MVT<span class="op">::</span>Other</span>
+<span id="cb14-14"><a href="#cb14-14" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb14-15"><a href="#cb14-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-16"><a href="#cb14-16" aria-hidden="true" tabindex="-1"></a><span class="kw">namespace</span> SP <span class="op">{</span>   <span class="co">// Register class instances</span></span>
+<span id="cb14-17"><a href="#cb14-17" aria-hidden="true" tabindex="-1"></a>  DFPRegsClass    DFPRegsRegClass<span class="op">;</span></span>
+<span id="cb14-18"><a href="#cb14-18" aria-hidden="true" tabindex="-1"></a>  FPRegsClass     FPRegsRegClass<span class="op">;</span></span>
+<span id="cb14-19"><a href="#cb14-19" aria-hidden="true" tabindex="-1"></a>  IntRegsClass    IntRegsRegClass<span class="op">;</span></span>
+<span id="cb14-20"><a href="#cb14-20" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span>
+<span id="cb14-21"><a href="#cb14-21" aria-hidden="true" tabindex="-1"></a>  <span class="co">// IntRegs Sub-register Classes...</span></span>
+<span id="cb14-22"><a href="#cb14-22" aria-hidden="true" tabindex="-1"></a>  <span class="at">static</span> <span class="at">const</span> TargetRegisterClass<span class="op">*</span> <span class="at">const</span> IntRegsSubRegClasses <span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb14-23"><a href="#cb14-23" aria-hidden="true" tabindex="-1"></a>    NULL</span>
+<span id="cb14-24"><a href="#cb14-24" aria-hidden="true" tabindex="-1"></a>  <span class="op">};</span></span>
+<span id="cb14-25"><a href="#cb14-25" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span>
+<span id="cb14-26"><a href="#cb14-26" aria-hidden="true" tabindex="-1"></a>  <span class="co">// IntRegs Super-register Classes..</span></span>
+<span id="cb14-27"><a href="#cb14-27" aria-hidden="true" tabindex="-1"></a>  <span class="at">static</span> <span class="at">const</span> TargetRegisterClass<span class="op">*</span> <span class="at">const</span> IntRegsSuperRegClasses <span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb14-28"><a href="#cb14-28" aria-hidden="true" tabindex="-1"></a>    NULL</span>
+<span id="cb14-29"><a href="#cb14-29" aria-hidden="true" tabindex="-1"></a>  <span class="op">};</span></span>
+<span id="cb14-30"><a href="#cb14-30" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span>
+<span id="cb14-31"><a href="#cb14-31" aria-hidden="true" tabindex="-1"></a>  <span class="co">// IntRegs Register Class sub-classes...</span></span>
+<span id="cb14-32"><a href="#cb14-32" aria-hidden="true" tabindex="-1"></a>  <span class="at">static</span> <span class="at">const</span> TargetRegisterClass<span class="op">*</span> <span class="at">const</span> IntRegsSubclasses <span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb14-33"><a href="#cb14-33" aria-hidden="true" tabindex="-1"></a>    NULL</span>
+<span id="cb14-34"><a href="#cb14-34" aria-hidden="true" tabindex="-1"></a>  <span class="op">};</span></span>
+<span id="cb14-35"><a href="#cb14-35" aria-hidden="true" tabindex="-1"></a><span class="op">...</span></span>
+<span id="cb14-36"><a href="#cb14-36" aria-hidden="true" tabindex="-1"></a>  <span class="co">// IntRegs Register Class super-classes...</span></span>
+<span id="cb14-37"><a href="#cb14-37" aria-hidden="true" tabindex="-1"></a>  <span class="at">static</span> <span class="at">const</span> TargetRegisterClass<span class="op">*</span> <span class="at">const</span> IntRegsSuperclasses <span class="op">[]</span> <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb14-38"><a href="#cb14-38" aria-hidden="true" tabindex="-1"></a>    NULL</span>
+<span id="cb14-39"><a href="#cb14-39" aria-hidden="true" tabindex="-1"></a>  <span class="op">};</span></span>
+<span id="cb14-40"><a href="#cb14-40" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb14-41"><a href="#cb14-41" aria-hidden="true" tabindex="-1"></a>  IntRegsClass<span class="op">::</span>IntRegsClass<span class="op">()</span> <span class="op">:</span> TargetRegisterClass<span class="op">(</span>IntRegsRegClassID<span class="op">,</span></span>
+<span id="cb14-42"><a href="#cb14-42" aria-hidden="true" tabindex="-1"></a>    IntRegsVTs<span class="op">,</span> IntRegsSubclasses<span class="op">,</span> IntRegsSuperclasses<span class="op">,</span> IntRegsSubRegClasses<span class="op">,</span></span>
+<span id="cb14-43"><a href="#cb14-43" aria-hidden="true" tabindex="-1"></a>    IntRegsSuperRegClasses<span class="op">,</span> <span class="dv">4</span><span class="op">,</span> <span class="dv">4</span><span class="op">,</span> <span class="dv">1</span><span class="op">,</span> IntRegs<span class="op">,</span> IntRegs <span class="op">+</span> <span class="dv">32</span><span class="op">)</span> <span class="op">{}</span></span>
+<span id="cb14-44"><a href="#cb14-44" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span></code></pre></div><button title="复制到剪贴板" class="code-copy-button"><i class="bi"></i></button></div>
+<p>寄存器分配器将避免使用保留寄存器， 并且被调用方保存的寄存器在所有易失性寄存器被使用之前都不会被使用。 这通常已经足够好了， 但在某些情况下， 可能需要提供自定义分配命令。</p>
+</section>
+<section id="实现targetregisterinfo的子类" class="level2">
+<h2 class="anchored" data-anchor-id="实现targetregisterinfo的子类">4.3 实现TargetRegisterInfo的子类</h2>
+<p>最后一步是手工编写<code>XXXRegisterInfo</code>的部分代码， 它实现了文件<code>TargetRegisterInfo.h</code>描述的接口（请参见<code>TargetRegisterInfo</code>类）。 如果不实现这些接口，这些接口将返回<code>0</code>、<code>NULL</code>或<code>false</code>。 下面是为实现SPARC而在文件<code>SparcRegisterInfo.cpp</code>中手工编写函数列表:</p>
+<ul>
+<li><p><code>getCalleeSavedRegs</code> —- 返回被叫方保存的寄存器列表，按被叫方所需的堆栈帧偏移量顺序。</p></li>
+<li><p><code>getReservedRegs</code> —- 返回物理寄存器索引的集合，指示特定寄存器是否不可用。</p></li>
+<li><p><code>hasFP</code> —- 返回一个布尔值，指示函数是否应具有专用的帧指针寄存器。</p></li>
+<li><p><code>eliminateCallFramePseudoInstr</code> —- 如果使用调用帧设置或销毁伪指令，则可以调用此命令来消除它们。</p></li>
+<li><p><code>excludeFrameIndex</code> – 从能使用抽象帧索引的指令中删除抽象帧索引。</p></li>
+<li><p><code>emitPrologue</code> – 在函数中插入Prologue代码。</p></li>
+<li><p><code>emitEpilogue</code> – 在函数中插入Epilogue代码。</p></li>
+</ul>
+</section>
+</section>
+<section id="五-指令集" class="level1">
+<h1>五 指令集</h1>
+<p>在代码生成的早期阶段， LLVM IR代码被转换为Selection DAG， 节点是<code>SDNode</code>类的实例， <code>SDNode</code>类包含目标指令， 具有操作码、操作数、类型要求和操作属性。 例如，操作是否是可交换的，是否需要从内存加载数据。 文件<code>include/llvm/CodeGen/SelectionDAGNodes.h</code>（ISD命名空间中的NodeType枚举）描述了节点的各种类型。</p>
+<section id="指令操作数映射" class="level2">
+<h2 class="anchored" data-anchor-id="指令操作数映射">指令操作数映射</h2>
+<section id="指令操作数名称映射" class="level3">
+<h3 class="anchored" data-anchor-id="指令操作数名称映射">指令操作数名称映射</h3>
+</section>
+<section id="指令操作数类型" class="level3">
+<h3 class="anchored" data-anchor-id="指令操作数类型">指令操作数类型</h3>
+</section>
+</section>
+<section id="指令调度" class="level2">
+<h2 class="anchored" data-anchor-id="指令调度">指令调度</h2>
+</section>
+<section id="指令关系映射" class="level2">
+<h2 class="anchored" data-anchor-id="指令关系映射">指令关系映射</h2>
+</section>
+<section id="实现targetstrinfo的子类" class="level2">
+<h2 class="anchored" data-anchor-id="实现targetstrinfo的子类">实现TargetStrInfo的子类</h2>
+</section>
+<section id="分支折叠与if转换" class="level2">
+<h2 class="anchored" data-anchor-id="分支折叠与if转换">分支折叠与If转换</h2>
+</section>
+</section>
+<section id="六-指令选择器" class="level1">
+<h1>六 指令选择器</h1>
+<section id="选择合法化阶段" class="level2">
+<h2 class="anchored" data-anchor-id="选择合法化阶段">选择合法化阶段</h2>
+<section id="推广" class="level3">
+<h3 class="anchored" data-anchor-id="推广">推广</h3>
+</section>
+<section id="展开" class="level3">
+<h3 class="anchored" data-anchor-id="展开">展开</h3>
+</section>
+<section id="定制" class="level3">
+<h3 class="anchored" data-anchor-id="定制">定制</h3>
+</section>
+<section id="合法的" class="level3">
+<h3 class="anchored" data-anchor-id="合法的">合法的</h3>
+</section>
+</section>
+<section id="调用约定" class="level2">
+<h2 class="anchored" data-anchor-id="调用约定">调用约定</h2>
+</section>
+</section>
+<section id="七-装配式打印机" class="level1">
+<h1>七 装配式打印机</h1>
+</section>
+<section id="八-子目标支持" class="level1">
+<h1>八 子目标支持</h1>
+</section>
+<section id="九-jit支持" class="level1">
+<h1>九 JIT支持</h1>
+<section id="机器码发射器" class="level2">
+<h2 class="anchored" data-anchor-id="机器码发射器">机器码发射器</h2>
+</section>
+<section id="目标jit信息" class="level2">
+<h2 class="anchored" data-anchor-id="目标jit信息">目标JIT信息</h2>
+
+
+</section>
+</section>
+
+</main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "已复制");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "已复制");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/sadsock\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© 2026 SadSock</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

@@ -1,0 +1,18 @@
+[
+  {
+    "listing": "/index.html",
+    "items": [
+      "/posts/2026-03-03-modern-nvidia-gpu-core-analysis.html",
+      "/posts/2021-8-27-deeper-look-llvm-codegen-0.html",
+      "/posts/2020-12-03-RISCW-5.html",
+      "/posts/2020-12-08-RISCW-4.html",
+      "/posts/2020-12-06-RISCW-3.html",
+      "/posts/2020-12-03-RISCW-2.html",
+      "/posts/2020-12-03-RISCW-1.html",
+      "/posts/2020-12-03-RISCW-0.html",
+      "/posts/2020-11-01-TableGen-Overview.html",
+      "/posts/2020-11-01-write-an-LLVM-backend.html",
+      "/posts/2020-11-01-write-an-LLVM-backend-0.html"
+    ]
+  }
+]
