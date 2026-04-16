@@ -4,3 +4,16 @@
   font-size: 1rem;
   line-height: 1.5;
 }
+
+/* Manual references sections (where entries are written as plain paragraphs
+ * starting with "[n]") don't get CSL styling. Apply a simple hanging indent
+ * to match the look of Quarto/CSL bibliographies. */
+section#sec-references {
+  overflow-wrap: anywhere;
+}
+
+section#sec-references p {
+  margin: 0.35rem 0;
+  padding-left: 2.2rem;
+  text-indent: -2.2rem;
+}

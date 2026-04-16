@@ -1,0 +1,1633 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-Hans" xml:lang="zh-Hans"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>70% Size, 100% Accuracy: Lossless LLM Compression for Efficient GPU Inference via Dynamic-Length Float (DFloat11) – 悲催的袜子</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-5f76abc51a3b8a6b2b402b570b626d9b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "没有结果",
+    "search-matching-documents-text": "匹配的文档",
+    "search-copy-link-title": "复制搜索链接",
+    "search-hide-matches-text": "隐藏其它匹配结果",
+    "search-more-match-text": "更多匹配结果",
+    "search-more-matches-text": "更多匹配结果",
+    "search-clear-button-title": "清除",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "取消",
+    "search-submit-button-title": "提交",
+    "search-label": "搜索"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">悲催的袜子</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="搜索"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="展开或折叠导航栏" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../index.html"> 
+<span class="menu-text">主页</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html"> 
+<span class="menu-text">关于</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">该页面内容</h2>
+   
+  <ul>
+  <li><a href="#sec-abstract" id="toc-sec-abstract" class="nav-link active" data-scroll-target="#sec-abstract">摘要</a></li>
+  <li><a href="#sec-intro" id="toc-sec-intro" class="nav-link" data-scroll-target="#sec-intro">引言</a></li>
+  <li><a href="#sec-method" id="toc-sec-method" class="nav-link" data-scroll-target="#sec-method">方法</a>
+  <ul class="collapse">
+  <li><a href="#sec-prelim" id="toc-sec-prelim" class="nav-link" data-scroll-target="#sec-prelim">预备知识</a>
+  <ul class="collapse">
+  <li><a href="#brain-floatbfloat16" id="toc-brain-floatbfloat16" class="nav-link" data-scroll-target="#brain-floatbfloat16">Brain Float（BFloat16）</a></li>
+  <li><a href="#熵编码" id="toc-熵编码" class="nav-link" data-scroll-target="#熵编码">熵编码</a></li>
+  <li><a href="#gpu-计算与内存范式" id="toc-gpu-计算与内存范式" class="nav-link" data-scroll-target="#gpu-计算与内存范式">GPU 计算与内存范式</a></li>
+  </ul></li>
+  <li><a href="#sec-entropy" id="toc-sec-entropy" class="nav-link" data-scroll-target="#sec-entropy">动机：BFloat16 表示在信息上低效</a></li>
+  <li><a href="#sec-dfloat11" id="toc-sec-dfloat11" class="nav-link" data-scroll-target="#sec-dfloat11">Dynamic-Length Float：面向高效 GPU 推理的无损 LLM 压缩</a>
+  <ul class="collapse">
+  <li><a href="#核心挑战使用压缩权重实现高效-gpu-推理" id="toc-核心挑战使用压缩权重实现高效-gpu-推理" class="nav-link" data-scroll-target="#核心挑战使用压缩权重实现高效-gpu-推理">核心挑战：使用压缩权重实现高效 GPU 推理</a></li>
+  <li><a href="#sec-lut" id="toc-sec-lut" class="nav-link" data-scroll-target="#sec-lut">使用分层查找表实现高效解码</a></li>
+  <li><a href="#两阶段-kernel-与轻量辅助变量" id="toc-两阶段-kernel-与轻量辅助变量" class="nav-link" data-scroll-target="#两阶段-kernel-与轻量辅助变量">两阶段 kernel 与轻量辅助变量</a></li>
+  <li><a href="#transformer-block-级别解压" id="toc-transformer-block-级别解压" class="nav-link" data-scroll-target="#transformer-block-级别解压">Transformer block 级别解压</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-experiments" id="toc-sec-experiments" class="nav-link" data-scroll-target="#sec-experiments">实验</a>
+  <ul class="collapse">
+  <li><a href="#sec-results" id="toc-sec-results" class="nav-link" data-scroll-target="#sec-results">结果</a></li>
+  <li><a href="#sec-ablation" id="toc-sec-ablation" class="nav-link" data-scroll-target="#sec-ablation">消融研究</a></li>
+  </ul></li>
+  <li><a href="#sec-related" id="toc-sec-related" class="nav-link" data-scroll-target="#sec-related">相关工作</a></li>
+  <li><a href="#sec-conclusion" id="toc-sec-conclusion" class="nav-link" data-scroll-target="#sec-conclusion">结论</a></li>
+  <li><a href="#sec-ack" id="toc-sec-ack" class="nav-link" data-scroll-target="#sec-ack">致谢</a></li>
+  <li><a href="#sec-appendix" id="toc-sec-appendix" class="nav-link" data-scroll-target="#sec-appendix">附录</a>
+  <ul class="collapse">
+  <li><a href="#sec-motivation" id="toc-sec-motivation" class="nav-link" data-scroll-target="#sec-motivation">讨论：量化是否是通用解？</a></li>
+  <li><a href="#sec-extended-related-work" id="toc-sec-extended-related-work" class="nav-link" data-scroll-target="#sec-extended-related-work">扩展相关工作</a></li>
+  <li><a href="#sec-bfloat16-freq" id="toc-sec-bfloat16-freq" class="nav-link" data-scroll-target="#sec-bfloat16-freq">BFloat16 值的频率分布</a></li>
+  <li><a href="#sec-alg" id="toc-sec-alg" class="nav-link" data-scroll-target="#sec-alg">DFloat11 解压 GPU kernel 的伪代码</a></li>
+  <li><a href="#sec-hardware" id="toc-sec-hardware" class="nav-link" data-scroll-target="#sec-hardware">实验硬件配置</a></li>
+  <li><a href="#sec-compression-time" id="toc-sec-compression-time" class="nav-link" data-scroll-target="#sec-compression-time">DFloat11 压缩耗时</a></li>
+  <li><a href="#sec-gpu-eff" id="toc-sec-gpu-eff" class="nav-link" data-scroll-target="#sec-gpu-eff">GPU 推理效率对比：BF16 vs.&nbsp;DF11</a></li>
+  <li><a href="#sec-lossy-quant-impact" id="toc-sec-lossy-quant-impact" class="nav-link" data-scroll-target="#sec-lossy-quant-impact">有损量化的影响</a></li>
+  <li><a href="#sec-lut-decode" id="toc-sec-lut-decode" class="nav-link" data-scroll-target="#sec-lut-decode">使用紧凑查找表高效解码 Huffman 码</a>
+  <ul class="collapse">
+  <li><a href="#双查找表方法" id="toc-双查找表方法" class="nav-link" data-scroll-target="#双查找表方法">双查找表方法</a></li>
+  <li><a href="#sec-hierarchical-luts" id="toc-sec-hierarchical-luts" class="nav-link" data-scroll-target="#sec-hierarchical-luts">将 <span class="math inline">\(\mathsf{LUT}\)</span> 分解为分层紧凑查找表</a></li>
+  </ul></li>
+  <li><a href="#sec-sd35" id="toc-sec-sd35" class="nav-link" data-scroll-target="#sec-sd35">BF16 与 DF11 扩散模型的文生图结果</a></li>
+  <li><a href="#sec-limitations" id="toc-sec-limitations" class="nav-link" data-scroll-target="#sec-limitations">局限性</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">70% Size, 100% Accuracy: Lossless LLM Compression for Efficient GPU Inference via Dynamic-Length Float (DFloat11)</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">体系结构</div>
+    <div class="quarto-category">人工智能</div>
+  </div>
+  </div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">发布于</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2026年3月17日</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="sec-abstract" class="level1">
+<h1>摘要</h1>
+<p>大规模 AI 模型（如大语言模型 LLM 与扩散模型 DM）规模迅速增长，使其在资源受限硬件上的高效部署面临巨大挑战。 本文提出 <em>Dynamic-Length Float</em>（DFloat11），一种无损压缩框架，可在保持输出与原模型逐位一致的前提下，将 LLM 与 DM 的规模缩小 30%。 DFloat11 的动机来自 LLM 的 BFloat16 权重表示中存在的低熵，这揭示了现有存储格式的显著低效。 通过熵编码，DFloat11 按频率为权重分配可变长度编码，在不损失精度的情况下实现接近信息最优的压缩。</p>
+<p>为支持动态长度编码的高效推理，我们设计了用于快速在线解压的定制 GPU 核函数。 我们的设计包含以下三点：</p>
+<ol type="1">
+<li>能放入 GPU SRAM 的紧凑分层查找表（LUT），用于高效解码。</li>
+<li>使用轻量辅助变量协调线程读写位置的两阶段 GPU kernel。</li>
+<li>以 Transformer block 为粒度的解压以降低延迟。</li>
+</ol>
+<p>在 Llama 3.3、Qwen 3、Mistral 3、FLUX.1 等模型上的实验验证：DFloat11 在保持逐位一致输出的同时，实现约 30% 的模型规模缩减。 与一种可能的替代方案（将未压缩模型的一部分卸载到 CPU 以满足显存限制）相比，DFloat11 在 token 生成吞吐上可提升 2.3–46.2 倍。 在固定 GPU 显存预算下，DFloat11 可支持比未压缩模型长 5.7–14.9 倍的生成长度。 值得注意的是，该方法使得在单节点（8×80GB GPU）上对 <em>Llama 3.1 405B</em>（810GB）实现无损推理成为可能。</p>
+</section>
+<section id="sec-intro" class="level1">
+<h1>引言</h1>
+<p>基础模型（如 LLM 与 DM）在自然语言处理（NLP）<span class="citation" data-cites="yang2024harness_survey"><a href="#ref-yang2024harness_survey" role="doc-biblioref">[1]</a></span> 与计算机视觉（CV）任务<span class="citation" data-cites="yang2023diffusion"><a href="#ref-yang2023diffusion" role="doc-biblioref">[2]</a></span> 上展现了强大的能力。 然而，其庞大模型规模给高效部署带来巨大障碍，尤其是在内存受限环境中。 例如，一个具有竞争力的最新 LLM——<em>Llama 3.1 405B</em><span class="citation" data-cites="grattafiori2024llama"><a href="#ref-grattafiori2024llama" role="doc-biblioref">[3]</a></span>——拥有 4050 亿个参数，采用 16 位 BFloat16 格式存储，完整推理约需 810GB 显存，超出典型高端 GPU 服务器（如 8×80GB 的 DGX A100/H100）的容量。 因此部署该模型往往需要多节点，成本高且难以普及。 <strong>本文提出一种解决方案：将任意 BFloat16 模型压缩到约 70% 体积，同时在任何任务上保持 100% 精度。</strong></p>
+<p><strong>通过量化进行模型压缩存在局限。</strong> 量化是一种<em>有损</em>压缩方法，将权重转换为更低比特宽度的表示<span class="citation" data-cites="frantar2022gptq lin2024awq li2023q sui2024bitsfusion"><a href="#ref-frantar2022gptq" role="doc-biblioref">[4]</a>, <a href="#ref-lin2024awq" role="doc-biblioref">[5]</a>, <a href="#ref-li2023q" role="doc-biblioref">[6]</a>, <a href="#ref-sui2024bitsfusion" role="doc-biblioref">[7]</a></span>。 尽管它能显著降低内存占用并常常提升推理速度，但量化并非放之四海皆准，存在多个关键局限。 1. <strong>精度下降。</strong> 量化在设计上会引入近似误差。 精度损失的程度取决于基础模型、量化方法、评测基准与目标比特宽度等多种因素<span class="citation" data-cites="eval_quantized"><a href="#ref-eval_quantized" role="doc-biblioref">[8]</a></span>。 这些因素的相互作用使影响难以预测或量化。 即便是轻度量化，也可能产生显著性能下降。 例如，将 8-bit SmoothQuant<span class="citation" data-cites="xiao2023smoothquant"><a href="#ref-xiao2023smoothquant" role="doc-biblioref">[9]</a></span> 应用于 <em>DeepSeek-R1-Distill-Qwen-1.5B</em><span class="citation" data-cites="guo2025deepseek"><a href="#ref-guo2025deepseek" role="doc-biblioref">[10]</a></span>，会在推理任务上带来 9.09% 的平均精度下降<span class="citation" data-cites="liu2025quant_reason_bench"><a href="#ref-liu2025quant_reason_bench" role="doc-biblioref">[11]</a></span>。 2. <strong>行为偏移。</strong> 即便总体精度指标看似变化不大，量化模型的行为也可能与全精度模型不同。 例如 Dutta 等人<span class="citation" data-cites="dutta2024accuracy_not"><a href="#ref-dutta2024accuracy_not" role="doc-biblioref">[12]</a></span> 发现一种称为 <em>flips</em> 的现象：量化模型会将答案从正确翻转为错误，或反之。 这表明即便标准精度指标几乎不变，量化也可能显著改变模型行为。 比如，W8A16 GPTQ 量化的 Qwen2-1.5B<span class="citation" data-cites="frantar2022gptq yang2024qwen2"><a href="#ref-frantar2022gptq" role="doc-biblioref">[4]</a>, <a href="#ref-yang2024qwen2" role="doc-biblioref">[13]</a></span> 在 GSM8K（8-shot）上仅下降 0.3%<span class="citation" data-cites="cobbe2021gsm8k"><a href="#ref-cobbe2021gsm8k" role="doc-biblioref">[14]</a></span>，但其答案正确性翻转比例高达 6.37%<span class="citation" data-cites="dutta2024accuracy_not"><a href="#ref-dutta2024accuracy_not" role="doc-biblioref">[12]</a></span>。 3. <strong>合规与可靠性风险。</strong> 在金融或医疗等领域，量化模型的输出可能无法满足监管或可靠性要求，因为其结果与原模型并不一致<span class="citation" data-cites="kharinaev2025invest_quant_safety"><a href="#ref-kharinaev2025invest_quant_safety" role="doc-biblioref">[15]</a></span>。 我们在附录 <a href="#sec-motivation" class="quarto-xref">小节&nbsp;8.1</a> 中对量化问题进行更深入讨论。</p>
+<p><strong>现有无损模型压缩无法支持高效 GPU 推理。</strong> 与有损压缩不同，<em>无损压缩</em>在保留权重全精度的同时减少模型规模。 这使得模型输出分布与未压缩模型保持一致。 然而，现有无损方法多聚焦于存储效率（如压缩模型检查点<span class="citation" data-cites="han2015deep_comp hershcovitch2024zipnn"><a href="#ref-han2015deep_comp" role="doc-biblioref">[16]</a>, <a href="#ref-hershcovitch2024zipnn" role="doc-biblioref">[17]</a></span>），或面向 FPGA 等专用硬件<span class="citation" data-cites="yubeaton2025huffllm"><a href="#ref-yubeaton2025huffllm" role="doc-biblioref">[18]</a></span>，而非在通用 GPU 上加速推理。 这些方法虽可用于训练过程中的检查点回滚<span class="citation" data-cites="wang2023gemini_ckpt"><a href="#ref-wang2023gemini_ckpt" role="doc-biblioref">[19]</a></span> 或减少模型下载时间<span class="citation" data-cites="hershcovitch2024zipnn"><a href="#ref-hershcovitch2024zipnn" role="doc-biblioref">[17]</a></span>，但对 GPU 推理几乎没有帮助。</p>
+<p><strong>我们提出 Dynamic-Length Float (DFloat11)，一种为高效 GPU 推理优化的无损压缩框架。</strong> 我们发现 BFloat16 的一个关键低效：其 8 位指数域仅携带约 2.6 位的实际信息量。 该冗余在多种 LLM 中普遍存在，如 <a href="#sec-entropy" class="quarto-xref">小节&nbsp;3.2</a> 所示。 为利用这一点，我们对 BFloat16 权重的指数位应用 Huffman 编码<span class="citation" data-cites="huffman_coding"><a href="#ref-huffman_coding" role="doc-biblioref">[20]</a></span>，而符号位与尾数位保持不压缩。 得到的指数使用动态长度编码：常见值分配短码，稀有值分配长码。 然而，标准 Huffman 解码依赖按位遍历树结构，GPU 上并行度低且效率差。 为每个解压任务分配一个 GPU 线程会导致严重的硬件闲置与高延迟。 为克服这些问题，我们设计了一种面向硬件的算法，支持 GPU 上高效的动态长度浮点在线解压。 我们的方案包含三项核心组件： 1. 使用可放入 GPU SRAM 的紧凑查找表实现快速查表式 Huffman 解码。 2. 采用两阶段 kernel 设计，以轻量辅助变量协调所有线程的读写操作。 3. 在 Transformer block 级别进行批量解压以最大化吞吐。</p>
+<p>我们总结贡献如下：</p>
+<ol type="1">
+<li>提出 <strong>Dynamic-Length Float（DFloat11）</strong>，一种无损压缩浮点格式，将 BFloat16 权重压缩到约 11 位，实现约 30% 的模型体积缩减，并保持逐位一致输出。</li>
+<li>设计硬件感知的优化算法，利用 GPU 内存与计算层次结构，实现 DFloat11 压缩模型的高效推理。</li>
+<li>在 Llama 3、Qwen 3、Mistral 3、DeepSeek R1 Distilled、FLUX.1 与 Stable Diffusion 3.5 等模型上评估 DFloat11<span class="citation" data-cites="grattafiori2024llama qwen3 mistral2025small3 guo2025deepseek flux stablediffusion35"><a href="#ref-grattafiori2024llama" role="doc-biblioref">[3]</a>, <a href="#ref-guo2025deepseek" role="doc-biblioref">[10]</a>, <a href="#ref-qwen3" role="doc-biblioref">[21]</a>, <a href="#ref-mistral2025small3" role="doc-biblioref">[22]</a>, <a href="#ref-flux" role="doc-biblioref">[23]</a>, <a href="#ref-stablediffusion35" role="doc-biblioref">[24]</a></span>。 结果显示，该方法在所有模型上都能实现约 30% 的压缩且输出完全不变。 尤其值得注意的是，它让 <em>Llama-3.1-405B</em> 在单节点（8×80GB A100 GPU）上运行成为可能，硬件需求减半且精度不损失。</li>
+</ol>
+</section>
+<section id="sec-method" class="level1">
+<h1>方法</h1>
+<p>本节介绍我们提出的浮点格式 Dynamic-Length Float（DFloat11），以及为高效 GPU 推理设计的解压 kernel。</p>
+<section id="sec-prelim" class="level2">
+<h2 class="anchored" data-anchor-id="sec-prelim">预备知识</h2>
+<section id="brain-floatbfloat16" class="level3">
+<h3 class="anchored" data-anchor-id="brain-floatbfloat16">Brain Float（BFloat16）</h3>
+<p>当前最先进的 LLM 主要使用 16 位 Brain Float（BFloat16 或 BF16）来存储权重，因其在数值精度与内存效率之间取得平衡。 BF16 将 16 位分配为：1 位<em>符号</em>、8 位<em>指数</em>、7 位<em>尾数</em>。 BF16 数值的计算公式为：</p>
+<p><span id="eq-bfloat16"><span class="math display">\[
+(-1)^{\text{sign}} \times 2^{\text{exponent} - 127} \times (1.\text{mantissa}).
+\tag{1}\]</span></span></p>
+<p>其中 <span class="math inline">\(\mathrm{mantissa}\)</span> 被解释为二进制小数。</p>
+</section>
+<section id="熵编码" class="level3">
+<h3 class="anchored" data-anchor-id="熵编码">熵编码</h3>
+<p>熵编码是无损数据压缩的核心技术，利用统计冗余来缩减数据规模。 常见方法包括 Huffman 编码<span class="citation" data-cites="huffman_coding"><a href="#ref-huffman_coding" role="doc-biblioref">[20]</a></span>、算术编码<span class="citation" data-cites="arithmetic_coding"><a href="#ref-arithmetic_coding" role="doc-biblioref">[25]</a></span> 与不对称数系统（ANS）<span class="citation" data-cites="ans"><a href="#ref-ans" role="doc-biblioref">[26]</a></span>。 其中 Huffman 编码最为常用，它通过可变长度编码最小化编码结果大小。 它为更常见的符号分配更短的二进制码，为稀有符号分配更长的码。 解码依赖前缀无歧义的 Huffman 树。 由于 Huffman 码具有前缀无歧义性质，任何码字都不是另一码字的前缀，从而无需分隔符即可唯一解码。 该树基于符号频率构建，并在给定频率分布下可证明是最优的。 然而，由于其本质上是顺序解码，难以在大规模并行环境下高效解码。</p>
+</section>
+<section id="gpu-计算与内存范式" class="level3">
+<h3 class="anchored" data-anchor-id="gpu-计算与内存范式">GPU 计算与内存范式</h3>
+<p>GPU 被设计用于大规模并行计算。 现代 GPU 由成千上万线程组成，这些线程被组织成线程块并运行在流式多处理器（SM）上。 每个线程块可以访问片上小而快的共享内存（通常称为 SRAM），其延迟远低于片外的全局内存（HBM）。 共享内存容量有限，通常每个线程块不超过 100KB。 本文利用 SRAM 的快速访问特性，实现推理过程中的在线解压。</p>
+<div id="fig-bfloat16-bits" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-bfloat16-bits-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/BFloat16.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-bfloat16-bits-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;1: BFloat16 各组成部分的位分配。
+</figcaption>
+</figure>
+</div>
+<div id="fig-entropy" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-entropy-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/entropy.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-entropy-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;2: 多种 LLM 中 BFloat16 权重各组成部分（符号、指数、尾数）的香农熵。
+</figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="sec-entropy" class="level2">
+<h2 class="anchored" data-anchor-id="sec-entropy">动机：BFloat16 表示在信息上低效</h2>
+<p>为说明对 LLM 权重进行无损压缩的必要性，我们分析近期 LLM 的 BFloat16 权重可压缩性。 具体而言，我们使用香农熵度量 LLM 所有线性投影矩阵中 BFloat16 各组成部分（符号、指数、尾数）的信息量。 香农熵 <span class="math inline">\(H(\cdot)\)</span> 定义为：</p>
+<p><span id="eq-entropy"><span class="math display">\[
+H(X) = -\sum_{x \in \mathcal{X}} p(x) \log_2 p(x).
+\tag{2}\]</span></span></p>
+<p>其中 <span class="math inline">\(X\)</span> 是取值空间为 <span class="math inline">\(\mathcal{X}\)</span> 的离散随机变量，<span class="math inline">\(p: \mathcal{X} \to [0,1]\)</span> 为其概率质量函数。 我们在图 <a href="#fig-entropy" class="quarto-xref">图&nbsp;2</a> 中展示了计算得到的熵值。 可以看到，符号位与尾数位的熵接近各自位宽，表明压缩潜力有限。 相比之下，指数位熵显著更低，约为 2.6 位，而其分配位宽为 8 位，显示出巨大无损压缩潜力。</p>
+<p>为理解这一差异，我们在附录中可视化了所有 BFloat16 组成部分的频率分布（图 <a href="#fig-relative-frequency" class="quarto-xref">图&nbsp;10</a>），以及指数值的排序频率（图 <a href="#fig-frequency-vs-rank" class="quarto-xref">图&nbsp;11</a>）。 符号与尾数在各自范围内分布相对均匀，而指数分布高度不均衡：256 个 8-bit 值中仅约 40 个会出现，其余从未出现。 排序频率也快速衰减。 这些观察揭示了指数的低熵及其可压缩性。</p>
+<div id="fig-dfloat11" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-dfloat11-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/DFloat11.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-dfloat11-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;3: 我们提出的 <em>Dynamic-Length Float</em> 格式，可将 LLM 的 BFloat16 权重无损压缩到 11 位。指数位使用 Huffman 编码压缩，符号位与尾数位保持不压缩。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-dfloat11" class="level2">
+<h2 class="anchored" data-anchor-id="sec-dfloat11">Dynamic-Length Float：面向高效 GPU 推理的无损 LLM 压缩</h2>
+<p>为解决 BFloat16 权重表示的显著信息低效，我们提出一种基于熵编码的无损压缩框架，用于编码浮点参数。 具体来说，我们根据模型权重中指数的分布构建 Huffman 树。 然后对指数进行 Huffman 编码，而符号与尾数保持原样。 指数被编码并紧密打包进字节数组 <span class="math inline">\(\mathsf{EncodedExponent}\)</span>，而符号与尾数保存在另一个字节数组 <span class="math inline">\(\mathsf{PackedSignMantissa}\)</span> 中。 图 <a href="#fig-dfloat11" class="quarto-xref">图&nbsp;3</a> 展示了 DFloat11（DF11）格式，用于紧凑表示 BFloat16 模型参数。</p>
+<section id="核心挑战使用压缩权重实现高效-gpu-推理" class="level3">
+<h3 class="anchored" data-anchor-id="核心挑战使用压缩权重实现高效-gpu-推理">核心挑战：使用压缩权重实现高效 GPU 推理</h3>
+<p>尽管 DFloat11 实现了无损压缩，但高效 GPU 推理仍是关键挑战。 熵编码后的权重使用可变长度编码，无法直接参与矩阵乘法。 因此，每个权重矩阵必须在使用前在线解压回 BFloat16，完成计算后立即丢弃以节省显存。 然而，传统 Huffman 解码本质上是顺序的，需要对每个元素逐位遍历树结构，难以适配 GPU 并行架构。 简单地为每个权重分配一个线程进行解压会导致低利用率与高延迟。 解决这一瓶颈是可用压缩推理的关键。</p>
+<p>在接下来的段落中，我们详细介绍我们的解决方案：一组面向硬件的算法设计，用于在大规模并行环境下进行低延迟解码。 我们的方案包括三项关键组件： 1. 使用可放入 GPU SRAM 的紧凑查找表进行基于查表的高效解码。 2. 通过轻量辅助变量引入两阶段 kernel 以协调所有线程的读写。 3. 在 Transformer block 级别进行解压以降低延迟。</p>
+<div id="fig-hierarchical-luts" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-hierarchical-luts-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/hierarchical_luts_narrow.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-hierarchical-luts-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;4: Huffman 树被分解为若干不重叠子树，每棵子树对应一个紧凑查找表（LUT）。这些分层 LUT 常驻 GPU SRAM，可通过数组查找高效解码。
+</figcaption>
+</figure>
+</div>
+<div id="fig-gaps-outputpos" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-gaps-outputpos-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/gap_outputpos_bigger.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gaps-outputpos-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;5: 每个线程解码 <span class="math inline">\(n\)</span> 字节的指数编码。数组 <em>Gaps</em> 存储每个线程第一个元素的比特偏移，数组 <em>Block Output Positions</em> 存储每个线程块第一个元素的索引。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-lut" class="level3">
+<h3 class="anchored" data-anchor-id="sec-lut">使用分层查找表实现高效解码</h3>
+<p>传统 Huffman 解码需要逐位读取编码流并沿树遍历。 然而，这种方法在 GPU 上效率低下，原因是分支频繁且并行性不足。 为实现高效解码，我们采用基于查找表的方法<span class="citation" data-cites="huffman_gap_arrays"><a href="#ref-huffman_gap_arrays" role="doc-biblioref">[27]</a></span>。</p>
+<p>设 Huffman 码的最大长度为 <span class="math inline">\(L\)</span>，我们构建大小为 <span class="math inline">\(2^L\)</span> 的查找表 <span class="math inline">\(\mathsf{LUT}\)</span>。 在每个索引 <span class="math inline">\(i\)</span> 处，<span class="math inline">\(\mathsf{LUT}\)</span> 存储与 <span class="math inline">\(i\)</span> 的二进制表示前缀匹配的解码指数。 为解码下一个指数，我们从编码流中读取接下来的 <span class="math inline">\(L\)</span> 位，将其解释为 <span class="math inline">\(\mathsf{LUT}\)</span> 的索引，并取出对应的值。 为了确定在流中前进多少位，我们使用辅助表 <span class="math inline">\(\mathsf{CodeLengths}\)</span>，其将每个指数映射到对应 Huffman 码长。 该解码过程的详细示例见附录 <a href="#sec-lut-decode" class="quarto-xref">小节&nbsp;8.9</a>。</p>
+<p>在实际中，<span class="math inline">\(L\)</span> 可能很大。 对 LLM 而言，<span class="math inline">\(L\)</span> 通常在 24 到 32 之间，对应的 <span class="math inline">\(\mathsf{LUT}\)</span> 规模可达 <span class="math inline">\(2^{32}\)</span>，无法放入 GPU SRAM。 为此，我们将单一 <span class="math inline">\(\mathsf{LUT}\)</span> 分解为一层层紧凑的查找表<span class="citation" data-cites="huffman_gap_arrays"><a href="#ref-huffman_gap_arrays" role="doc-biblioref">[27]</a></span>。 具体地，我们将 Huffman 树划分为高度为 8 的若干不重叠子树。 每个子树对应一个可解码 8 位的紧凑 LUT，仅需 <span class="math inline">\(2^8=256\)</span> 个条目。</p>
+<p>图 <a href="#fig-hierarchical-luts" class="quarto-xref">图&nbsp;4</a> 给出了一个高度为 4 的 Huffman 树如何分解为多个紧凑 LUT 的示例。 由于分层组织，某些条目需要作为指向下层 LUT 的引用。 我们利用 8 位指数值的稀疏性：虽然理论上有 256 个值，但在 LLM 中通常仅使用约 40 个（见附录图 <a href="#fig-frequency-vs-rank" class="quarto-xref">图&nbsp;11</a>）。 因此我们将未使用的值（具体为 240–255）复用为指向其他 LUT 的指针。 这些值对应极大数值（<span class="math inline">\(\pm 2^{113}\)</span> 至 <span class="math inline">\(\pm 2^{128}\)</span>），在 LLM 权重中不会出现，因此可安全作为内部标记。</p>
+<p>我们用 <span class="math inline">\(k\)</span> 表示紧凑 LUT 的数量。 在实验中，基于 BFloat16 指数构建的 Huffman 树对应的 <span class="math inline">\(k\)</span> 通常在 4 到 8 之间。 这些 LUT 与 <span class="math inline">\(\mathsf{CodeLengths}\)</span> 合计最多占用 <span class="math inline">\((8+1)\times256\)</span> 字节，能够轻松放入 SRAM 并支持快速重复查表。</p>
+</section>
+<section id="两阶段-kernel-与轻量辅助变量" class="level3">
+<h3 class="anchored" data-anchor-id="两阶段-kernel-与轻量辅助变量">两阶段 kernel 与轻量辅助变量</h3>
+<p>为利用 GPU 的并行能力，我们为每个线程分配一段连续且互不重叠的指数编码块，长度为 <span class="math inline">\(n\)</span> 字节（实验中 <span class="math inline">\(n=8\)</span>）。 每个线程解码其块内 Huffman 码起始于该块范围内的元素。 由于 Huffman 码是可变长度的，线程需要先跳过若干比特才能找到第一个元素。 同样，最后一个元素可能跨越该块的末端。</p>
+<p>该方法带来两个关键挑战： 1. 由于码长可变，每个线程的起始比特位置并不明确。 2. 除首线程外，解码元素的索引未知，因而难以确定正确的输出位置。</p>
+<p>为解决第一个问题，我们使用 gap 数组<span class="citation" data-cites="huffman_gap_arrays"><a href="#ref-huffman_gap_arrays" role="doc-biblioref">[27]</a></span> 指定每个线程的起始比特偏移。 数组 <span class="math inline">\(\mathsf{Gaps}\)</span> 为每个线程提供一个偏移值，表示相对于该线程起始字节的第一个有效 Huffman 码偏移。 由于最大码长为 32 位，偏移范围为 <span class="math inline">\([0,31]\)</span>，仅需 5 位存储。</p>
+<p>对于第二个问题，若为每个线程维护输出位置，内存开销过大。 每个位置需要 32 位整数，而每个矩阵可能包含数万线程，会显著抵消 DFloat11 的压缩收益。 为降低开销，我们只保存每个线程块第一个元素的输出位置，而不是每个线程都保存。 由于每个线程块通常包含数百到数千线程，这一优化将开销从“每线程一个 32 位整数”降为“每块一个”，使内存成本可忽略。 图 <a href="#fig-gaps-outputpos" class="quarto-xref">图&nbsp;5</a> 展示了 <em>gap</em> 与 <em>block-level output position</em> 数组如何编码与指数编码相关的元数据。</p>
+<p>为支持该设计，我们实现了<strong>两阶段</strong> kernel。 在<strong>第一阶段</strong>，每个线程解码其分配块并统计元素数量，但不向 HBM 写入。 随后，同一线程块内的线程同步，对元素计数做前缀和以计算每线程输出位置。 该步骤使用 Blelloch 算法<span class="citation" data-cites="blelloch"><a href="#ref-blelloch" role="doc-biblioref">[28]</a></span>。 在<strong>第二阶段</strong>，每个线程再次解码同一块，并将结果写入 SRAM 的写缓冲区中对应位置。 为避免冗余的全局内存访问，指数编码在第一阶段前被加载进 SRAM。 当所有解码值写入 SRAM 后，再一次性合并写回 HBM。 两阶段 kernel 的伪代码见附录“算法 1”。</p>
+</section>
+<section id="transformer-block-级别解压" class="level3">
+<h3 class="anchored" data-anchor-id="transformer-block-级别解压">Transformer block 级别解压</h3>
+<p>至此，我们给出了在大规模并行环境下解压熵编码指数的完整方案。 推理时，DFloat11 格式的权重以及辅助变量（线程级 gap 数组与块级输出位置数组）都保存在 GPU 内存中。 当需要进行矩阵乘法时，权重矩阵会在线解压成 BFloat16 格式。 矩阵乘法完成后，该 BFloat16 矩阵立即丢弃以节省显存。</p>
+<p>在实践中，单个权重矩阵的解压往往难以充分利用 GPU 资源。 矩阵越大，解压吞吐越高。 图 <a href="#fig-transfer-vs-decompression" class="quarto-xref">图&nbsp;9</a> 展示了 DFloat11 解压随矩阵规模增长的趋势。 为提高吞吐并隐藏延迟，我们提出将多个矩阵的解压合并为批次。 具体而言，我们以 Transformer block 为单位，对其中的所有 DFloat11 权重矩阵进行一次批量解压。 该批量解压发生在 Transformer block 前向计算之前。 我们也压缩 token embedding 与语言模型输出头。 由于这些矩阵足够大以饱和 GPU 资源，因此不需要批量解压。</p>
+</section>
+</section>
+</section>
+<section id="sec-experiments" class="level1">
+<h1>实验</h1>
+<div style="overflow-x:auto">
+<div id="tbl-compression" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-compression-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;1: DF11 在不同模型上的统计信息。表中展示压缩前后的模型规模。
+</figcaption>
+<div aria-describedby="tbl-compression-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 26%">
+<col style="width: 26%">
+<col style="width: 26%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>模型</th>
+<th style="text-align: right;">原始 <span class="math inline">\(\rightarrow\)</span> DF11 压缩</th>
+<th style="text-align: right;">压缩比</th>
+<th style="text-align: right;">平均比特宽度</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><em>Large Language Models</em></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+</tr>
+<tr class="even">
+<td>Llama 3.1 8B Instruct</td>
+<td style="text-align: right;">16.06 GB <span class="math inline">\(\rightarrow\)</span> 10.90 GB</td>
+<td style="text-align: right;">67.84%</td>
+<td style="text-align: right;">10.85</td>
+</tr>
+<tr class="odd">
+<td>Llama 3.3 70B Instruct</td>
+<td style="text-align: right;">141.11 GB <span class="math inline">\(\rightarrow\)</span> 95.40 GB</td>
+<td style="text-align: right;">67.61%</td>
+<td style="text-align: right;">10.82</td>
+</tr>
+<tr class="even">
+<td>Llama 3.1 405B Instruct</td>
+<td style="text-align: right;">811.71 GB <span class="math inline">\(\rightarrow\)</span> 551.22 GB</td>
+<td style="text-align: right;">67.91%</td>
+<td style="text-align: right;">10.87</td>
+</tr>
+<tr class="odd">
+<td>Qwen 3 14B</td>
+<td style="text-align: right;">29.54 GB <span class="math inline">\(\rightarrow\)</span> 20.14 GB</td>
+<td style="text-align: right;">68.17%</td>
+<td style="text-align: right;">10.91</td>
+</tr>
+<tr class="even">
+<td>QwQ 32B</td>
+<td style="text-align: right;">65.53 GB <span class="math inline">\(\rightarrow\)</span> 44.65 GB</td>
+<td style="text-align: right;">68.14%</td>
+<td style="text-align: right;">10.90</td>
+</tr>
+<tr class="odd">
+<td>Mistral Nemo Instruct</td>
+<td style="text-align: right;">24.50 GB <span class="math inline">\(\rightarrow\)</span> 16.59 GB</td>
+<td style="text-align: right;">67.74%</td>
+<td style="text-align: right;">10.84</td>
+</tr>
+<tr class="even">
+<td>Mistral Small 3</td>
+<td style="text-align: right;">47.14 GB <span class="math inline">\(\rightarrow\)</span> 31.86 GB</td>
+<td style="text-align: right;">67.58%</td>
+<td style="text-align: right;">10.81</td>
+</tr>
+<tr class="odd">
+<td>Phi 4 Reasoning Plus</td>
+<td style="text-align: right;">29.32 GB <span class="math inline">\(\rightarrow\)</span> 19.83 GB</td>
+<td style="text-align: right;">67.64%</td>
+<td style="text-align: right;">10.82</td>
+</tr>
+<tr class="even">
+<td>DeepSeek R1 Distill Llama 8B</td>
+<td style="text-align: right;">16.06 GB <span class="math inline">\(\rightarrow\)</span> 10.89 GB</td>
+<td style="text-align: right;">67.81%</td>
+<td style="text-align: right;">10.85</td>
+</tr>
+<tr class="odd">
+<td><em>Diffusion Transformers</em></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+<td style="text-align: right;"></td>
+</tr>
+<tr class="even">
+<td>FLUX.1 dev</td>
+<td style="text-align: right;">23.80 GB <span class="math inline">\(\rightarrow\)</span> 16.33 GB</td>
+<td style="text-align: right;">68.61%</td>
+<td style="text-align: right;">10.98</td>
+</tr>
+<tr class="odd">
+<td>FLUX.1 schnell</td>
+<td style="text-align: right;">23.78 GB <span class="math inline">\(\rightarrow\)</span> 16.31 GB</td>
+<td style="text-align: right;">68.58%</td>
+<td style="text-align: right;">10.97</td>
+</tr>
+<tr class="even">
+<td>Stable Diffusion 3.5 Large</td>
+<td style="text-align: right;">16.29 GB <span class="math inline">\(\rightarrow\)</span> 11.33 GB</td>
+<td style="text-align: right;">69.52%</td>
+<td style="text-align: right;">11.12</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<div style="overflow-x:auto">
+<div id="tbl-accu-ppl" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-accu-ppl-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;2: BF16 与 DF11 在不同基准上的精度与困惑度对比。DF11 压缩在精度与困惑度上完全无损。
+</figcaption>
+<div aria-describedby="tbl-accu-ppl-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 13%">
+<col style="width: 13%">
+<col style="width: 18%">
+<col style="width: 18%">
+<col style="width: 18%">
+<col style="width: 18%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>模型</th>
+<th>数据类型</th>
+<th style="text-align: right;">MMLU</th>
+<th style="text-align: right;">TruthfulQA</th>
+<th style="text-align: right;">WikiText</th>
+<th style="text-align: right;">C4</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Llama 3.1 8B Instruct</td>
+<td>BF16</td>
+<td style="text-align: right;">68.010 <span class="math inline">\(\pm\)</span> 0.375</td>
+<td style="text-align: right;">36.965 <span class="math inline">\(\pm\)</span> 1.690</td>
+<td style="text-align: right;">8.649</td>
+<td style="text-align: right;">21.677</td>
+</tr>
+<tr class="even">
+<td>Llama 3.1 8B Instruct</td>
+<td>DF11（本文）</td>
+<td style="text-align: right;">68.010 <span class="math inline">\(\pm\)</span> 0.375</td>
+<td style="text-align: right;">36.965 <span class="math inline">\(\pm\)</span> 1.690</td>
+<td style="text-align: right;">8.649</td>
+<td style="text-align: right;">21.677</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<div style="overflow-x:auto">
+<div id="tbl-img-gen" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-img-gen-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;3: 扩散模型在 BF16 与 DF11 下的峰值显存与文生图耗时对比（单张 A5000 GPU）。
+</figcaption>
+<div aria-describedby="tbl-img-gen-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 15%">
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 21%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>模型</th>
+<th style="text-align: right;">峰值显存 BF16 (GB)</th>
+<th style="text-align: right;">峰值显存 DF11 (GB)</th>
+<th style="text-align: right;">生成时间 BF16 (s)</th>
+<th style="text-align: right;">生成时间 DF11 (s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Stable Diffusion 3.5 Large</td>
+<td style="text-align: right;">16.44</td>
+<td style="text-align: right;">11.78</td>
+<td style="text-align: right;">66.36 <span class="math inline">\(\pm\)</span> 0.13</td>
+<td style="text-align: right;">69.08 <span class="math inline">\(\pm\)</span> 0.11</td>
+</tr>
+<tr class="even">
+<td>FLUX.1 dev</td>
+<td style="text-align: right;">23.15</td>
+<td style="text-align: right;">16.72</td>
+<td style="text-align: right;">74.41 <span class="math inline">\(\pm\)</span> 0.15</td>
+<td style="text-align: right;">78.53 <span class="math inline">\(\pm\)</span> 0.18</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<p>我们评估 DF11 压缩效果以及其 GPU 推理效率。 我们将多种最新 LLM 与 DM 从原始 BFloat16 格式压缩为 DF11，并报告压缩比。 随后，我们在不同 GPU 上对 DF11 压缩模型与未压缩模型进行推理性能对比，并进行消融分析以理解压缩影响。</p>
+<p><strong>软件与硬件。</strong> 我们用 CUDA 与 C++ 实现 DF11 解压 kernel，并将其集成进 HuggingFace Transformers 推理框架<span class="citation" data-cites="huggingface"><a href="#ref-huggingface" role="doc-biblioref">[29]</a></span>。 我们将 DF11 模型的推理效率与原始 BF16 模型进行对比。 我们使用 HuggingFace Accelerate 以支持 CPU offloading 与多 GPU 推理。 为评估 DF11 kernel 在不同硬件上的性能，我们在多台具有不同 GPU/CPU 配置的机器上开展实验。 所有实验机器的硬件规格见附录表 <a href="#tbl-hardware" class="quarto-xref">表&nbsp;4</a>。</p>
+<section id="sec-results" class="level2">
+<h2 class="anchored" data-anchor-id="sec-results">结果</h2>
+<div id="fig-latency-throughput-cpu" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-latency-throughput-cpu-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/latency_throughput_cpu.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-latency-throughput-cpu-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;6: 原始 BF16 模型与 DF11 模型在 token 解码中的吞吐（<strong>上排</strong>）与延迟（<strong>下排</strong>）对比。由于显存限制，部分 BF16 模型权重被卸载到 CPU。
+</figcaption>
+</figure>
+</div>
+<div id="fig-memory-usage" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-memory-usage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/memory_usage.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-memory-usage-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;7: BF16 与 DF11 模型的 GPU 显存占用对比。DF11 允许将更多显存用于 KV cache，从而支持 5.70–14.86× 更长上下文长度。“O.O.M.” 表示显存溢出。
+</figcaption>
+</figure>
+</div>
+<p><strong>DF11 将模型压缩到 70% 体积。</strong> 表 <a href="#tbl-compression" class="quarto-xref">表&nbsp;1</a> 给出了 DF11 在多种 LLM 与 DM 上的压缩比。 具体而言，我们对 LLM 的所有权重矩阵与 token embedding 进行压缩，对 DM 的 transformer block 中所有权重矩阵进行压缩。 被压缩的模型包括 Llama 3.1/3.3<span class="citation" data-cites="grattafiori2024llama"><a href="#ref-grattafiori2024llama" role="doc-biblioref">[3]</a></span>、Qwen 3<span class="citation" data-cites="yang2024qwen2"><a href="#ref-yang2024qwen2" role="doc-biblioref">[13]</a></span>、Mistral Nemo/Small<span class="citation" data-cites="mistral2024nemo mistral2025small3"><a href="#ref-mistral2025small3" role="doc-biblioref">[22]</a>, <a href="#ref-mistral2024nemo" role="doc-biblioref">[30]</a></span>、Phi 4<span class="citation" data-cites="phi4"><a href="#ref-phi4" role="doc-biblioref">[31]</a></span>、DeepSeek R1 Distilled<span class="citation" data-cites="guo2025deepseek"><a href="#ref-guo2025deepseek" role="doc-biblioref">[10]</a></span>、Stable Diffusion 3.5<span class="citation" data-cites="stablediffusion35"><a href="#ref-stablediffusion35" role="doc-biblioref">[24]</a></span> 与 FLUX.1<span class="citation" data-cites="flux"><a href="#ref-flux" role="doc-biblioref">[23]</a></span>。 DF11 在所有模型上实现约 70% 压缩，对应有效比特宽度约 11 位。</p>
+<p><strong>精度与困惑度评估验证 DF11 无损。</strong> 我们在标准基准上对 DF11 的无损性进行评估。 评估使用 <code>lm_evaluation_harness</code><span class="citation" data-cites="eval-harness"><a href="#ref-eval-harness" role="doc-biblioref">[32]</a></span>，报告 MMLU<span class="citation" data-cites="mmlu"><a href="#ref-mmlu" role="doc-biblioref">[33]</a></span> 与 TruthfulQA<span class="citation" data-cites="truthfulqa"><a href="#ref-truthfulqa" role="doc-biblioref">[34]</a></span> 的精度，以及 WikiText<span class="citation" data-cites="wikitext"><a href="#ref-wikitext" role="doc-biblioref">[35]</a></span> 与 C4<span class="citation" data-cites="c4"><a href="#ref-c4" role="doc-biblioref">[36]</a></span> 的词级困惑度。 结果见表 <a href="#tbl-accu-ppl" class="quarto-xref">表&nbsp;2</a>。 可以看到，压缩模型在精度与困惑度上与原 BF16 模型完全一致。 我们还在附录 <a href="#sec-sd35" class="quarto-xref">小节&nbsp;8.10</a> 中给出了 BF16 与 DF11 的 Stable Diffusion 3.5 Large 文生图对比。 在相同随机种子与提示词下，两者生成图像像素级一致。</p>
+<p><strong>DF11 在推理效率上优于 CPU offloading。</strong> 我们在多种硬件平台上对 DF11 与 BF16 的推理性能进行对比。 由于显存限制，BF16 模型无法完全放入单 GPU，需要部分 CPU offloading，而 DF11 模型可以完全放入 GPU。 为公平比较，我们尽量保留 BF16 模型的 GPU 计算，仅将必要部分卸载到 CPU。 延迟与吞吐在 100-token 预热后测量，然后在空提示词上生成 100 个 token，批大小取不同值。 每组配置运行五次，报告平均结果。 如图 <a href="#fig-latency-throughput-cpu" class="quarto-xref">图&nbsp;6</a> 所示，DF11 在所有场景下均优于 BF16+CPU offloading，延迟降低或吞吐提升 2.31–46.24 倍。 多 GPU 对比见附录图 <a href="#fig-latency-throughput-gpu" class="quarto-xref">图&nbsp;12</a>。</p>
+<p><strong>DF11 降低扩散模型显存占用且延迟影响很小。</strong> 我们在扩散模型上评估 DF11 压缩的影响，测量 1024×1024 图像的峰值显存与生成延迟（五次平均）。 BF16 与 DF11 都未使用 CPU offloading。 表 <a href="#tbl-img-gen" class="quarto-xref">表&nbsp;3</a> 显示，DF11 为 Stable Diffusion 3.5 与 FLUX.1 分别减少 28.3% 与 27.8% 的显存占用。 延迟增加很小：Stable Diffusion 增加 4.1%，FLUX.1 增加 5.5%。</p>
+<p><strong>DF11 的显存节省可支持更长的生成长度。</strong> DF11 不仅减少推理所需 GPU 数量，还能在相同显存预算下支持更长生成。 在解码过程中，KV cache 随 token 数量线性增长，很快成为显存瓶颈。 图 <a href="#fig-memory-usage" class="quarto-xref">图&nbsp;7</a> 展示了 batch size 1 时 BF16 与 DF11 的显存占用随 token 数量的变化。 DF11 允许在触及显存上限之前多生成 5.70–14.86 倍的 token。</p>
+<div id="fig-latency-breakdown" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-latency-breakdown-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/latency_breakdown.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-latency-breakdown-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;8: DF11 与 BF16 在不同 token batch size 下的延迟分解对比（Llama 3.1 8B Instruct，A100-40GB）。
+</figcaption>
+</figure>
+</div>
+<div id="fig-transfer-vs-decompression" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-transfer-vs-decompression-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/transfer_vs_decompression.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-transfer-vs-decompression-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;9: 在不同矩阵规模与 GPU 类型下，比较从 CPU 传输 BF16 矩阵与在 GPU 上使用 NVIDIA nvCOMP ANS 或本文 DF11 kernel 解压的吞吐（左两列）与延迟（右两列）。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-ablation" class="level2">
+<h2 class="anchored" data-anchor-id="sec-ablation">消融研究</h2>
+<p><strong>延迟分解显示：大批量下解压开销被摊薄。</strong> 我们在 A100-40GB 上评估 <em>Llama 3.1 8B Instruct</em> 的 BF16 与 DF11 延迟分解，批大小不同。 每个设置下，我们统计 10 次运行的各组件平均延迟，如图 <a href="#fig-latency-breakdown" class="quarto-xref">图&nbsp;8</a> 所示。 DF11 额外增加了 token embedding、Transformer block 与 LM head 的解压延迟。 该开销为常数，与 batch size 无关，因此 batch size 增大时可被摊薄。</p>
+<p><strong>DF11 解压显著快于 CPU→GPU 传输与 nvCOMP ANS。</strong> 我们将 DF11 的解压延迟与吞吐与两种基线进行比较：CPU→GPU 权重传输，以及 NVIDIA nvCOMP 的 ANS 解压<span class="citation" data-cites="ans nvcomp"><a href="#ref-ans" role="doc-biblioref">[26]</a>, <a href="#ref-nvcomp" role="doc-biblioref">[37]</a></span>。 实验使用 Llama 3.1 8B Instruct 的 LM head 切片矩阵。 如图 <a href="#fig-transfer-vs-decompression" class="quarto-xref">图&nbsp;9</a> 所示，DF11 的吞吐最多可比 CPU 传输高 34.95 倍，解压速度最多可比 nvCOMP 快 20.97 倍。 DF11 的压缩率也更高（68% vs.&nbsp;nvCOMP 的 79%）。 此外，随着矩阵规模增大，DF11 解压吞吐提升更明显，得益于 GPU 更高利用率。</p>
+</section>
+</section>
+<section id="sec-related" class="level1">
+<h1>相关工作</h1>
+<p><strong>模型权重的数据格式。</strong> 全精度模型权重通常存储为 BF16、FP16 或 FP32。 已有工作提出了多种 4-bit 压缩格式，如 FP4、INT4、NF4（NormalFloat）<span class="citation" data-cites="dettmers2023qlora"><a href="#ref-dettmers2023qlora" role="doc-biblioref">[38]</a></span>、AF4（AbnormalFloat）<span class="citation" data-cites="yoshida2023af4"><a href="#ref-yoshida2023af4" role="doc-biblioref">[39]</a></span>、SF4（Student Float）<span class="citation" data-cites="dotzel2024learning"><a href="#ref-dotzel2024learning" role="doc-biblioref">[40]</a></span>，它们用 4 位表示每个参数。 与这些有损格式不同，本文提出的 DF11 是无损压缩格式。</p>
+<p><strong>无损模型压缩。</strong> 虽然剪枝<span class="citation" data-cites="frantar2023sparsegpt"><a href="#ref-frantar2023sparsegpt" role="doc-biblioref">[41]</a></span> 与量化<span class="citation" data-cites="lin2024awq frantar2022gptq"><a href="#ref-frantar2022gptq" role="doc-biblioref">[4]</a>, <a href="#ref-lin2024awq" role="doc-biblioref">[5]</a></span> 等有损方法研究充分，无损压缩研究仍较少。 已有约四项工作涉及该方向。 <em>Deep Compression</em><span class="citation" data-cites="han2015deep_comp"><a href="#ref-han2015deep_comp" role="doc-biblioref">[16]</a></span> 对量化 CNN 使用 Huffman 编码<span class="citation" data-cites="huffman_coding"><a href="#ref-huffman_coding" role="doc-biblioref">[20]</a></span>，额外带来 22% 压缩。 <em>ZipNN</em><span class="citation" data-cites="hershcovitch2024zipnn"><a href="#ref-hershcovitch2024zipnn" role="doc-biblioref">[17]</a></span> 将该方法扩展至语言模型，并优于传统压缩方法。 但二者都只关注存储效率，不支持推理时收益。 <em>NeuZip</em><span class="citation" data-cites="hao2024neuzip"><a href="#ref-hao2024neuzip" role="doc-biblioref">[42]</a></span> 是唯一支持 GPU 推理的先前工作，它使用 ANS 并进行逐层解压，依赖 NVIDIA 的 nvCOMP 实现 GPU 操作。 然而 nvCOMP 已不再开源，只有二进制版本，限制了其可用性。 此外如图 <a href="#fig-transfer-vs-decompression" class="quarto-xref">图&nbsp;9</a> 所示，nvCOMP ANS 的延迟更高、吞吐更低，明显落后于 DFloat11 kernel。 <em>Huff-LLM</em><span class="citation" data-cites="yubeaton2025huffllm"><a href="#ref-yubeaton2025huffllm" role="doc-biblioref">[18]</a></span> 面向 FPGA 等硬件，不适用于 GPU。 更多相关格式的讨论见附录 <a href="#sec-extended-related-work" class="quarto-xref">小节&nbsp;8.2</a>。</p>
+</section>
+<section id="sec-conclusion" class="level1">
+<h1>结论</h1>
+<p>我们提出 <em>Dynamic-Length Float</em>（DFloat11），一种面向高效 GPU 推理的无损压缩框架，可用于 BFloat16 模型（包括 LLM 与 DM）。 DFloat11 利用基础模型权重中的信息冗余，通过熵编码的动态长度编码实现接近信息论极限的压缩率。 为实现高效部署，我们设计了硬件感知的算法，使得压缩权重可直接进行高速推理。 大量实验表明，DFloat11 显著降低 LLM 与 DM 的显存需求、支持更长生成长度，并在保持逐位一致精度的同时只引入极小的解压开销。</p>
+</section>
+<section id="sec-ack" class="level1">
+<h1>致谢</h1>
+<p>本工作得到 NSF SHF-2211815 与 Ken Kennedy Institute Cluster Grants 的支持。 此外，Henry 与 Xia 得到 ITE-2429680、IIS-2310260 与美国交通部（USDOT）Tier-1 University Transportation Center（UTC）Transportation Cybersecurity Center for Advanced Research and Education（CYBER-CARE）项目 #69A3552348332 的支持。 Mohsen 与 Vipin 得到 OAC-2320952、OAC-2112606 与 OAC-2117439 的支持。 本文观点与结论仅代表作者本人，不代表任何资助或支持机构的观点。</p>
+</section>
+<section id="sec-appendix" class="level1">
+<h1>附录</h1>
+<section id="sec-motivation" class="level2">
+<h2 class="anchored" data-anchor-id="sec-motivation">讨论：量化是否是通用解？</h2>
+<p>我们的工作动机之一是理解：<strong>对于像 LLM 这样的大规模模型，在保持与原模型 100% 一致输出的前提下进行无损压缩，是否是一条值得深入研究的实践方向。</strong> 具体来说，DFloat11 将 LLM 压缩到约 11 位，与常见有损量化技术相比（模型通常被压缩到更低比特宽度，如 8 位或 4 位<span class="citation" data-cites="frantar2022gptq lin2024awq"><a href="#ref-frantar2022gptq" role="doc-biblioref">[4]</a>, <a href="#ref-lin2024awq" role="doc-biblioref">[5]</a></span>），其表现如何？</p>
+<p>答案远比简单的“是/否”或一刀切的优劣判断更复杂。 例如，一些基准研究（如<span class="citation" data-cites="gong2024llmc yang2024llmcbench jin2024comp_eval_quant"><a href="#ref-gong2024llmc" role="doc-biblioref">[43]</a>, <a href="#ref-yang2024llmcbench" role="doc-biblioref">[44]</a>, <a href="#ref-jin2024comp_eval_quant" role="doc-biblioref">[45]</a></span>）常提示 8-bit 量化是一种相对“安全”的压缩方案。 尽管是有损的，8-bit 模型在多种标准基准上仍能保持较强性能。 但我们注意到，这些基准通常聚焦在有限任务集合（如 WikiText2 困惑度、MMLU、常识推理），无法全面反映真实使用场景，尤其是终端用户视角下的表现。</p>
+<p>即便如此，“现有基准无法捕捉 8-bit 与 16-bit 模型性能差距”的论点本身也受限于当前基准体系的局限性，因此难以提供大量直接证据。 但已有一些报告开始揭示差距。 例如，LLM Arena 的人类评测<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a>显示，Llama-3.1-405B-Instruct<span class="citation" data-cites="grattafiori2024llama"><a href="#ref-grattafiori2024llama" role="doc-biblioref">[3]</a></span> 与其 W8A8 版本（Llama-3.1-405B-Instruct-FP8）之间存在显著差距，尤其是在编码（1293 vs.&nbsp;1277）与长查询任务（1282 vs.&nbsp;1275）上。 类似地，将 DeepSeek-R1-Distill-Llama-70B<span class="citation" data-cites="guo2025deepseek"><a href="#ref-guo2025deepseek" role="doc-biblioref">[10]</a></span> 从 16 位量化到 8 位后，其 GPQA 分数从 9.51% 降到 7.25%，下降 23.7%<a href="#fn2" class="footnote-ref" id="fnref2" role="doc-noteref"><sup>2</sup></a>。 此外，推理能力对压缩损失尤为敏感。 最新基准<span class="citation" data-cites="liu2025quant_reason_bench"><a href="#ref-liu2025quant_reason_bench" role="doc-biblioref">[11]</a></span> 表明，对 DeepSeek-R1-Distill-Qwen-1.5B 使用 8-bit SmoothQuant<span class="citation" data-cites="xiao2023smoothquant"><a href="#ref-xiao2023smoothquant" role="doc-biblioref">[9]</a></span>（涵盖权重、注意力与 KV cache）会在 AIME、MATH-500、GPQA-Diamond 与 LiveCodeBench 等数据集上导致 9.09% 的平均下降（48.82% 降至 44.29%）。 更多关于 8-bit 量化与未压缩模型性能差距的证据见附录 <a href="#sec-lossy-quant-impact" class="quarto-xref">小节&nbsp;8.8</a>。</p>
+<p>虽然“在哪些任务、哪种模型、哪种量化方式、何种条件下会对 FP16/BF16 造成明显下降”的问题仍难以穷尽，但可以认为有损量化为终端用户引入了需额外验证的复杂变量。 为消除这种负担，DFloat11 提供了一个有吸引力的替代方案：<strong>在保持与原模型 100% 一致性能的同时，将显存占用降至约 70%，并带来吞吐收益</strong>，这对资源受限部署尤为实用。</p>
+</section>
+<section id="sec-extended-related-work" class="level2">
+<h2 class="anchored" data-anchor-id="sec-extended-related-work">扩展相关工作</h2>
+<p><strong>模型权重的数据格式。</strong> LLM 权重通常存储为 FP16 或 BFloat16（官方写法 <em>bfloat16</em><a href="#fn3" class="footnote-ref" id="fnref3" role="doc-noteref"><sup>3</sup></a>）。 FP16 分配 1 位符号、5 位指数、10 位尾数，而 BFloat16 分配 1 位符号、8 位指数、7 位尾数。 相比 FP16，BFloat16 具有更大的动态范围，代价是精度略低，这在训练中可提高数值稳定性并缓解溢出问题<span class="citation" data-cites="fujii2024fp8vsbf16 kalamkar2019studybf16"><a href="#ref-fujii2024fp8vsbf16" role="doc-biblioref">[46]</a>, <a href="#ref-kalamkar2019studybf16" role="doc-biblioref">[47]</a></span>。</p>
+<p>压缩数据格式通常追求更低比特宽度。 例如 FP8 有 E4M3（4 指数位、3 尾数位、1 符号位）与 E5M2 两种配置，并已在 LLM 训练与开发中得到一定使用。 INT8 也有广泛研究，如 <code>LLM.int8()</code><span class="citation" data-cites="dettmers2022llmint8"><a href="#ref-dettmers2022llmint8" role="doc-biblioref">[48]</a></span> 及其后续工作。 更强调效率的格式，如 FP4、INT4、NF4<span class="citation" data-cites="dettmers2023qlora"><a href="#ref-dettmers2023qlora" role="doc-biblioref">[38]</a></span> 与 AF4<span class="citation" data-cites="yoshida2023af4"><a href="#ref-yoshida2023af4" role="doc-biblioref">[39]</a></span> 仅使用 4 位。 本文主要关注 ≥8 位的格式，因为基准文献<span class="citation" data-cites="yang2024llmcbench gong2024llmc liu2025quant_reason_bench"><a href="#ref-liu2025quant_reason_bench" role="doc-biblioref">[11]</a>, <a href="#ref-gong2024llmc" role="doc-biblioref">[43]</a>, <a href="#ref-yang2024llmcbench" role="doc-biblioref">[44]</a></span> 常认为 8-bit 量化的性能损失可忽略，但我们在 <a href="#sec-motivation" class="quarto-xref">小节&nbsp;8.1</a> 中指出该结论可能受到基准选择的偏差影响。</p>
+<p><strong>无损模型压缩。</strong> 虽然剪枝与量化<span class="citation" data-cites="frantar2023sparsegpt lin2024awq frantar2022gptq"><a href="#ref-frantar2022gptq" role="doc-biblioref">[4]</a>, <a href="#ref-lin2024awq" role="doc-biblioref">[5]</a>, <a href="#ref-frantar2023sparsegpt" role="doc-biblioref">[41]</a></span> 等有损压缩技术已广泛研究，但无损压缩仍相对冷门。 我们查明此前大约有四项工作进行有意义探索。 <em>Deep Compression</em><span class="citation" data-cites="han2015deep_comp"><a href="#ref-han2015deep_comp" role="doc-biblioref">[16]</a></span> 对量化 CNN 使用 Huffman 编码<span class="citation" data-cites="huffman_coding"><a href="#ref-huffman_coding" role="doc-biblioref">[20]</a></span>，在检查点上额外实现约 22% 压缩。 <em>ZipNN</em><span class="citation" data-cites="hershcovitch2024zipnn"><a href="#ref-hershcovitch2024zipnn" role="doc-biblioref">[17]</a></span> 将该思路扩展到语言模型，并与 zlib<span class="citation" data-cites="deutsch1996zlib"><a href="#ref-deutsch1996zlib" role="doc-biblioref">[49]</a></span> 与 zstd<a href="#fn4" class="footnote-ref" id="fnref4" role="doc-noteref"><sup>4</sup></a> 等传统压缩工具相比取得更好效果。 但这条路线（及其工业版，如 ezm7<a href="#fn5" class="footnote-ref" id="fnref5" role="doc-noteref"><sup>5</sup></a><a href="#fn6" class="footnote-ref" id="fnref6" role="doc-noteref"><sup>6</sup></a>）仅对存储有效，对推理无益。 在大规模训练中，存储节省确有意义（频繁快照与回滚<span class="citation" data-cites="wang2023gemini_ckpt"><a href="#ref-wang2023gemini_ckpt" role="doc-biblioref">[19]</a></span>），但对日常 LLM 用户影响有限，因为下载通常是一次性成本。 即使将 checkpoint 压缩 50%，也只是最多将下载时间减半，且对整个生命周期影响有限。 更重要的是，checkpoint 存储在磁盘上，容量通常远大于推理时的 GPU HBM，推理的主要瓶颈仍是显存。</p>
+<p>我们认为，如果无损压缩能在推理阶段带来效率提升，其价值将更高，尤其是在 GPU 上进行服务时。 在这方面，<em>NeuZip</em><span class="citation" data-cites="hao2024neuzip"><a href="#ref-hao2024neuzip" role="doc-biblioref">[42]</a></span> 是唯一支持 GPU 推理的先前工作。 NeuZip 通过逐层解压保持较小内存占用，但依赖 NVIDIA nvCOMP——“针对 NVIDIA GPU 优化的高速压缩/解压库”<a href="#fn7" class="footnote-ref" id="fnref7" role="doc-noteref"><sup>7</sup></a>。 遗憾的是，nvCOMP 已不再开源，仅提供二进制，限制了研究可持续性。 并且我们实证发现，nvCOMP 的推理吞吐与延迟显著劣于 DFloat11 kernel，导致以显存换性能的代价过高（见图 <a href="#fig-transfer-vs-decompression" class="quarto-xref">图&nbsp;9</a>）。</p>
+<p>另一项相关工作是 <em>Huff-LLM</em><span class="citation" data-cites="yubeaton2025huffllm"><a href="#ref-yubeaton2025huffllm" role="doc-biblioref">[18]</a></span>，其目标是降低显存开销并保持高效推理，但适用于 FPGA 类硬件，不适用于 GPU。 据我们所知，本文提出的 DFloat 数据格式（及 DFloat11 kernel）是唯一具有无损压缩优势且能在 GPU 上高效推理的格式。</p>
+<p><strong>高效 LLM 推理。</strong> LLM 计算密集且资源需求高，因此推理效率是研究重点<span class="citation" data-cites="efficient_llm_survey"><a href="#ref-efficient_llm_survey" role="doc-biblioref">[50]</a></span>。 FlashAttention<span class="citation" data-cites="dao2022flashattention"><a href="#ref-dao2022flashattention" role="doc-biblioref">[51]</a></span> 通过 kernel 融合加速 GPU 上的精确注意力计算，NoMAD Attention<span class="citation" data-cites="nomadattention"><a href="#ref-nomadattention" role="doc-biblioref">[52]</a></span> 通过寄存器内查表加速 CPU 上的注意力计算。 模型压缩也是降低推理资源需求的重要途径。 量化方法如 GPTQ<span class="citation" data-cites="frantar2022gptq"><a href="#ref-frantar2022gptq" role="doc-biblioref">[4]</a></span>、AWQ<span class="citation" data-cites="lin2024awq"><a href="#ref-lin2024awq" role="doc-biblioref">[5]</a></span>、SmoothQuant<span class="citation" data-cites="xiao2023smoothquant"><a href="#ref-xiao2023smoothquant" role="doc-biblioref">[9]</a></span>、LeanQuant<span class="citation" data-cites="leanquant"><a href="#ref-leanquant" role="doc-biblioref">[53]</a></span>、CQ<span class="citation" data-cites="cq"><a href="#ref-cq" role="doc-biblioref">[54]</a></span>、KVQuant<span class="citation" data-cites="hooper2024kvquant"><a href="#ref-hooper2024kvquant" role="doc-biblioref">[55]</a></span> 与 KIVI<span class="citation" data-cites="liu2024kivi"><a href="#ref-liu2024kivi" role="doc-biblioref">[56]</a></span> 通过压缩权重、激活或 KV cache 来减少显存占用与提升效率。 压缩也用于微调：LoRA<span class="citation" data-cites="lora"><a href="#ref-lora" role="doc-biblioref">[57]</a></span>、QLoRA<span class="citation" data-cites="dettmers2023qlora"><a href="#ref-dettmers2023qlora" role="doc-biblioref">[38]</a></span> 与 SketchTune<span class="citation" data-cites="sketchtune"><a href="#ref-sketchtune" role="doc-biblioref">[58]</a></span> 压缩权重增量，GaLore<span class="citation" data-cites="galore"><a href="#ref-galore" role="doc-biblioref">[59]</a></span> 与 SARA<span class="citation" data-cites="sara"><a href="#ref-sara" role="doc-biblioref">[60]</a></span> 压缩优化器状态。 另一条相关路线是<em>无损高效解码</em>，例如<em>推测解码</em><span class="citation" data-cites="xia2022sd leviathan2023sd xia2024unlocking_sd_survey"><a href="#ref-xia2022sd" role="doc-biblioref">[61]</a>, <a href="#ref-leviathan2023sd" role="doc-biblioref">[62]</a>, <a href="#ref-xia2024unlocking_sd_survey" role="doc-biblioref">[63]</a></span> 与 <em>n-gram 候选解码</em><span class="citation" data-cites="fu2024lookahead anonymous2025fafo"><a href="#ref-fu2024lookahead" role="doc-biblioref">[64]</a>, <a href="#ref-anonymous2025fafo" role="doc-biblioref">[65]</a></span>，在保持生成质量的同时降低延迟。 DFloat11 与这些工作的差异在于：它在保持无损生成质量的同时显著降低显存占用，而多数无损高效解码方法的显存消耗不低于原模型。</p>
+</section>
+<section id="sec-bfloat16-freq" class="level2">
+<h2 class="anchored" data-anchor-id="sec-bfloat16-freq">BFloat16 值的频率分布</h2>
+<div id="fig-relative-frequency" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-relative-frequency-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/bf16_distribution.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-relative-frequency-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;10: 多种 LLM 的 BFloat16 权重中符号、指数与尾数的相对频率分布。
+</figcaption>
+</figure>
+</div>
+<p>图 <a href="#fig-relative-frequency" class="quarto-xref">图&nbsp;10</a> 展示了多种 LLM 的 BFloat16 权重中符号、指数与尾数不同取值的频率分布。 图 <a href="#fig-frequency-vs-rank" class="quarto-xref">图&nbsp;11</a> 展示了 LLM 权重中指数值的排序频率分布。</p>
+<div id="fig-frequency-vs-rank" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-frequency-vs-rank-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/frequency_vs_rank.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-frequency-vs-rank-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;11: 多种模型中 BFloat16 指数值的分布。指数频率（对数坐标）随指数排名快速衰减。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-alg" class="level2">
+<h2 class="anchored" data-anchor-id="sec-alg">DFloat11 解压 GPU kernel 的伪代码</h2>
+<p>算法 1 给出了将 DFloat11 解压为 BFloat16 的两阶段 GPU kernel 伪代码。</p>
+<pre class="text"><code>算法 1：将 DFloat11 解压为 BFloat16 的 GPU kernel
+
+过程 DF11ToBF16
+  需求：
+    - EncodedExponent, PackedSignMantissa：字节数组
+    - LUT_1..LUT_k, CodeLengths：大小为 256 的 8-bit 无符号数组
+    - Gaps：5-bit 无符号数组（每个线程一个）
+    - BlockOutputPos：32-bit 无符号数组（每个块一个）
+    - Outputs：BFloat16 数组
+    - B, T, n, k：线程块数、线程数、每线程处理字节数、紧凑 LUT 数
+  将 EncodedExponent 划分为块：
+    EncodedExponent_1..EncodedExponent_B，每块大小为 nT 字节
+  对于每个块 b=1..B（块间并行）：
+    将 EncodedExponent_b 载入 SRAM
+    将 EncodedExponent_b 划分为：EncodedExponent_{b,1}..EncodedExponent_{b,T}，每块 n 字节
+    将 LUT_1..LUT_k 与 CodeLengths 载入 SRAM
+    初始化 NumElements[1..T], ThreadOutputPos[1..T] 为 0
+    初始化 SRAM 中的 BFloat16 写缓冲 WriteBuffer
+    对于每个线程 t=1..T（线程间并行）：
+      Phase 1：确定每线程初始输出位置
+      BitOffset ← Gaps[bT+t]
+      while BitOffset &lt; 8n:
+        读取 EncodedExponent_{b,t} 中从 BitOffset 开始的 4 字节到 Byte_1..4
+        i ← 1
+        Exponent ← LUT_1[Byte_i]
+        while Exponent ≥ 240:
+          i ← i + 1
+          Exponent ← LUT_{(257 - Exponent)}[Byte_i]
+        BitOffset ← BitOffset + CodeLengths[Exponent]
+        NumElements[t] ← NumElements[t] + 1
+      线程同步
+      用 Blelloch 前缀和计算 ThreadOutputPos
+      ThreadOutputPos[t] ← BlockOutputPos[b] + Σ_{i=1}^{t-1} NumElements[i]
+      Phase 2：写回解码的 BFloat16
+      BitOffset ← Gaps[bT+t]
+      while BitOffset &lt; 8n:
+        读取 EncodedExponent_{b,t} 中从 BitOffset 开始的 4 字节到 Byte_1..4
+        i ← 1
+        Exponent ← LUT_1[Byte_i]
+        while Exponent ≥ 240:
+          i ← i + 1
+          Exponent ← LUT_{(257 - Exponent)}[Byte_i]
+        Byte ← PackedSignMantissa[ThreadOutputPos[t]]
+        Sign ← Byte bitwise_and 0b10000000
+        Mantissa ← Byte bitwise_and 0b01111111
+        WriteBuffer[ThreadOutputPos[t] - BlockOutputPos[b]] ←
+          (Sign bitwise_left_shift 8) bitwise_or
+          (Exponent bitwise_left_shift 7) bitwise_or Mantissa
+        BitOffset ← BitOffset + CodeLengths[Exponent]
+        ThreadOutputPos[t] ← ThreadOutputPos[t] + 1
+    合并写回 HBM：
+      Outputs[BlockOutputPos[b]..BlockOutputPos[b+1]-1] ←
+        WriteBuffer[0..(BlockOutputPos[b+1]-BlockOutputPos[b]-1)]</code></pre>
+<div style="overflow-x:auto">
+<div id="tbl-hardware" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-hardware-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;4: 实验所用服务器硬件规格。
+</figcaption>
+<div aria-describedby="tbl-hardware-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>服务器</th>
+<th>GPU</th>
+<th>GPU 显存</th>
+<th>CPU</th>
+<th>CPU 内存</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Server 1</td>
+<td>NVIDIA RTX A5000</td>
+<td>24564 MiB</td>
+<td>AMD EPYC 7513 32-Core</td>
+<td>504 GB</td>
+</tr>
+<tr class="even">
+<td>Server 2</td>
+<td>NVIDIA A100</td>
+<td>40960 MiB</td>
+<td>AMD EPYC 7742 64-Core</td>
+<td>1.48 TB</td>
+</tr>
+<tr class="odd">
+<td>Server 3</td>
+<td>NVIDIA Quadro RTX 8000</td>
+<td>49152 MiB</td>
+<td>AMD EPYC 7742 64-Core</td>
+<td>1.48 TB</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="sec-hardware" class="level2">
+<h2 class="anchored" data-anchor-id="sec-hardware">实验硬件配置</h2>
+<p>表 <a href="#tbl-hardware" class="quarto-xref">表&nbsp;4</a> 给出了实验所用服务器的硬件配置。</p>
+</section>
+<section id="sec-compression-time" class="level2">
+<h2 class="anchored" data-anchor-id="sec-compression-time">DFloat11 压缩耗时</h2>
+<div style="overflow-x:auto">
+<div id="tbl-time" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-time-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;5: 不同模型中每个 Transformer block 的压缩耗时。
+</figcaption>
+<div aria-describedby="tbl-time-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>模型</th>
+<th style="text-align: right;">每个 Transformer block 的压缩耗时 (s)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Llama 3.1 8B Instruct</td>
+<td style="text-align: right;">191</td>
+</tr>
+<tr class="even">
+<td>Llama 3.3 70B Instruct</td>
+<td style="text-align: right;">547</td>
+</tr>
+<tr class="odd">
+<td>Llama 3.1 405B Instruct</td>
+<td style="text-align: right;">2133</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<p>表 <a href="#tbl-time" class="quarto-xref">表&nbsp;5</a> 报告了不同规模模型压缩单个 Transformer block 的时间。 压缩是一次性的预处理步骤，每个模型只需执行一次，且在单 CPU 线程上完成。 由于不同 Transformer block 的权重存储相互独立，压缩可在多线程并行执行，从而具备良好的可扩展性。</p>
+<div id="fig-latency-throughput-gpu" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-latency-throughput-gpu-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/latency_throughput_gpu.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-latency-throughput-gpu-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;12: 原始 BF16 模型与 DF11 压缩模型在 A100 上的平均延迟与吞吐对比（开启 Flash Attention）。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-gpu-eff" class="level2">
+<h2 class="anchored" data-anchor-id="sec-gpu-eff">GPU 推理效率对比：BF16 vs.&nbsp;DF11</h2>
+<p>图 <a href="#fig-latency-throughput-gpu" class="quarto-xref">图&nbsp;12</a> 展示了 BF16 与 DF11 模型在 A100 上、不同模型与 batch size 下的推理效率对比。</p>
+<div style="overflow-x:auto">
+<div id="tbl-lossy-accuracy" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-lossy-accuracy-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;6: INT8 量化在不同任务上的误差对比。“Math” 表示 MATH Hard（2 shots），“GPQA CoT” 为 2 shots，“Δ” 为 INT8 量化误差差值。
+</figcaption>
+<div aria-describedby="tbl-lossy-accuracy-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>模型</th>
+<th>数据类型</th>
+<th style="text-align: right;">Math</th>
+<th style="text-align: right;">GPQA CoT</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Llama-3.1-8B-Instruct</td>
+<td>BF16</td>
+<td style="text-align: right;">23.92</td>
+<td style="text-align: right;">15.18</td>
+</tr>
+<tr class="even">
+<td>Llama-3.1-8B-Instruct</td>
+<td>INT8</td>
+<td style="text-align: right;">19.92</td>
+<td style="text-align: right;">14.06</td>
+</tr>
+<tr class="odd">
+<td>Llama-3.1-8B-Instruct</td>
+<td>Δ</td>
+<td style="text-align: right;">4.0</td>
+<td style="text-align: right;">1.12</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="sec-lossy-quant-impact" class="level2">
+<h2 class="anchored" data-anchor-id="sec-lossy-quant-impact">有损量化的影响</h2>
+<p>表 <a href="#tbl-lossy-accuracy" class="quarto-xref">表&nbsp;6</a> 给出了原始 Llama 模型与 INT8 量化版本的精度对比。</p>
+</section>
+<section id="sec-lut-decode" class="level2">
+<h2 class="anchored" data-anchor-id="sec-lut-decode">使用紧凑查找表高效解码 Huffman 码</h2>
+<section id="双查找表方法" class="level3">
+<h3 class="anchored" data-anchor-id="双查找表方法">双查找表方法</h3>
+<div id="fig-huffman-lut" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-huffman-lut-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/huffman_lut.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-huffman-lut-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;13: Huffman 解码可通过遍历 Huffman 树实现，也可通过两张查找表完成：一张将 <span class="math inline">\(L\)</span> 位二进制码映射到符号，另一张存储每个符号的码长。
+</figcaption>
+</figure>
+</div>
+<p>Huffman 解码可以通过遍历 Huffman 树完成：从根开始，编码流的每一位决定一次分支，直到叶节点得到符号。 这种逐位遍历在概念上简单，但在实践中效率低。 因为每次分支依赖前一位，导致频繁的内存访问与条件跳转。 这一模式在 GPU 上尤其低效，会引起分支发散并限制指令级并行。 一种广泛采用的替代方案是<em>基于查找表的解码</em><span class="citation" data-cites="huffman_gap_arrays"><a href="#ref-huffman_gap_arrays" role="doc-biblioref">[27]</a></span>，将 Huffman 树展平成两张紧凑查找表。 这使得每个符号可通过两次数组查找与一次位移完成解码，显著提升吞吐。</p>
+<p>我们使用两张表 <span class="math inline">\(\mathsf{LUT}\)</span> 与 <span class="math inline">\(\mathsf{CodeLengths}\)</span>，实现高效且无分支的 Huffman 解码。 设 <span class="math inline">\(L\)</span> 为 Huffman 码本中最长码字的长度。 我们构建大小为 <span class="math inline">\(2^L\)</span> 的主查找表 <span class="math inline">\(\mathsf{LUT}\)</span>，其中每个条目将 <span class="math inline">\(L\)</span> 位二进制序列映射到其所编码的第一个符号。</p>
+<p>图 <a href="#fig-huffman-lut" class="quarto-xref">图&nbsp;13</a> 给出了 <span class="math inline">\(L=4\)</span> 的示例，符号集为 <span class="math inline">\(\texttt{A, B, C, D, E, F}\)</span>。 为清晰起见，我们以字母表示符号，实际对应 BFloat16 指数值。 查找表 <span class="math inline">\(\mathsf{LUT}\)</span> 含 <span class="math inline">\(2^4=16\)</span> 个条目，索引为所有可能的 4 位序列。 每个条目存储其前缀匹配的符号。 若符号码长小于 <span class="math inline">\(L\)</span>，其会占据多个连续条目。 例如，若 <span class="math inline">\(\texttt{A}\)</span> 编码为 <code>0</code>，则从 <code>0000</code> 到 <code>0111</code> 均以 <code>0</code> 开头，对应条目 0–7 都映射到 <span class="math inline">\(\texttt{A}\)</span>。 相反，码长为 <span class="math inline">\(L\)</span> 的符号只占一个条目。 例如 <span class="math inline">\(\texttt{E}=1110\)</span> 与 <span class="math inline">\(\texttt{F}=1111\)</span> 分别映射到条目 14 与 15。 这样构造得到稠密前缀表，可用一次查表解码一个符号。</p>
+<p>为推进编码流以解码下一个符号，我们还存储每个符号的码长。 第二张查找表 <span class="math inline">\(\mathsf{CodeLengths}\)</span> 将符号映射到 Huffman 码长。 示例中码长分别为：<span class="math inline">\(\texttt{A:1, B:3, C:3, D:3, E:4, F:4}\)</span>。 这两张表使得解码过程快速且确定，可重复如下步骤：</p>
+<ol type="1">
+<li>用编码流的下 <span class="math inline">\(L\)</span> 位索引 <span class="math inline">\(\mathsf{LUT}\)</span> 并取出符号。</li>
+<li>在 <span class="math inline">\(\mathsf{CodeLengths}\)</span> 中查询该符号的码长，确定要消耗多少位。</li>
+<li>前移编码流并重复。</li>
+</ol>
+<p>该方法消除了分支与指针追踪，特别适合 GPU 并行计算。</p>
+</section>
+<section id="sec-hierarchical-luts" class="level3">
+<h3 class="anchored" data-anchor-id="sec-hierarchical-luts">将 <span class="math inline">\(\mathsf{LUT}\)</span> 分解为分层紧凑查找表</h3>
+<p>主查找表 <span class="math inline">\(\mathsf{LUT}\)</span> 含 <span class="math inline">\(2^L\)</span> 个条目，其中 <span class="math inline">\(L\)</span> 是最长码长。 虽然这可实现常数时间解码，但表规模随 <span class="math inline">\(L\)</span> 指数增长。 在实践中，基于 BFloat16 指数构建的 Huffman 树中 <span class="math inline">\(L\)</span> 多为 24–32，表规模达 <span class="math inline">\(2^{24}\)</span>–<span class="math inline">\(2^{32}\)</span>，远超 GPU SRAM 容量。 为此，我们将 <span class="math inline">\(\mathsf{LUT}\)</span> 分解为多个更小的查找表，在片上内存内完成解码。</p>
+<section id="分层表结构" class="level4">
+<h4 class="anchored" data-anchor-id="分层表结构">分层表结构</h4>
+<div id="fig-huffman-multi-lut" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-huffman-multi-lut-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/huffman_multi_lut.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-huffman-multi-lut-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;14: Huffman 树可分解为多个子树，每个子树对应一个紧凑 LUT。每个 LUT 可能引用下层 LUT。该分层解码在功能上等价于单一大 LUT，但显著节省内存。
+</figcaption>
+</figure>
+</div>
+<p>我们将 <span class="math inline">\(\mathsf{LUT}\)</span> 分解为分层的紧凑查找表。 每个表对应 Huffman 树的一个子树，负责解码 <span class="math inline">\(b\)</span> 位。 每个表读取接下来 <span class="math inline">\(b\)</span> 位，并执行以下两种操作之一：</p>
+<ol type="1">
+<li>直接返回解码出的符号。</li>
+<li>将解码任务委派给层次中下一张表。</li>
+</ol>
+<p>这种分层结构与原 Huffman 树结构一致，但显著降低总内存开销。</p>
+<p>图 <a href="#fig-huffman-multi-lut" class="quarto-xref">图&nbsp;14</a> 示意将 Huffman 树划分为 3 个子树，每张表解码 2 位。 使用这三张 LUT 的解码过程如下：</p>
+<ul>
+<li><span class="math inline">\(\mathsf{LUT}_0\)</span>：读取前两位，出现三种情况：
+<ul>
+<li><code>00</code> 或 <code>01</code> → 解码为 <span class="math inline">\(\texttt{A}\)</span>。</li>
+<li><code>10</code> → 转入 <span class="math inline">\(\mathsf{LUT}_1\)</span>。</li>
+<li><code>11</code> → 转入 <span class="math inline">\(\mathsf{LUT}_2\)</span>。</li>
+</ul></li>
+<li><span class="math inline">\(\mathsf{LUT}_1\)</span>：读取第 3–4 位：
+<ul>
+<li><code>00</code> 或 <code>01</code> → 解码为 <span class="math inline">\(\texttt{B}\)</span>。</li>
+<li><code>10</code> 或 <code>11</code> → 解码为 <span class="math inline">\(\texttt{C}\)</span>。</li>
+</ul></li>
+<li><span class="math inline">\(\mathsf{LUT}_2\)</span>：读取第 3–4 位：
+<ul>
+<li><code>00</code> 或 <code>01</code> → 解码为 <span class="math inline">\(\texttt{D}\)</span>。</li>
+<li><code>10</code> → 解码为 <span class="math inline">\(\texttt{E}\)</span>。</li>
+<li><code>11</code> → 解码为 <span class="math inline">\(\texttt{F}\)</span>。</li>
+</ul></li>
+</ul>
+<p>在解码 Huffman 编码的 BFloat16 指数时，我们将 <span class="math inline">\(\mathsf{LUT}\)</span> 分解为多个紧凑 LUT，每张表解码 8 位（即 <span class="math inline">\(b=8\)</span>）。 这使得每一步都可读取一个字节并在 256 项数组中查表。 在实践中，<span class="math inline">\(\mathsf{LUT}\)</span> 分解得到 4–8 张紧凑 LUT，每张 256 项，能够轻松放入 SRAM。</p>
+</section>
+</section>
+</section>
+<section id="sec-sd35" class="level2">
+<h2 class="anchored" data-anchor-id="sec-sd35">BF16 与 DF11 扩散模型的文生图结果</h2>
+<div id="fig-sd35" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-sd35-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/70-percent-size-100-percent-accuracy-lossless-llm-compression-for-efficient-gpu-inference-via-dynamic-length-float-dfloat11/sd35.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sd35-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;15: Stable Diffusion 3.5 Large 在原始 BFloat16 精度（<strong>上 5 张</strong>）与 DFloat11 压缩模型（<strong>下 5 张</strong>）下生成的图像完全一致，使用相同 prompt 与随机种子。
+</figcaption>
+</figure>
+</div>
+<p>图 <a href="#fig-sd35" class="quarto-xref">图&nbsp;15</a> 展示了 Stable Diffusion 3.5 Large 在 BF16 与 DF11 权重格式下生成图像的对比。 在相同提示词与随机种子下，生成结果逐像素一致。</p>
+</section>
+<section id="sec-limitations" class="level2">
+<h2 class="anchored" data-anchor-id="sec-limitations">局限性</h2>
+<p>本文仅关注对 BFloat16 权重的无损压缩。 我们未考虑 FP32、FP16 或 FP8 等其他格式，这些格式可能需要不同的压缩策略。 虽然 DF11 提升了显存效率，但由于解压操作，会引入小但非零的延迟开销。 该开销在大 batch size 下可被摊薄，但可能影响小 batch 的低延迟应用。 我们的评估仅限于 GPU，未评估 CPU、TPU 或定制加速器等其他硬件，它们可能需要平台特定优化。</p>
+
+
+
+</section>
+</section>
+
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">参考文献</h2><div id="refs" class="references csl-bib-body" data-entry-spacing="0" role="list">
+<div id="ref-yang2024harness_survey" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[1] </div><div class="csl-right-inline">J. Yang <em>等</em>, <span>《Harnessing the power of LLMs in practice: A survey on ChatGPT and beyond》</span>, 2024, 载于: <a href="https://www.amazon.science/publications/harnessing-the-power-of-llms-in-practice-a-survey-on-chatgpt-and-beyond">https://www.amazon.science/publications/harnessing-the-power-of-llms-in-practice-a-survey-on-chatgpt-and-beyond</a></div>
+</div>
+<div id="ref-yang2023diffusion" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[2] </div><div class="csl-right-inline">L. Yang <em>等</em>, <span>《Diffusion models: A comprehensive survey of methods and applications》</span>, <em>ACM Computing Surveys</em>, 卷 56, 期 4, 页 1～39, 2023.</div>
+</div>
+<div id="ref-grattafiori2024llama" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[3] </div><div class="csl-right-inline"><span class="nocase">A. Grattafiori <em>等</em></span>, <span>《The llama 3 herd of models》</span>, <em>arXiv preprint arXiv:2407.21783</em>, 2024.</div>
+</div>
+<div id="ref-frantar2022gptq" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[4] </div><div class="csl-right-inline">E. Frantar, S. Ashkboos, T. Hoefler, 和 D. Alistarh, <span>《Gptq: Accurate post-training quantization for generative pre-trained transformers》</span>, <em>arXiv preprint arXiv:2210.17323</em>, 2022.</div>
+</div>
+<div id="ref-lin2024awq" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[5] </div><div class="csl-right-inline">J. Lin <em>等</em>, <span>《Awq: Activation-aware weight quantization for on-device llm compression and acceleration》</span>, <em>Proceedings of Machine Learning and Systems</em>, 卷 6, 页 87～100, 2024.</div>
+</div>
+<div id="ref-li2023q" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[6] </div><div class="csl-right-inline">X. Li <em>等</em>, <span>《Q-diffusion: Quantizing diffusion models》</span>, 收入 <em>Proceedings of the IEEE/CVF International Conference on Computer Vision</em>, 2023, 页 17535～17545.</div>
+</div>
+<div id="ref-sui2024bitsfusion" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[7] </div><div class="csl-right-inline">Y. Sui <em>等</em>, <span>《Bitsfusion: 1.99 bits weight quantization of diffusion model》</span>, <em>arXiv preprint arXiv:2406.04333</em>, 2024.</div>
+</div>
+<div id="ref-eval_quantized" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[8] </div><div class="csl-right-inline">S. Li <em>等</em>, <span>《Evaluating Quantized Large Language Models》</span>, 收入 <em>International Conference on Machine Learning</em>, PMLR, 2024, 页 28480～28524.</div>
+</div>
+<div id="ref-xiao2023smoothquant" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[9] </div><div class="csl-right-inline">G. Xiao, J. Lin, M. Seznec, H. Wu, J. Demouth, 和 S. Han, <span>《Smoothquant: Accurate and efficient post-training quantization for large language models》</span>, 收入 <em>International Conference on Machine Learning</em>, PMLR, 2023, 页 38087～38099.</div>
+</div>
+<div id="ref-guo2025deepseek" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[10] </div><div class="csl-right-inline"><span class="nocase">D. Guo <em>等</em></span>, <span>《Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning》</span>, <em>arXiv preprint arXiv:2501.12948</em>, 2025.</div>
+</div>
+<div id="ref-liu2025quant_reason_bench" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[11] </div><div class="csl-right-inline">R. Liu <em>等</em>, <span>《Quantization Hurts Reasoning? An Empirical Study on Quantized Reasoning Models》</span>, <em>arXiv preprint arXiv:2504.04823</em>, 2025.</div>
+</div>
+<div id="ref-dutta2024accuracy_not" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[12] </div><div class="csl-right-inline">A. Dutta, S. Krishnan, N. Kwatra, 和 R. Ramjee, <span>《Accuracy is Not All You Need》</span>, 收入 <em>The Thirty-eighth Annual Conference on Neural Information Processing Systems</em>, 2024. 载于: <a href="https://openreview.net/forum?id=QVG7j29Sta">https://openreview.net/forum?id=QVG7j29Sta</a></div>
+</div>
+<div id="ref-yang2024qwen2" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[13] </div><div class="csl-right-inline"><span class="nocase">A. Yang <em>等</em></span>, <span>《Qwen2. 5 technical report》</span>, <em>arXiv preprint arXiv:2412.15115</em>, 2024.</div>
+</div>
+<div id="ref-cobbe2021gsm8k" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[14] </div><div class="csl-right-inline">K. Cobbe <em>等</em>, <span>《Training Verifiers to Solve Math Word Problems》</span>, <em>arXiv preprint arXiv:2110.14168</em>, 2021.</div>
+</div>
+<div id="ref-kharinaev2025invest_quant_safety" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[15] </div><div class="csl-right-inline">A. Kharinaev, V. Moskvoretskii, E. Shvetsov, K. Studenikina, B. Mikhail, 和 E. Burnaev, <span>《Investigating the impact of quantization methods on the safety and reliability of large language models》</span>, <em>arXiv preprint arXiv:2502.15799</em>, 2025.</div>
+</div>
+<div id="ref-han2015deep_comp" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[16] </div><div class="csl-right-inline">S. Han, H. Mao, 和 W. J. Dally, <span>《Deep compression: Compressing deep neural networks with pruning, trained quantization and huffman coding》</span>, <em>arXiv preprint arXiv:1510.00149</em>, 2015.</div>
+</div>
+<div id="ref-hershcovitch2024zipnn" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[17] </div><div class="csl-right-inline">M. Hershcovitch <em>等</em>, <span>《Zipnn: Lossless compression for ai models》</span>, <em>arXiv preprint arXiv:2411.05239</em>, 2024.</div>
+</div>
+<div id="ref-yubeaton2025huffllm" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[18] </div><div class="csl-right-inline"><span class="nocase">P. Yubeaton <em>等</em></span>, <span>《Huff-LLM: End-to-End Lossless Compression for Efficient LLM Inference》</span>, <em>arXiv preprint arXiv:2502.00922</em>, 2025.</div>
+</div>
+<div id="ref-wang2023gemini_ckpt" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[19] </div><div class="csl-right-inline">Z. Wang <em>等</em>, <span>《Gemini: Fast failure recovery in distributed training with in-memory checkpoints》</span>, 2023, 载于: <a href="https://www.amazon.science/publications/gemini-fast-failure-recovery-in-distributed-training-with-in-memory-checkpoints">https://www.amazon.science/publications/gemini-fast-failure-recovery-in-distributed-training-with-in-memory-checkpoints</a></div>
+</div>
+<div id="ref-huffman_coding" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[20] </div><div class="csl-right-inline">D. A. Huffman, <span>《A method for the construction of minimum-redundancy codes》</span>, <em>Proceedings of the IRE</em>, 卷 40, 期 9, 页 1098～1101, 1952.</div>
+</div>
+<div id="ref-qwen3" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[21] </div><div class="csl-right-inline">Q. Team, <span>《Qwen3: Think Deeper, Act Faster》</span>. 2025年. 载于: <a href="https://qwenlm.github.io/blog/qwen3/">https://qwenlm.github.io/blog/qwen3/</a></div>
+</div>
+<div id="ref-mistral2025small3" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[22] </div><div class="csl-right-inline">M. A. Team, <span>《<span>Mistral Small 3</span>》</span>. <a href="https://mistral.ai/news/mistral-small-3" class="uri">https://mistral.ai/news/mistral-small-3</a>, 2025年1月.</div>
+</div>
+<div id="ref-flux" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[23] </div><div class="csl-right-inline">B. F. Labs, <span>《FLUX》</span>. <a href="https://github.com/black-forest-labs/flux" class="uri">https://github.com/black-forest-labs/flux</a>, 2024年.</div>
+</div>
+<div id="ref-stablediffusion35" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[24] </div><div class="csl-right-inline">S. AI, <span>《Introducing Stable Diffusion 3.5》</span>. <a href="https://stability.ai/news/introducing-stable-diffusion-3-5" class="uri">https://stability.ai/news/introducing-stable-diffusion-3-5</a>, 2024年.</div>
+</div>
+<div id="ref-arithmetic_coding" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[25] </div><div class="csl-right-inline">G. G. Langdon, <span>《An Introduction to Arithmetic Coding》</span>, <em>IBM Journal of Research and Development</em>, 卷 28, 期 2, 页 135～149, 1984, doi: <a href="https://doi.org/10.1147/rd.282.0135">10.1147/rd.282.0135</a>.</div>
+</div>
+<div id="ref-ans" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[26] </div><div class="csl-right-inline">J. Duda, <span>《Asymmetric numeral systems: entropy coding combining speed of huffman coding with compression rate of arithmetic coding》</span>, <em>arXiv preprint arXiv:1311.2540</em>, 2013.</div>
+</div>
+<div id="ref-huffman_gap_arrays" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[27] </div><div class="csl-right-inline">N. Yamamoto, K. Nakano, Y. Ito, D. Takafuji, A. Kasagi, 和 T. Tabaru, <span>《Huffman coding with gap arrays for GPU acceleration》</span>, 收入 <em>Proceedings of the 49th International Conference on Parallel Processing</em>, 2020, 页 1～11.</div>
+</div>
+<div id="ref-blelloch" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[28] </div><div class="csl-right-inline">G. E. Blelloch, <span>《Scans as primitive parallel operations》</span>, <em>IEEE Transactions on computers</em>, 卷 38, 期 11, 页 1526～1538, 1989.</div>
+</div>
+<div id="ref-huggingface" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[29] </div><div class="csl-right-inline"><span class="nocase">T. Wolf <em>等</em></span>, <span>《Transformers: State-of-the-art natural language processing》</span>, 收入 <em>Proceedings of the 2020 conference on empirical methods in natural language processing: system demonstrations</em>, 2020, 页 38～45.</div>
+</div>
+<div id="ref-mistral2024nemo" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[30] </div><div class="csl-right-inline">M. A. Team, <span>《<span>Mistral NeMo</span>》</span>. <a href="https://mistral.ai/news/mistral-nemo" class="uri">https://mistral.ai/news/mistral-nemo</a>, 2024年7月.</div>
+</div>
+<div id="ref-phi4" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[31] </div><div class="csl-right-inline"><span class="nocase">M. Abdin <em>等</em></span>, <span>《Phi-4 technical report》</span>, <em>arXiv preprint arXiv:2412.08905</em>, 2024.</div>
+</div>
+<div id="ref-eval-harness" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[32] </div><div class="csl-right-inline">L. Gao <em>等</em>, <span>《A framework for few-shot language model evaluation》</span>. Zenodo, 2024年7月. doi: <a href="https://doi.org/10.5281/zenodo.12608602">10.5281/zenodo.12608602</a>.</div>
+</div>
+<div id="ref-mmlu" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[33] </div><div class="csl-right-inline">D. Hendrycks <em>等</em>, <span>《Measuring Massive Multitask Language Understanding》</span>, 收入 <em>International Conference on Learning Representations</em>, </div>
+</div>
+<div id="ref-truthfulqa" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[34] </div><div class="csl-right-inline">S. Lin, J. Hilton, 和 O. Evans, <span>《TruthfulQA: Measuring How Models Mimic Human Falsehoods》</span>, 收入 <em>Proceedings of the 60th Annual Meeting of the Association for Computational Linguistics (Volume 1: Long Papers)</em>, 2022, 页 3214～3252.</div>
+</div>
+<div id="ref-wikitext" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[35] </div><div class="csl-right-inline">S. Merity, C. Xiong, J. Bradbury, 和 R. Socher, <span>《Pointer Sentinel Mixture Models》</span>, 收入 <em>International Conference on Learning Representations</em>, 2017.</div>
+</div>
+<div id="ref-c4" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[36] </div><div class="csl-right-inline">C. Raffel <em>等</em>, <span>《Exploring the Limits of Transfer Learning with a Unified Text-to-Text Transformer》</span>, <em>Journal of Machine Learning Research</em>, 卷 21, 期 140, 页 1～67, 2020, 载于: <a href="http://jmlr.org/papers/v21/20-074.html">http://jmlr.org/papers/v21/20-074.html</a></div>
+</div>
+<div id="ref-nvcomp" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[37] </div><div class="csl-right-inline">N. Corporation, <span>《<span>nvCOMP</span>: GPU-Accelerated Compression and Decompression Library》</span>. <a href="https://developer.nvidia.com/nvcomp" class="uri">https://developer.nvidia.com/nvcomp</a>, 2025年.</div>
+</div>
+<div id="ref-dettmers2023qlora" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[38] </div><div class="csl-right-inline">T. Dettmers, A. Pagnoni, A. Holtzman, 和 L. Zettlemoyer, <span>《Qlora: Efficient finetuning of quantized llms》</span>, <em>Advances in neural information processing systems</em>, 卷 36, 页 10088～10115, 2023.</div>
+</div>
+<div id="ref-yoshida2023af4" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[39] </div><div class="csl-right-inline">D. Yoshida, <span>《NF4 Isn’t Information Theoretically Optimal (and that’s Good)》</span>, <em>arXiv preprint arXiv:2306.06965</em>, 2023.</div>
+</div>
+<div id="ref-dotzel2024learning" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[40] </div><div class="csl-right-inline">J. Dotzel <em>等</em>, <span>《Learning from Students: Applying t-Distributions to Explore Accurate and Efficient Formats for LLMs》</span>, 收入 <em>International Conference on Machine Learning</em>, PMLR, 2024, 页 11573～11591.</div>
+</div>
+<div id="ref-frantar2023sparsegpt" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[41] </div><div class="csl-right-inline">E. Frantar 和 D. Alistarh, <span>《Sparsegpt: Massive language models can be accurately pruned in one-shot》</span>, 收入 <em>International Conference on Machine Learning</em>, PMLR, 2023, 页 10323～10337.</div>
+</div>
+<div id="ref-hao2024neuzip" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[42] </div><div class="csl-right-inline">Y. Hao, Y. Cao, 和 L. Mou, <span>《NeuZip: Memory-Efficient Training and Inference with Dynamic Compression of Neural Networks》</span>, <em>arXiv preprint arXiv:2410.20650</em>, 2024.</div>
+</div>
+<div id="ref-gong2024llmc" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[43] </div><div class="csl-right-inline">R. Gong <em>等</em>, <span>《Llmc: Benchmarking large language model quantization with a versatile compression toolkit》</span>, <em>arXiv preprint arXiv:2405.06001</em>, 2024.</div>
+</div>
+<div id="ref-yang2024llmcbench" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[44] </div><div class="csl-right-inline">G. Yang <em>等</em>, <span>《<span>LLMCB</span>ench: Benchmarking Large Language Model Compression for Efficient Deployment》</span>, 收入 <em>The Thirty-eight Conference on Neural Information Processing Systems Datasets and Benchmarks Track</em>, 2024. 载于: <a href="https://openreview.net/forum?id=wmO7z57wNK">https://openreview.net/forum?id=wmO7z57wNK</a></div>
+</div>
+<div id="ref-jin2024comp_eval_quant" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[45] </div><div class="csl-right-inline">R. Jin <em>等</em>, <span>《A comprehensive evaluation of quantization strategies for large language models》</span>, 收入 <em>Findings of the Association for Computational Linguistics ACL 2024</em>, 2024, 页 12186～12215.</div>
+</div>
+<div id="ref-fujii2024fp8vsbf16" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[46] </div><div class="csl-right-inline">K. Fujii, T. Nakamura, 和 R. Yokota, <span>《Balancing Speed and Stability: The Trade-offs of FP8 vs. BF16 Training in LLMs》</span>, <em>arXiv preprint arXiv:2411.08719</em>, 2024.</div>
+</div>
+<div id="ref-kalamkar2019studybf16" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[47] </div><div class="csl-right-inline"><span class="nocase">D. Kalamkar <em>等</em></span>, <span>《A study of BFLOAT16 for deep learning training》</span>, <em>arXiv preprint arXiv:1905.12322</em>, 2019.</div>
+</div>
+<div id="ref-dettmers2022llmint8" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[48] </div><div class="csl-right-inline">T. Dettmers, M. Lewis, Y. Belkada, 和 L. Zettlemoyer, <span>《Gpt3. int8 (): 8-bit matrix multiplication for transformers at scale》</span>, <em>Advances in neural information processing systems</em>, 卷 35, 页 30318～30332, 2022.</div>
+</div>
+<div id="ref-deutsch1996zlib" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[49] </div><div class="csl-right-inline">P. Deutsch 和 J.-L. Gailly, <span>《RFC1950: ZLIB Compressed Data Format Specification version 3.3》</span>. RFC Editor, USA, 1996年.</div>
+</div>
+<div id="ref-efficient_llm_survey" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[50] </div><div class="csl-right-inline"><span class="nocase">M. Xu <em>等</em></span>, <span>《A survey of resource-efficient llm and multimodal foundation models》</span>, <em>arXiv preprint arXiv:2401.08092</em>, 2024.</div>
+</div>
+<div id="ref-dao2022flashattention" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[51] </div><div class="csl-right-inline">T. Dao, D. Fu, S. Ermon, A. Rudra, 和 C. Ré, <span>《Flashattention: Fast and memory-efficient exact attention with io-awareness》</span>, <em>Advances in neural information processing systems</em>, 卷 35, 页 16344～16359, 2022.</div>
+</div>
+<div id="ref-nomadattention" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[52] </div><div class="csl-right-inline">T. Zhang, J. W. Yi, B. Yao, Z. Xu, 和 A. Shrivastava, <span>《No<span>MAD</span>-Attention: Efficient <span>LLM</span> Inference on <span>CPU</span>s Through Multiply-add-free Attention》</span>, 收入 <em>The Thirty-eighth Annual Conference on Neural Information Processing Systems</em>, 2024. 载于: <a href="https://openreview.net/forum?id=4xDxVQHsbZ">https://openreview.net/forum?id=4xDxVQHsbZ</a></div>
+</div>
+<div id="ref-leanquant" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[53] </div><div class="csl-right-inline">T. Zhang 和 A. Shrivastava, <span>《LeanQuant: Accurate and Scalable Large Language Model Quantization with Loss-error-aware Grid》</span>, 收入 <em>The Thirteenth International Conference on Learning Representations</em>, 2025. 载于: <a href="https://openreview.net/forum?id=ISqx8giekS">https://openreview.net/forum?id=ISqx8giekS</a></div>
+</div>
+<div id="ref-cq" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[54] </div><div class="csl-right-inline">T. Zhang, J. W. Yi, Z. Xu, 和 A. Shrivastava, <span>《<span>KV</span> Cache is 1 Bit Per Channel: Efficient Large Language Model Inference with Coupled Quantization》</span>, 收入 <em>The Thirty-eighth Annual Conference on Neural Information Processing Systems</em>, 2024. 载于: <a href="https://openreview.net/forum?id=pNnvzQsS4P">https://openreview.net/forum?id=pNnvzQsS4P</a></div>
+</div>
+<div id="ref-hooper2024kvquant" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[55] </div><div class="csl-right-inline">C. R. C. Hooper <em>等</em>, <span>《<span>KVQ</span>uant: Towards 10 Million Context Length <span>LLM</span> Inference with <span>KV</span> Cache Quantization》</span>, 收入 <em>The Thirty-eighth Annual Conference on Neural Information Processing Systems</em>, 2024.</div>
+</div>
+<div id="ref-liu2024kivi" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[56] </div><div class="csl-right-inline">Z. Liu <em>等</em>, <span>《<span>KIVI</span>: A Tuning-Free Asymmetric 2bit Quantization for <span>KV</span> Cache》</span>, 收入 <em>Forty-first International Conference on Machine Learning</em>, 2024.</div>
+</div>
+<div id="ref-lora" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[57] </div><div class="csl-right-inline"><span class="nocase">E. J. Hu <em>等</em></span>, <span>《Lo<span>RA</span>: Low-Rank Adaptation of Large Language Models》</span>, 收入 <em>International Conference on Learning Representations</em>, 2022. 载于: <a href="https://openreview.net/forum?id=nZeVKeeFYf9">https://openreview.net/forum?id=nZeVKeeFYf9</a></div>
+</div>
+<div id="ref-sketchtune" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[58] </div><div class="csl-right-inline">T. Zhang, J. Su, A. Desai, O. Wu, Z. Xu, 和 A. Shrivastava, <span>《Sketch to Adapt: Fine-Tunable Sketches for Efficient <span>LLM</span> Adaptation》</span>, 收入 <em>Forty-second International Conference on Machine Learning</em>, 2025. 载于: <a href="https://openreview.net/forum?id=zZXOXhxO6I">https://openreview.net/forum?id=zZXOXhxO6I</a></div>
+</div>
+<div id="ref-galore" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[59] </div><div class="csl-right-inline">J. Zhao, Z. Zhang, B. Chen, Z. Wang, A. Anandkumar, 和 Y. Tian, <span>《GaLore: Memory-Efficient <span>LLM</span> Training by Gradient Low-Rank Projection》</span>, 收入 <em>Forty-first International Conference on Machine Learning</em>, 2024. 载于: <a href="https://openreview.net/forum?id=hYHsrKDiX7">https://openreview.net/forum?id=hYHsrKDiX7</a></div>
+</div>
+<div id="ref-sara" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[60] </div><div class="csl-right-inline">H. Zhang <em>等</em>, <span>《Breaking the Frozen Subspace: Importance Sampling for Low-Rank Optimization in <span>LLM</span> Pretraining》</span>, 收入 <em>The Thirty-ninth Annual Conference on Neural Information Processing Systems</em>, 2025. 载于: <a href="https://openreview.net/forum?id=ZdmmOAN4h3">https://openreview.net/forum?id=ZdmmOAN4h3</a></div>
+</div>
+<div id="ref-xia2022sd" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[61] </div><div class="csl-right-inline">H. Xia, T. Ge, P. Wang, S.-Q. Chen, F. Wei, 和 Z. Sui, <span>《Speculative decoding: Exploiting speculative execution for accelerating seq2seq generation》</span>, <em>arXiv preprint arXiv:2203.16487</em>, 2022.</div>
+</div>
+<div id="ref-leviathan2023sd" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[62] </div><div class="csl-right-inline">Y. Leviathan, M. Kalman, 和 Y. Matias, <span>《Fast Inference from Transformers via Speculative Decoding》</span>, 收入 <em>Fortieth International Conference on Machine Learning</em>, 2023.</div>
+</div>
+<div id="ref-xia2024unlocking_sd_survey" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[63] </div><div class="csl-right-inline">H. Xia <em>等</em>, <span>《Unlocking efficiency in large language model inference: A comprehensive survey of speculative decoding》</span>, <em>arXiv preprint arXiv:2401.07851</em>, 2024.</div>
+</div>
+<div id="ref-fu2024lookahead" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[64] </div><div class="csl-right-inline">Y. Fu, P. Bailis, I. Stoica, 和 H. Zhang, <span>《Break the Sequential Dependency of <span>LLM</span> Inference Using Lookahead Decoding》</span>, 收入 <em>Forty-first International Conference on Machine Learning</em>, 2024. 载于: <a href="https://lmsys.org/blog/2023-11-21-lookahead-decoding/">https://lmsys.org/blog/2023-11-21-lookahead-decoding/</a></div>
+</div>
+<div id="ref-anonymous2025fafo" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[65] </div><div class="csl-right-inline">Anonymous, <span>《<span>FAFO</span>: Lossy <span>KV</span> Cache Compression for Lossless Inference Acceleration via Draftless Fumble Decoding》</span>, 收入 <em>Submitted to The Fourteenth International Conference on Learning Representations</em>, 2025. 载于: <a href="https://openreview.net/forum?id=oSk9tP5Mgs">https://openreview.net/forum?id=oSk9tP5Mgs</a></div>
+</div>
+</div></section><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">脚注</h2>
+
+<ol>
+<li id="fn1"><p>https://x.com/lmarena_ai/status/1835760196758728898<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn2"><p>https://huggingface.co/RedHatAI/DeepSeek-R1-Distill-Llama-70B-quantized.w8a8<a href="#fnref2" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn3"><p>https://cloud.google.com/blog/products/ai-machine-learning/bfloat16-the-secret-to-high-performance-on-cloud-tpus<a href="#fnref3" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn4"><p>https://github.com/facebook/zstd<a href="#fnref4" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn5"><p>https://github.com/liuliu/s4nnc/pull/11<a href="#fnref5" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn6"><p>https://encode.su/threads/4067-Good-Compressors-for-16-bit-floats<a href="#fnref6" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+<li id="fn7"><p>https://developer.nvidia.com/nvcomp<a href="#fnref7" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "已复制");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "已复制");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/sadsock\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© 2026 SadSock</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

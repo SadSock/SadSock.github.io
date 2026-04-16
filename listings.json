@@ -2,6 +2,10 @@
   {
     "listing": "/index.html",
     "items": [
+      "/posts/2026-03-30-zipfloat-an-ultra-fast-and-lossless-floating-point-compressor-for-llm-inference-systems.html",
+      "/posts/2026-03-17-70-percent-size-100-percent-accuracy-lossless-llm-compression-dfloat11.html",
+      "/posts/2026-03-06-cute-layout-representation-and-algebra.html",
+      "/posts/2026-03-04-tsp-isca20-translation.html",
       "/posts/2026-03-03-modern-nvidia-gpu-core-analysis.html",
       "/posts/2021-8-27-deeper-look-llvm-codegen-0.html",
       "/posts/2020-12-03-RISCW-5.html",

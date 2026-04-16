@@ -1,0 +1,391 @@
+@misc{Tillet:LinearLayouts,
+      title={Linear Layouts: Robust Code Generation of Efficient Tensor Computation Using $\mathbb{F}_2$},
+      author={Keren Zhou and Mario Lezcano and Adam Goucher and Akhmed Rakhmati and Jeff Niu and Justin Lebar and Pawel Szczerbuk and Peter Bell and Phil Tillet and Thomas Raoux and Zahi Moudallal},
+      year={2025},
+      eprint={2505.23819},
+      archivePrefix={arXiv},
+      primaryClass={cs.PL},
+      url={https://arxiv.org/abs/2505.23819},
+}
+
+% URL omitted (available via DOI): https://doi.org/10.1145/3315508.3329973
+@inproceedings{Triton:Triton,
+author = {Tillet, Philippe and Kung, H. T. and Cox, David},
+title = {Triton: an intermediate language and compiler for tiled neural network computations},
+year = {2019},
+isbn = {9781450367196},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+doi = {10.1145/3315508.3329973},
+abstract = {The validation and deployment of novel research ideas in the field of Deep Learning is often limited by the availability of efficient compute kernels for certain basic primitives. In particular, operations that cannot leverage existing vendor libraries (e.g., cuBLAS, cuDNN) are at risk of facing poor device utilization unless custom implementations are written by experts – usually at the expense of portability. For this reason, the development of new programming abstractions for specifying custom Deep Learning workloads at a minimal performance cost has become crucial. We present Triton, a language and compiler centered around the concept of tile, i.e., statically shaped multi-dimensional sub-arrays. Our approach revolves around (1) a C-based language and an LLVM-based intermediate representation (IR) for expressing tensor programs in terms of operations on parametric tile variables and (2) a set of novel tile-level optimization passes for compiling these programs into efficient GPU code. We demonstrate how Triton can be used to build portable implementations of matrix multiplication and convolution kernels on par with hand-tuned vendor libraries (cuBLAS / cuDNN), or for efficiently implementing recent research ideas such as shift convolutions.},
+booktitle = {Proceedings of the 3rd ACM SIGPLAN International Workshop on Machine Learning and Programming Languages},
+pages = {10–19},
+numpages = {10},
+keywords = {neural networks, compiler, GPU},
+location = {Phoenix, AZ, USA},
+series = {MAPL 2019}
+}
+
+% URL omitted (available via DOI): https://arxiv.org/abs/1410.0759
+@misc{cuDNN,
+      title={{cuDNN}: Efficient Primitives for Deep Learning},
+      author={Sharan Chetlur and Cliff Woolley and Philippe Vandermersch and Jonathan Cohen and John Tran and Bryan Catanzaro and Evan Shelhamer},
+      year={2014},
+      eprint={1410.0759},
+      archivePrefix={arXiv},
+      primaryClass={cs.NE},
+}
+
+% URL omitted (available via DOI): https://doi.org/10.1145/3656390
+@article{Liu:ATL2,
+author = {Liu, Amanda and Bernstein, Gilbert and Chlipala, Adam and Ragan-Kelley, Jonathan},
+title = {A Verified Compiler for a Functional Tensor Language},
+year = {2024},
+issue_date = {June 2024},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {8},
+number = {PLDI},
+doi = {10.1145/3656390},
+journal = {Proc. ACM Program. Lang.},
+month = jun,
+articleno = {160},
+numpages = {23},
+keywords = {functional programming, array programming, formal verification, type systems, tensors}
+}
+
+% URL omitted (available via DOI): https://doi.org/10.1145/3498717
+@article{Liu:ATL1,
+author = {Liu, Amanda and Bernstein, Gilbert Louis and Chlipala, Adam and Ragan-Kelley, Jonathan},
+title = {Verified tensor-program optimization via high-level scheduling rewrites},
+year = {2022},
+issue_date = {January 2022},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {6},
+number = {POPL},
+doi = {10.1145/3498717},
+journal = {Proc. ACM Program. Lang.},
+month = jan,
+articleno = {55},
+numpages = {28},
+keywords = {proof assistants, optimization, formal verification, array programming}
+}
+
+% URL omitted (available via DOI): https://arxiv.org/abs/2511.10374
+@misc{Grover:ISLCuTe,
+      title={Modeling Layout Abstractions Using Integer Set Relations},
+      author={Somashekaracharya G. Bhaskaracharya and Aravind Acharya and Bastian Hagedorn and Vinod Grover},
+      year={2025},
+      eprint={2511.10374},
+      archivePrefix={arXiv},
+      primaryClass={cs.PL},
+}
+
+@misc{Colfax:CategoryCuTe,
+title={Categorical Foundations for {CuTe} Layouts},
+author={Colfax Research},
+year={2025},
+url={https://research.colfax-intl.com/download/categories-of-layouts/},
+}
+
+% URL omitted (available via DOI): https://arxiv.org/abs/2505.08091
+@misc{Tavakkoli:LEGO,
+      title={LEGO: Layout Expression for Generating One-to-one Mapping},
+      author={Amir Mohammad Tavakkoli and Cosmin Oancea and Mary Hall},
+      year={2025},
+      eprint={2505.08091},
+      archivePrefix={arXiv},
+      primaryClass={cs.PL},
+}
+
+@ARTICLE{Edelman:IndexTransforms,
+  author={Edelman, A. and Heller, S. and Lennart Johnsson, S.},
+  journal={IEEE Transactions on Parallel and Distributed Systems},
+  title={Index transformation algorithms in a linear algebra framework},
+  year={1994},
+  volume={5},
+  number={12},
+  pages={1302-1309},
+  keywords={Linear algebra;Hypercubes;Reflective binary codes;Encoding;Decoding;Vectors;Business continuity;Gaussian processes;Routing;Books},
+  doi={10.1109/71.334903}
+}
+
+% URL omitted (available via DOI): https://doi.org/10.1145/165231.165248
+@inproceedings{Cormen:PermutingParallel,
+author = {Cormen, Thomas H. and Wisniewski, Leonard F.},
+title = {Asymptotically tight bounds for performing BMMC permutations on parallel disk systems},
+year = {1993},
+isbn = {0897915992},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+doi = {10.1145/165231.165248},
+booktitle = {Proceedings of the Fifth Annual ACM Symposium on Parallel Algorithms and Architectures},
+pages = {130–139},
+numpages = {10},
+location = {Velen, Germany},
+series = {SPAA '93}
+}
+
+% URL omitted (available via DOI): https://www.sciencedirect.com/science/article/pii/S074373158371004X
+@article{Cormen:FastPermuting,
+title = {Fast Permuting on Disk Arrays},
+journal = {Journal of Parallel and Distributed Computing},
+volume = {17},
+number = {1},
+pages = {41-57},
+year = {1993},
+issn = {0743-7315},
+doi = {https://doi.org/10.1006/jpdc.1993.1004},
+author = {T.H. Cormen},
+abstract = {We present fast algorithms to accomplish common classes of permutations on parallel disk systems. Vitter and Shriver introduced a parallel I/O model and proved an asymptotically tight bound on the number of parallel I/Os needed to perform a general permutation. They demonstrated, however, that at least one type of permutation-matrix transpose-can be performed with fewer parallel I/Os than the lower bound for general permutations. This paper generalizes the Vitter-Shriver matrix-transpose result, showing that other classes of permutations can be performed with fewer parallel I/Os than the general permutation bound in many cases. We show how to perform bit-permute/complement (BPC) permutations, a class including matrix transpose and many other common permutations, with fewer parallel I/Os than general permutations. We also present a fast algorithm to perform bit-matrix-multiply/complement (BMMC) permutations. The algorithms for these permutations are built from restricted classes of permutations that we define, each requiring only one pass over the data. All the permutation algorithms presented in this paper are deterministic and are easily performed on-line.}
+}
+
+% URL omitted (available via DOI): https://doi.org/10.1145/3609024.3609411
+@inproceedings{Bouverot:AffineIndex,
+author = {Bouverot-Dupuis, Mathis and Sheeran, Mary},
+title = {Efficient GPU Implementation of Affine Index Permutations on Arrays},
+year = {2023},
+isbn = {9798400702969},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+doi = {10.1145/3609024.3609411},
+abstract = {Optimal usage of the memory system is a key element of fast GPU algorithms. Unfortunately many common algorithms fail in this regard despite exhibiting great regularity in memory access patterns. In this paper we propose efficient kernels to permute the elements of an array. We handle a class of permutations known as Bit Matrix Multiply Complement (BMMC) permutations, for which we design kernels of speed comparable to that of a simple array copy. This is a first step towards implementing a set of array combinators based on these permutations.},
+booktitle = {Proceedings of the 11th ACM SIGPLAN International Workshop on Functional High-Performance and Numerical Computing},
+pages = {15–28},
+numpages = {14},
+keywords = {GPU, data-parallelism, functional languages},
+location = {Seattle, WA, USA},
+series = {FHPNC 2023}
+}
+
+@article{blackford2002updated,
+  title={An updated set of basic linear algebra subprograms (BLAS)},
+  author={Blackford, L Susan and Petitet, Antoine and Pozo, Roldan and Remington, Karin and Whaley, R Clint and Demmel, James and Dongarra, Jack and Duff, Iain and Hammarling, Sven and Henry, Greg and others},
+  journal={ACM Transactions on Mathematical Software},
+  volume={28},
+  number={2},
+  pages={135--151},
+  year={2002}
+}
+
+% URL omitted (available via DOI): https://doi.org/10.1145/2764454
+@article{VanZee:BLIS,
+author = {Van Zee, Field G. and van de Geijn, Robert A.},
+title = {BLIS: A Framework for Rapidly Instantiating BLAS Functionality},
+year = {2015},
+issue_date = {June 2015},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+volume = {41},
+number = {3},
+issn = {0098-3500},
+doi = {10.1145/2764454},
+journal = {ACM Trans. Math. Softw.},
+month = jun,
+articleno = {14},
+numpages = {33},
+keywords = {matrix, libraries, high-performance, Linear algebra, BLAS}
+}
+
+
+@INPROCEEDINGS{Shi:BLASContractions,
+  author={Shi, Yang and Niranjan, U. N. and Anandkumar, Animashree and Cecka, Cris},
+  booktitle={2016 IEEE 23rd International Conference on High Performance Computing (HiPC)},
+  title={{Tensor Contractions with Extended BLAS Kernels on CPU and GPU}},
+  year={2016},
+  volume={},
+  number={},
+  pages={193-202},
+  keywords={Tensile stress;Graphics processing units;Libraries;Kernel;Indexes;Algebra;Benchmark testing;Parallelism;BLAS;GPU;Tensor},
+  doi={10.1109/HiPC.2016.031}
+}
+
+% URL omitted (available via DOI): https://doi.org/10.1145/3572848.3577479
+@inproceedings{Osama:StreamK,
+author = {Osama, Muhammad and Merrill, Duane and Cecka, Cris and Garland, Michael and Owens, John D.},
+title = {{Stream-K: Work-Centric Parallel Decomposition for Dense Matrix-Matrix Multiplication on the GPU}},
+year = {2023},
+isbn = {9798400700156},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+doi = {10.1145/3572848.3577479},
+booktitle = {Proceedings of the 28th ACM SIGPLAN Annual Symposium on Principles and Practice of Parallel Programming},
+pages = {429–431},
+numpages = {3},
+keywords = {GPU, load-balancing, matrix-multiplication},
+location = {Montreal, QC, Canada},
+series = {PPoPP '23}
+}
+
+% URL omitted (available via DOI): https://doi.org/10.1145/3582016.3582018
+@inproceedings{Hagedorn:Graphene,
+author = {Hagedorn, Bastian and Fan, Bin and Chen, Hanfeng and Cecka, Cris and Garland, Michael and Grover, Vinod},
+title = {Graphene: An IR for Optimized Tensor Computations on GPUs},
+year = {2023},
+isbn = {9781450399180},
+publisher = {Association for Computing Machinery},
+address = {New York, NY, USA},
+doi = {10.1145/3582016.3582018},
+booktitle = {Proceedings of the 28th ACM International Conference on Architectural Support for Programming Languages and Operating Systems, Volume 3},
+pages = {302–313},
+numpages = {12},
+keywords = {Code Generation, Compiler, Deep Learning, GPU, Intermediate Representation, Optimization, Tensor Computations},
+location = {Vancouver, BC, Canada},
+series = {ASPLOS 2023}
+}
+
+
+@misc{kerr2017cutlass,
+  title={{CUTLASS: Fast Linear Algebra in CUDA C++}},
+  author={Kerr, Andrew and Merrill, Duane and Demouth, Julien and Tran, John},
+  url={https://developer.nvidia.com/blog/cutlass-linear-algebra-cuda},
+  year={2017}
+}
+
+@misc{NVIDIA:cutlass_v3,
+  author = {{NVIDIA}},
+  title = {{CUTLASS: CUDA Templates for Linear Algebra Subroutines and Solvers}},
+  year = {2023},
+  version = {3.0.0},
+  url = {https://github.com/NVIDIA/cutlass/tree/v3.0.0},
+  publisher = {{GitHub}}
+}
+
+@article{nath2010improved,
+  title={{An improved MAGMA GEMM for Fermi Graphics Processing Units}},
+  author={Nath, Rajib and Tomov, Stanimire and Dongarra, Jack},
+  journal={The International Journal of High Performance Computing Applications},
+  volume={24},
+  number={4},
+  pages={511--515},
+  year={2010},
+  publisher={SAGE Publications Sage UK: London, England}
+}
+
+% URL omitted (available at NeurIPS proceedings): https://proceedings.neurips.cc/paper_files/paper/2022/file/67d57c32e20fd0a7a302cb81d36e40d5-Paper-Conference.pdf
+@inproceedings{Dao:FlashAttention,
+ author = {Dao, Tri and Fu, Dan and Ermon, Stefano and Rudra, Atri and R\'{e}, Christopher},
+ booktitle = {Advances in Neural Information Processing Systems},
+ editor = {S. Koyejo and S. Mohamed and A. Agarwal and D. Belgrave and K. Cho and A. Oh},
+ pages = {16344--16359},
+ publisher = {Curran Associates, Inc.},
+ title = {{FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness}},
+ volume = {35},
+ year = {2022}
+}
+
+% URL omitted (available via DOI): https://arxiv.org/abs/2307.08691
+@misc{Dao:FlashAttention2,
+      title={{FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning}},
+      author={Tri Dao},
+      year={2023},
+      eprint={2307.08691},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+}
+
+% URL omitted (available at NeurIPS proceedings): https://proceedings.neurips.cc/paper_files/paper/2024/file/7ede97c3e082c6df10a8d6103a2eebd2-Paper-Conference.pdf
+@inproceedings{Dao:FlashAttention3,
+ author = {Shah, Jay and Bikshandi, Ganesh and Zhang, Ying and Thakkar, Vijay and Ramani, Pradeep and Dao, Tri},
+ booktitle = {Advances in Neural Information Processing Systems},
+ doi = {10.52202/079017-2193},
+ editor = {A. Globerson and L. Mackey and D. Belgrave and A. Fan and U. Paquet and J. Tomczak and C. Zhang},
+ pages = {68658--68685},
+ publisher = {Curran Associates, Inc.},
+ title = {FlashAttention-3: Fast and Accurate Attention with Asynchrony and Low-precision},
+ volume = {37},
+ year = {2024}
+}
+
+% URL omitted (available via DOI): http://dx.doi.org/10.56553/popets-2023-0020
+@article{Aharoni:HeLayers,
+   title={HeLayers: A Tile Tensors Framework for Large Neural Networks on Encrypted Data},
+   volume={2023},
+   ISSN={2299-0984},
+   DOI={10.56553/popets-2023-0020},
+   number={1},
+   journal={Proceedings on Privacy Enhancing Technologies},
+   publisher={Privacy Enhancing Technologies Symposium Advisory Board},
+   author={Aharoni, Ehud and Adir, Allon and Baruch, Moran and Drucker, Nir and Ezov, Gilad and Farkash, Ariel and Greenberg, Lev and Masalha, Ramy and Moshkowich, Guy and Murik, Dov and Shaul, Hayim and Soceanu, Omri},
+   year={2023},
+   month=jan, pages={325–342} 
+  }
+
+% URL omitted (available via DOI): https://arxiv.org/abs/2410.20399
+@misc{Spector:ThunderKittens,
+      title={ThunderKittens: Simple, Fast, and Adorable AI Kernels}, 
+      author={Benjamin F. Spector and Simran Arora and Aaryan Singhal and Daniel Y. Fu and Christopher Ré},
+      year={2024},
+      eprint={2410.20399},
+      archivePrefix={arXiv},
+      primaryClass={cs.LG},
+}
+
+% URL omitted (Semantic Scholar): https://api.semanticscholar.org/CorpusID:184488182
+@article{Tillet:TritonAI,
+  title={Triton: an intermediate language and compiler for tiled neural network computations},
+  author={Philippe Tillet and Hsiang-Tsung Kung and David D. Cox},
+  journal={Proceedings of the 3rd ACM SIGPLAN International Workshop on Machine Learning and Programming Languages},
+  year={2019}
+}
+
+
+@misc{NVIDIA:Volta,
+  title={{Volta Architecture Whitepaper}},
+  author={NVIDIA},
+  year={2017},
+  url={https://images.nvidia.com/content/volta-architecture/pdf/volta-architecture-whitepaper.pdf},
+}
+
+@misc{NVIDIA:Turing,
+  title={{Turing Architecture Whitepaper}},
+  author={NVIDIA},
+  year={2018},
+  url={https://images.nvidia.com/aem-dam/en-zz/Solutions/design-visualization/technologies/turing-architecture/NVIDIA-Turing-Architecture-Whitepaper.pdf},
+}
+
+@misc{NVIDIA:Ampere,
+  title={{Ampere Architecture Whitepaper}},
+  author={NVIDIA},
+  year={2021},
+  url={https://images.nvidia.com/aem-dam/en-zz/Solutions/data-center/nvidia-ampere-architecture-whitepaper.pdf},
+}
+
+@misc{NVIDIA:Hopper,
+  title={{Hopper Architecture Whitepaper}},
+  author={NVIDIA},
+  year={2023},
+  url={https://resources.nvidia.com/en-us-hopper-architecture/nvidia-h100-tensor-c},
+}
+
+@misc{NVIDIA:Blackwell,
+  title={{Blackwell Architecture Whitepaper}},
+  author={NVIDIA},
+  year={2025},
+  url={https://images.nvidia.com/aem-dam/Solutions/geforce/blackwell/nvidia-rtx-blackwell-gpu-architecture.pdf},
+}
+
+@misc{NVIDIA:PTX,
+  title={{NVIDIA PTX ISA}},
+  author={NVIDIA},
+  year={2025},
+  url={https://docs.nvidia.com/cuda/parallel-thread-execution/},
+}
+
+@techreport{NVIDIA:PTX:9.0,
+  author = {{NVIDIA Corporation}},
+  title = {{PTX ISA 9.0 Documentation}},
+  institution = {{NVIDIA Corporation}},
+  year = {2025},
+  url = {https://docs.nvidia.com/cuda/parallel-thread-execution/index.html},
+}
+
+@misc{cute_dsl_nvidia, 
+  author = {NVIDIA}, 
+  title = {{CuTe DSL}: {Python} {APIs} for {CUTLASS}}, 
+  year = {2025}, 
+  howpublished = {\url{https://docs.nvidia.com/cutlass/latest/media/docs/pythonDSL/cute_dsl.html}}, 
+  note = {Accessed: 2026-03-01}, 
+  description = {CuTe DSL is a Python-based DSL for dynamic compilation of numeric and GPU-oriented code, providing a unified algebra for describing data layouts and thread mappings.}
+}
