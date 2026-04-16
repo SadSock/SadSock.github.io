@@ -1,9 +1,9 @@
 ---
 title: "Analyzing Modern NVIDIA GPU cores"
 date: 2026-03-03
-categories: [翻译, Architecture]
+categories: [翻译, 体系结构]
 keywords: [NVIDIA, GPU, Microarchitecture, Simulation]
-description: "原文：Analyzing Modern NVIDIA GPU cores"
+description: "Analyzing Modern NVIDIA GPU cores"
 toc: true
 bibliography: ../assets/modern/refs.bib
 csl: ../assets/modern/ieee.csl
