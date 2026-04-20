@@ -4,7 +4,7 @@
     "href": "index.html",
     "title": "主页",
     "section": "",
-    "text": "ZipFloat: An Ultra-fast and Lossless Floating-Point Compressor for LLM Inference Systems\n\n\n\n\n\n2026年3月30日\n\n\n\n\n\n\n\n70% Size, 100% Accuracy: Lossless LLM Compression for Efficient GPU Inference via Dynamic-Length Float (DFloat11)\n\n\n\n\n\n2026年3月17日\n\n\n\n\n\n\n\nCuTe Layout Representation and Algebra\n\n\n\n\n\n2026年3月6日\n\n\n\n\n\n\n\nThink Fast: A Tensor Streaming Processor (TSP)\n\n\n\n\n\n2026年3月4日\n\n\n\n\n\n\n\nAnalyzing Modern NVIDIA GPU cores\n\n\n\n\n\n2026年3月3日\n\n\n\n\n\n\n\n深入理解 LLVM code generator (一)\n\n\n\n\n\n2021年8月27日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(五)：算术指令\n\n\n\n\n\n2020年12月11日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(四)：指令选择\n\n\n\n\n\n2020年12月8日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(三)：配置构建系统\n\n\n\n\n\n2020年12月8日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(二)：创建后端\n\n\n\n\n\n2020年12月6日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(一)：入门\n\n\n\n\n\n2020年12月4日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(零)：简介\n\n\n\n\n\n2020年12月3日\n\n\n\n\n\n\n\nTableGen 简介\n\n\n\n\n\n2020年11月3日\n\n\n\n\n\n\n\n编写LLVM后端\n\n\n\n\n\n2020年11月1日\n\n\n\n\n\n\n\nWrite an LLVM Backend(零)：简介\n\n\n\n\n\n2020年11月1日\n\n\n\n\n\n无匹配项"
+    "text": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation\n\n\n\n\n\n2026年4月16日\n\n\n\n\n\n\n\nZipFloat: An Ultra-fast and Lossless Floating-Point Compressor for LLM Inference Systems\n\n\n\n\n\n2026年3月30日\n\n\n\n\n\n\n\n70% Size, 100% Accuracy: Lossless LLM Compression for Efficient GPU Inference via Dynamic-Length Float (DFloat11)\n\n\n\n\n\n2026年3月17日\n\n\n\n\n\n\n\nCuTe Layout Representation and Algebra\n\n\n\n\n\n2026年3月6日\n\n\n\n\n\n\n\nThink Fast: A Tensor Streaming Processor (TSP)\n\n\n\n\n\n2026年3月4日\n\n\n\n\n\n\n\nAnalyzing Modern NVIDIA GPU cores\n\n\n\n\n\n2026年3月3日\n\n\n\n\n\n\n\n深入理解 LLVM code generator (一)\n\n\n\n\n\n2021年8月27日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(五)：算术指令\n\n\n\n\n\n2020年12月11日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(四)：指令选择\n\n\n\n\n\n2020年12月8日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(三)：配置构建系统\n\n\n\n\n\n2020年12月8日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(二)：创建后端\n\n\n\n\n\n2020年12月6日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(一)：入门\n\n\n\n\n\n2020年12月4日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(零)：简介\n\n\n\n\n\n2020年12月3日\n\n\n\n\n\n\n\nTableGen 简介\n\n\n\n\n\n2020年11月3日\n\n\n\n\n\n\n\n编写LLVM后端\n\n\n\n\n\n2020年11月1日\n\n\n\n\n\n\n\nWrite an LLVM Backend(零)：简介\n\n\n\n\n\n2020年11月1日\n\n\n\n\n\n无匹配项"
   },
   {
     "objectID": "posts/2021-8-27-deeper-look-llvm-codegen-0.html",
@@ -495,6 +495,146 @@
     "title": "为LLVM添加简易RISCV后端(一)：入门",
     "section": "脚注",
     "text": "脚注\n\n\n公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。↩︎\n这个教程描述了如何开发LLVM后端，但我发现很难理解。↩︎"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "",
+    "text": "原文版权声明：本文依据公开来源论文 MLIR: Scaling Compiler Infrastructure for Domain Specific Computation 进行中文翻译整理，仅供学习与研究使用。我仅提供翻译与网页整理，不拥有原文版权；原文版权归作者及出版方所有。转载、分发或用于商业用途时，请遵守原论文及原始发布平台的版权规定。\n原文信息：Chris Lattner, Mehdi Amini, Uday Bondhugula, Albert Cohen, Andy Davis, Jacques Pienaar, River Riddle, Tatiana Shpeisman, Nicolas Vasilache, Oleksandr Zinenko. MLIR: Scaling Compiler Infrastructure for Domain Specific Computation. 2021 IEEE/ACM International Symposium on Code Generation and Optimization (CGO 2021). DOI: 10.1109/CGO51591.2021.9370308。\n说明：以下内容按原文句序逐句对应翻译。图注、脚注、代码示例、安装命令与参考文献信息均尽量保留原貌；其中代码与参考文献信息不做中文改写。\n作者：Chris Lattner；Mehdi Amini；Uday Bondhugula；Albert Cohen；Andy Davis；Jacques Pienaar；River Riddle；Tatiana Shpeisman；Nicolas Vasilache；Oleksandr Zinenko\n单位：Google, USA；Google, USA；Indian Institute of Science, India；Google, France；Google, USA；Google, USA；Google, USA；Google, USA；Google, USA；Google, France\n注：* 发表时任职于 SiFive。† 本文工作期间在 Google 进行访问研究。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-contributions",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-contributions",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "贡献",
+    "text": "贡献\nMLIR 系统的大多数组成部分都建立在众所周知的概念和算法之上。 然而，它的目标和设计足够新颖，对其展开研究将带来大量研究机会，尤其是在以下总体原则的边界内更是如此：\n\n简约性（Parsimony）：对内建语义、概念和编程接口运用奥卡姆剃刀。 通过抽象操作和类型的属性，驾驭本质复杂性与偶发复杂性。 不变量只规定一次，但在全过程中验证其正确性。 在特定编译 pass 的上下文中查询属性。 由于内建内容极少，这为可扩展性与可定制性打开了大门。\n可追踪性（Traceability）：保留信息，而不是事后恢复信息。 通过声明规则和属性来支持变换，而不是用逐步的命令式规约。 可扩展性伴随着通用的信息追踪手段，并由广泛验证来保障。 组合式抽象来自对其属性进行“玻璃盒化”，并将其角色分离开来，例如类型、控制、数据流等。\n渐进性（Progressivity）：过早 lowering 是万恶之源。 除了表示层次之外，还要允许多条变换路径按需对单个 region 做 lowering。 再结合与抽象无关的原则和接口，这就能实现跨多个领域的复用。\n\n尽管这些原则已经较为成熟，但它们中的某一个往往会以牺牲另一个为代价来实现，例如，网络栈和操作系统栈中的分层符合渐进性原则，却破坏了简约性。 在具有多层 IR 的编译器中，这种情况也同样存在。 此外，遵循这些原则可能会损害表达能力和有效性，例如，在安全关键和安全敏感系统中，实现可追踪性意味着要限制优化及其激进程度。\n简而言之，我们识别出一组设计与工程原则，它们使编译器构造能够在一条狭窄的中间道路上繁荣发展，从而支持一个开放语义生态。 我们发现，复杂性可以在不限制表达能力的前提下得到驯服，这使得跨领域的 IR 设计探索与收敛能够快速进行，而这两点在生产系统中都严重缺失。\n本文的贡献是：（1）以经过验证的设计与工程原则为基础，对构建可扩展、模块化编译器系统的问题进行定位；（2）描述一种遵循这些原则的新型编译器基础设施，并展示其重要的工业与研究应用；（3）探讨若干面向不同领域的应用，以说明这种方法的通用性，并分享开发基于 MLIR 基础设施的系统时的经验。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-where-mlir-came-from",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-where-mlir-came-from",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "MLIR 从何而来？",
+    "text": "MLIR 从何而来？\nMLIR 的工作始于这样一个认识：现代机器学习框架由许多不同的编译器、图技术和运行时系统组成（见图 图 1），而它们并不共享一套共同的基础设施或设计原则。 这在用户层面体现为多种可见问题，包括糟糕的错误消息、边界情形失败、性能不可预测，以及难以将整套技术栈推广到新硬件上。\n我们很快意识到，整个编译器行业也存在类似问题：LLVM 这类现有系统在统一和整合多种语言工作负载方面非常成功，但高层语言最终往往会构建自己的高层 IR，并在更高抽象层上重新发明同类技术（见图 图 2）。 与此同时，LLVM 社区一直在并行结构表示、以及如何共享前端 lowering 基础设施（例如 C 调用约定，或者 OpenMP 这类跨语言特性）方面苦苦挣扎，而一直没有令人满意的解决方案。\n面对这一挑战，考虑到我们无法承担实现 N 个“更好的编译器实例”的成本，我们决定转向一种更通用的解决方案：投资于高质量基础设施，使其能够惠及多个领域，渐进地升级现有系统，更容易应对诸如面向专用加速器的异构编译这类紧迫问题，并提供新的研究机会。 现在，我们已经积累了大量构建和部署基于 MLIR 系统的经验，因此能够回过头来审视它的提出动机和设计，并讨论我们为何选择这一路线。\n\n\n\n\n\n\n图 1: TensorFlow 执行跨越不同框架。\n\n\n\n\n\n\n\n\n\n图 2: 带中间层语言 IR 的编译流水线。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-tensorflow-graphs",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-tensorflow-graphs",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "TensorFlow 图",
+    "text": "TensorFlow 图\n尽管前面讨论的其他表示形式对大多数编译器开发者都很熟悉，但 MLIR 的一个关键用例，是支持机器学习框架的开发。 这类框架的内部表示通常基于具有动态执行语义的数据流图 [22]。\nTensorFlow [23] 就是这样一个框架。 它的表示是一种高层数据流计算，其中节点代表计算，而这些计算可以放置在不同设备上，包括特定的硬件加速器。\nMLIR 被 TensorFlow 用来建模这种内部表示，并为图 图 1 所示的那些用例执行变换：从简单的代数优化，到将图重定向为适合数据中心集群上并行与分布式执行、以及异步硬件加速的表示；从 lowering 到适合移动端部署的表示，再到使用 XLA [24] 这类领域专用代码生成器生成高效原生代码。 图 图 6 中给出了 TensorFlow 图在 MLIR 中的表示。 它展示了异步并发的建模方式，其中数据流图通过隐式 future 被去同步化，而具有副作用的 Op 则通过显式控制信号被串行化，这同样遵循数据流语义。 尽管其中涉及的抽象极为不同，包括并发、异步、延迟求值等，MLIR 仍为其提供了与其他任何 dialect 或编译 pass 相同的基础设施、分析与变换能力。 特别是，Grappler5 中实现的关键图级变换，在 MLIR 中既可用于 TensorFlow 模型，也可用于低层 LLVM IR：死代码/死节点消除、常量折叠、canonicalization、循环不变代码外提、公共子表达式/子图消除、特定指令或设备内核选择、重物化、布局优化；而其他变换则可能是领域特定的，例如混合精度优化、op fusion 与形状算术优化。\n\n\n\n%0 = tf.graph (%arg0 : tensor&lt;f32&gt;, %arg1 : tensor&lt;f32&gt;,\n               %arg2 : !tf.resource) {\n  // Execution of these operations is asynchronous, the %control return value\n  // can be used to impose extra runtime ordering, for example the assignment\n  // to the variable %arg2 is ordered after the read explicitly below.\n  %1, %control = tf.ReadVariableOp(%arg2)\n     : (!tf.resource) -&gt; (tensor&lt;f32&gt;, !tf.control)\n  %2, %control_1 = tf.Add(%arg0, %1)\n     : (tensor&lt;f32&gt;, tensor&lt;f32&gt;) -&gt; (tensor&lt;f32&gt;, !tf.control)\n  %control_2 = tf.AssignVariableOp(%arg2, %arg0, %control)\n     : (!tf.resource, tensor&lt;f32&gt;) -&gt; !tf.control\n  %3, %control_3 = tf.Add(%2, %arg1)\n     : (tensor&lt;f32&gt;, tensor&lt;f32&gt;) -&gt; (tensor&lt;f32&gt;, !tf.control)\n  tf.fetch %3, %control_2 : tensor&lt;f32&gt;, !tf.control\n}\n\n\n图 6: TensorFlow 图在 MLIR 中的 SSA 表示。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-polyhedral-codegen",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-polyhedral-codegen",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "Polyhedral 代码生成",
+    "text": "Polyhedral 代码生成\nMLIR 最初的动机之一，是探索面向加速器的 polyhedral 代码生成。 affine dialect 是一种简化的 polyhedral 表示，其设计目标是支持渐进 lowering。 虽然在本文中无法完整展开其全部设计点，但我们会展示 affine dialect 的若干方面，以说明 MLIR 的建模能力，并将 affine dialect 与既有表示进行对比 [25], [26], [27], [28], [29]。\n1) 相似性： MLIR 的 affine dialect 在所有内存访问上都使用结构化多维类型。 在默认情形下，这些结构化类型是单射的：不同索引方式按构造保证不会别名，而这是 polyhedral 依赖分析的一个常见前提条件。\nAffine 建模被拆分为两部分。 Attribute 用于在编译期建模 affine map 与整数集合，而 Op 则用于将 affine 约束施加到代码上。 具体而言，affine.for Op 是一种 for 循环，其边界由 affine map 表示，而这些 map 的值要求在函数内保持不变。 因此，这些循环具有静态控制流。 类似地，affine.if 是一种受 affine 整数集合限制的条件语句。 循环体与条件体都是 region，并通过 affine.load 与 affine.store 限制索引必须是外围循环迭代变量的 affine 形式。 这使得精确的 affine 依赖分析成为可能，同时避免了从有信息损失的低层表示中反推 affine 形式的需要。\n\n\n\n// Affine loops are Ops with regions.\naffine.for %arg0 = 0 to %N {\n  // Only loop-invariant values, loop iterators, and affine functions of\n  // those are allowed.\n  affine.for %arg1 = 0 to %N {\n    // Body of affine for loops obey SSA.\n    %0 = affine.load %A[%arg0] : memref&lt;? x f32&gt;\n    // Structured memory reference (memref) type can have\n    // affine layout maps.\n    %1 = affine.load %B[%arg1] : memref&lt;? x f32, (d0)[s0] -&gt; (d0 + s0)&gt;\n    %2 = mulf %0, %1 : f32\n    // Affine load/store can have affine expressions as subscripts.\n    %3 = affine.load %C[%arg0 + %arg1] : memref&lt;? x f32&gt;\n    %4 = addf %3, %2 : f32\n    affine.store %4, %C[%arg0 + %arg1] : memref&lt;? x f32&gt;\n  }\n}\n\n\n图 7: affine dialect 对多项式乘法 C(i+j) += A(i) * B(j) 的表示。\n\n\n\n2) 与现有 polyhedral 的差异： 差异很多。 （1）丰富的类型：MLIR 的结构化 memory reference 类型包含一个 layout map，用以连接 buffer 的索引空间与实际地址空间。 这种关注点分离使循环变换与数据变换更容易组合：数据布局变化不会影响代码，也不会污染依赖分析。 这类混合变换此前已有探索 [30]，但并不常见。\n（2）抽象混合：在 MLIR 中，affine 循环体可以使用带类型的 SSA 值上的 operation 来表达。 因此，所有传统编译器分析与变换仍然适用，并且可以与 polyhedral 变换交错执行。 相反，polyhedral 编译器常常会把这类细节完全抽象掉，从而使 polyhedral 编译器难以处理例如向量类型等对象。\n（3）更小的表示鸿沟：polyhedral 模型的一个关键特性，是它能够在类型系统中表示循环迭代顺序。 在这一系统里，大量循环变换可以直接组合，并能用简单数学抽象来推理 [26]。 然而，polyhedral 变换要求先提升到一种往往与原始表示截然不同的表示 [31], [32]。 此外，把变换后的 polyhedra 再转换回循环在计算上是困难的 [33]。 基于 MLIR 的表示会在较低层表示周围保留高层循环结构，从而消除了“再提升”的需要。\n（4）编译速度：正如 小节 6.4 所讨论的那样，编译速度是 MLIR 的一个关键目标，但这并非大多数现有 polyhedral 方法的关注重点。 这些方法严重依赖指数复杂度算法：既依赖整数线性规划来自动导出循环顺序，也依赖 polyhedron scanning 算法来把表示转换回循环。 而 MLIR 方法显式不依赖 polyhedron scanning，因为循环本身就被保留在 IR 中。 此外，代码生成既可以在 ahead-of-time 情况下发生，例如生成适用于动态 shape 的通用代码，也可以在 just-in-time 情况下发生，例如对静态 shape 的 tensor operation 做特化。 后者对可用资源提出了更严格约束，而这两类场景都很重要。\n使用 affine dialect 的经验表明，一等 affine 抽象有助于设计和实现领域专用代码生成器，其中包括 linalg dialect6 以及 RISE 中的声明式重写规则7。 这些发展以及 affine dialect 本身，都代表了 MLIR 设计所促成的重要探索。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-fir",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-fir",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "Fortran IR（FIR）",
+    "text": "Fortran IR（FIR）\nLLVM 的 Fortran 前端 flang 目前仍在大规模开发中，该工作由 NVIDIA/PGI 牵头。 与 Swift、Rust 等类似，flang 需要一种专门的 IR，以支持面向高性能 Fortran 代码库的高级变换，因此它使用 MLIR 来支持这些面向 Fortran 的特定优化 [34]。 这些高层优化，包括高级循环优化、数组复制消除、调用特化以及去虚化，如果只使用 LLVM 将很难实现。\n例如，FIR 能够把 Fortran 的虚分发表建模为一等概念，如图 图 8 所示。\n\n\n\n// Dispatch table for type(u)\nfir.dispatch_table @dtable_type_u {\n  fir.dt_entry \"method\", @u_method\n}\n\nfunc @some_func() {\n  %uv = fir.alloca !fir.type&lt;u&gt; : !fir.ref&lt;!fir.type&lt;u&gt;&gt;\n  fir.dispatch \"method\"(%uv) : (!fir.ref&lt;!fir.type&lt;u&gt;&gt;) -&gt; ()\n  // ...\n}\n\n\n图 8: FIR 对动态虚函数分发表提供了一等支持。\n\n\n\n能够在结构化 IR 中建模编程语言的高层语义，是非常强大的能力。 例如，对分发表的一等建模使实现一个健壮的去虚化 pass 成为可能。 尽管这本来也可以借助专用编译器 IR 来实现，但使用 MLIR 使 flang 开发者能够把工程资源集中投入到其领域内的 IR 设计上，而不是重新实现基本基础设施。\n选择 MLIR 还释放了其他非 Fortran 专用 dialect 的复用能力：一个语言无关的 OpenMP dialect 可以在 Fortran 和 C 语言前端之间共享。 类似地，在 MLIR 中，通过共享与复用面向 GPU 的 dialect 与 pass，针对异构平台支持 OpenACC 也变得可行。 这之所以直接可行，正是因为 MLIR 从一开始就是为支持可组合 dialect 混用而设计的。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-domain-specific-compilers",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-domain-specific-compilers",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "领域专用编译器",
+    "text": "领域专用编译器\n上面的应用都处于较大的工作流之中。 但 MLIR 也有助于构建更小型的领域专用编译器。 一个可复用、模块化的基础设施，使这些专门路径变得可行，而且构建成本相对低廉。\n优化 MLIR Pattern Rewriting： MLIR 拥有一个可扩展的模式重写系统。 除了静态声明的 pattern 之外，我们还遇到过一些应用场景，在这些场景中重写 pattern 需要在运行时动态扩展，以允许硬件厂商在驱动中添加新的 lowering。 解决方案是把 MLIR pattern rewrite 本身表示成一个 MLIR dialect，从而允许我们使用 MLIR 基础设施，在运行时即时构建并优化高效的 Finite State Machine（FSM）匹配器与重写器。 这项工作包括其他系统中已经出现过的 FSM 优化，例如 LLVM SelectionDAG 和 GlobalISel 的指令选择系统。\nLattice Regression Compiler： Lattice regression [35] 是一种以求值速度快且可解释性强而著称的机器学习技术。 该编译器的前身使用 C++ template 实现。 这种方式虽然能借助元编程获得高性能代码，但要对端到端模型表达通用优化却并不直接。 这个特定的 lattice regression 系统被用于拥有数百万用户的应用中，因此性能改进至关重要。\nMLIR 被用作这一专门领域中新编译器的基础，而该编译器由一种专门的搜索方法驱动，也就是说，在编译期间实际上解决了一个机器学习问题。 这个最终编译器只投入了 3 人月的开发工作，却在某个生产模型上带来了最高 8× 的性能提升，同时也提高了编译过程的透明性。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-reusable-passes",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-reusable-passes",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "可复用的编译器 Pass",
+    "text": "可复用的编译器 Pass\n能够在同一个 IR 中表示多个抽象层级，会激励那些跨这些层级工作的 pass。 MLIR 通过反转常见做法来处理可扩展性：因为 Op 的数量比 pass 多，所以让 Op 了解 pass 更容易。 这也改进了模块化，因为 dialect 特定逻辑是在 dialect 内部实现的，而不是塞进核心变换里。 由于 pass 很少需要知道某个 Op 的全部方面，MLIR 依赖以下机制来实现通用 pass。\nOperation Trait： 许多常见的“面包黄油型”编译器 pass，例如死代码消除或公共子表达式消除，只依赖于诸如“是否是 terminator”或“是否可交换”这类简单属性。 我们把这类属性定义为 Op Trait。 一个 Op 无条件地具有某个 trait，例如，一个 standard branch Op 总是 terminator。 对许多 pass 来说，只要知道某个 Op 具备一组 trait，就足以对它操作，例如交换 operand，或者删除那些没有副作用且没有用户的 Op。\nTrait 还可以充当验证钩子，以便在多个具备该 trait 的 Op 之间共享逻辑。 例如，isolated from above trait 会验证 Op 中的 region 不会使用由包围它的 region 中定义的值。 它允许对函数、模块以及其他自包含结构进行通用处理。\nInterface： 当无条件、静态的行为表达力不足时，就可以通过 interface 对处理逻辑进行参数化，这一概念借鉴自面向对象编程。 Interface 定义了一个对 IR 对象行为的视图，并把不必要的细节抽象掉。 与 trait 不同，interface 是由 IR 对象通过任意 C++ 代码实现的，因此不同对象可以给出不同结果。 例如，call Op 实现了 call-like interface，但该 Op 的不同实例会调用不同的函数。\nMLIR pass 可以基于 interface 来实现，从而与任何选择接入该 pass 的 Op 建立契约。 继续用 call-like 的例子，考虑 MLIR 的 inlining pass，它可以处理 TensorFlow 图、Flang 函数、函数式语言中的闭包等。 这样的 pass 需要知道两件事：（1）把一个 operation 内联进某个 region 是否有效；（2）当 terminator operation 在内联后跑到了 block 中间时，应当如何处理。\n为了查询某个 Op 的这些属性，pass 会定义一个专用 interface，以便 Op 通过向 MLIR 注册其实现来受益于内联。 而内联 pass 会对任何没有实现相应 interface 的 operation 采取保守策略，也就是直接忽略。\n常量折叠也是通过同样的机制实现的：每个 Op 都实现 fold interface，通过提供一个函数，在该 Op 可折叠时返回一个持有对应值的 attribute。 更通用的 canonicalization 也可以类似地实现：某个 interface 会填充一组适用于 pattern rewriting 的 canonicalization pattern。 这种设计把通用逻辑与 Op 特定逻辑分离开来，并将后者放进 Op 自身，从而减轻了 LLVM 中 InstCombine、PeepholeOptimizer 之类组件众所周知的维护与复杂性负担。\nInterface 也可以由 dialect 而不是具体 Op 来实现，这允许共享行为，或把逻辑委托给外部实现，例如对 TensorFlow Op 执行常量折叠时就是如此。 Interface 同样支持 type 和 attribute，例如，一个加法 operation 可以支持任何自声明为“integer-like”且可查询其有符号语义的类型。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-dialect-specific-passes",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-dialect-specific-passes",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "方言特定 Pass",
+    "text": "方言特定 Pass\n最后，定义只针对特定 dialect 的 pass 也是合理且有用的，因为这类 pass 可以充分利用它所面向 dialect 中 operation 的完整语义。 在 MLIR 系统里，这类 pass 与在其他编译器系统里一样有用。 例如，某些代码生成器希望基于特定机器约束，或者基于其他不适合纳入更广泛框架的技巧，对机器指令做定制调度。 对于不要求一般化的新变换来说，这是一种简单且实用的起点。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-mixing-dialects",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-mixing-dialects",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "将多个 Dialect 混合在一起",
+    "text": "将多个 Dialect 混合在一起\nMLIR 最深刻、但也最难让人一下子理解的一个方面，是它允许并鼓励在一个程序中混合来自不同 dialect 的 operation。 其中一些情况相对容易理解，例如在同一 module 中同时容纳主机端与加速器端的计算。 但最有趣的情况发生在 dialect 被直接混合时，因为这使一种我们此前在其他系统里从未见过的复用类别成为可能。\n考虑 小节 5.2 中描述的 affine dialect。 affine 控制流与 affine 映射的定义，独立于那些被包含在 affine region 中的 operation 语义。 在我们的例子里，我们把 affine dialect 与 standard dialect 组合在一起，后者以类似 LLVM IR 的目标无关形式表示简单算术，同时还会与多个针对内部加速器的目标相关机器指令 dialect 组合。 其他人也已经把它与来自其他问题域的抽象结合起来。\n能够复用通用 polyhedral 变换，同时利用 Op interface 来获取特定变换中 operation 的语义，是一种非常强大、也让我们十分兴奋的编译器基础设施组织方式。 另一个例子是，OpenMP dialect 可以在多种源语言 IR 中被使用与复用。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-parallel-compilation",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-parallel-compilation",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "并行编译",
+    "text": "并行编译\nMLIR 的一个重要方面，是能够利用多核机器来提高编译速度。 特别地，isolated from above trait（见 小节 6.1）允许函数之类的 Op 接入 MLIR pass manager 支持的并发 IR 遍历机制。 事实上，这个 trait 保证 SSA use-def 链不会跨越 region 边界，因此相关区域可以被隔离处理。 MLIR 也不具有跨整个 module 的 use-def 链，而是通过 symbol table（见 小节 4）引用全局对象，并把常量定义为带 attribute 的 operation（见 小节 4）。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-interoperability",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-interoperability",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "互操作性",
+    "text": "互操作性\n我们的工作涉及与大量现有系统互操作，例如以 protocol buffer 编码的机器学习图、包括 LLVM IR 在内的编译器 IR，以及专有指令集等。 这些表示形式往往都带有一些次优或不够理想的决定，而这些决定在原系统语境里可能是合理的，但 MLIR 的能力允许我们使用一种表达力更强的表示。 由于 importer 和 exporter 众所周知地很难测试，因为测试样例往往是二进制，我们希望尽可能降低它们的复杂度。\n解决方案是定义一个尽可能直接对应外部系统的 dialect，从而允许与该格式进行简单且可预测的双向 round-trip。 一旦 IR 被导入 MLIR，就可以利用全部 MLIR 基础设施把它提升到更方便的 IR，再将其 lowering 回去；而这也使得这些变换可以像其他 MLIR pass 一样接受测试。\n此类 dialect 已有大量例子，其中包括把 LLVM IR 映射进 MLIR 的 LLVM dialect。 这种做法对我们来说效果良好，而 MLIR 工具链也被证明对为这些外部文件格式编写测试很有帮助。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-unopinionated-design",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-unopinionated-design",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "无预设立场的设计带来了新的挑战",
+    "text": "无预设立场的设计带来了新的挑战\n尽管 MLIR 允许人们定义几乎任意的抽象，但它对究竟应当怎么做提供的指导却很少：什么样的做法实践中更好，什么样的做法更差？ 我们已经积累了一些经验，看到不少工程师和研究者把这些技术与方法应用到新的问题域上，并认识到编译器与语言领域对于编译器 IR 设计和抽象设计这门“艺术”的理解并不充分；很多人都是在既有系统的约束内工作，但真正有机会亲自定义这些抽象的人相对较少。\n这既是挑战，也是又一组未来研究机会。 更广泛的 MLIR 社区正在围绕这些抽象设计权衡建立经验，而我们预计，这会在未来成为一个富有成果的研究方向。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-looking-forward",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-looking-forward",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "展望未来",
+    "text": "展望未来\nMLIR 的设计与其他编译器基础设施差异足够大，以至于即便我们已经把它构建并应用于许多不同系统，我们仍在学习之中。 我们相信，仍然有大量内容有待发现，而且还需要若干年的研究，才能更好理解这些设计点并建立最佳实践。 例如，out-of-tree dialect 的兴起、越来越多使用 MLIR 的源语言前端、MLIR 在 Abstract Syntax Tree 上的潜在应用，以及其在结构化数据，例如 JSON 和 protocol buffer 上的应用，目前都还很早期，而它们很可能会揭示出新的有趣挑战与机会。 更好的 just-in-time 编译支持与精确垃圾回收支持，也会是有趣方向，因为它们都能利用 IR 的模块化与可编程性。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-appendix-abstract",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-appendix-abstract",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "工件摘要",
+    "text": "工件摘要\n本文对应的工件包括 MLIR 系统、如何下载和构建它的说明，以及指向 TensorFlow 中与 MLIR 相关源代码的链接。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-artifact-checklist",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-artifact-checklist",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "工件核对清单（元信息）",
+    "text": "工件核对清单（元信息）\n\nProgram: MLIR\nCompilation: LLVM C++ toolchain\nRun-time environment: Recommended Linux\nPublicly available?: Yes\nArchived: DOI 10.5281/zenodo.4283090"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-description",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-description",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "说明",
+    "text": "说明\n1) 交付方式： 若要下载 MLIR，请执行：\ngit clone \\\nhttps://github.com/llvm/llvm-project.git\n关于下载和构建 MLIR 的说明，也可见于 https://mlir.llvm.org/getting_started。 更多信息可见 https://mlir.llvm.org。\n2) 软件依赖： 下载 MLIR 需要 git。 构建 MLIR 需要 Ninja（https://ninja-build.org/）以及一个可用的 C++ 工具链，其中包括 clang 和 lld。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-installation",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-installation",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "安装",
+    "text": "安装\n要在 Linux 上构建并测试 MLIR，请执行以下命令：\nmkdir llvm-project/build\ncd llvm-project/build\ncmake -G Ninja ../llvm \\\n  -DLLVM_ENABLE_PROJECTS=mlir \\\n  -DLLVM_BUILD_EXAMPLES=ON \\\n  -DLLVM_TARGETS_TO_BUILD=\"X86;NVPTX;AMDGPU\" \\\n  -DCMAKE_BUILD_TYPE=Release \\\n  -DLLVM_ENABLE_ASSERTIONS=ON \\\n  -DCMAKE_C_COMPILER=clang \\\n  -DCMAKE_CXX_COMPILER=clang++ \\\n  -DLLVM_ENABLE_LLD=ON\ncmake --build . --target check-mlir"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-applications",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-applications",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "应用",
+    "text": "应用\nTensorFlow 中对 MLIR 的使用可在代码位置 https://github.com/tensorflow/tensorflow/tree/master/tensorflow/compiler/mlir/ 中看到。 位于 tensorflow/tests 子目录中的测试包含 MLIR 片段，它们展示了 TensorFlow 图表示与相关变换。 关于从源码构建 TensorFlow 的说明，可见 https://www.tensorflow.org/install/source。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#footnotes",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#footnotes",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "脚注",
+    "text": "脚注\n\n\nhttps://mlir.llvm.org↩︎\n文中原注：已经有人提出替代方案，试图获得更高生产力、更强健全性保证，以及与高层语言更好的互操作性；这仍是积极设计讨论中的主题。↩︎\nhttps://www.c4ml.org/↩︎\nhttp://www.cs.utah.edu/~mhall/mlir4hpc↩︎\nhttps://www.tensorflow.org/guide/graph_optimization↩︎\nhttps://mlir.llvm.org/docs/Dialects/Linalg/↩︎\nhttps://rise-lang.org/mlir/↩︎\nhttps://google.github.io/iree/↩︎"
   },
   {
     "objectID": "posts/2020-12-06-RISCW-3.html",
