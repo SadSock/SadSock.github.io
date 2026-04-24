@@ -2,74 +2,78 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://sadsock.github.io/index.html</loc>
-    <lastmod>2026-04-20T12:03:05.439Z</lastmod>
+    <lastmod>2026-04-24T08:12:05.254Z</lastmod>
   </url>
   <url>
     <loc>https://sadsock.github.io/posts/2021-8-27-deeper-look-llvm-codegen-0.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
+    <lastmod>2026-04-24T08:12:05.255Z</lastmod>
   </url>
   <url>
     <loc>https://sadsock.github.io/posts/2026-03-06-cute-layout-representation-and-algebra.html</loc>
-    <lastmod>2026-04-20T12:03:05.441Z</lastmod>
+    <lastmod>2026-04-24T08:12:05.256Z</lastmod>
   </url>
   <url>
     <loc>https://sadsock.github.io/posts/2020-12-08-RISCW-4.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
+    <lastmod>2026-04-24T08:12:05.255Z</lastmod>
   </url>
   <url>
-    <loc>https://sadsock.github.io/posts/2020-12-03-RISCW-5.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
-  </url>
-  <url>
-    <loc>https://sadsock.github.io/posts/2020-11-01-write-an-LLVM-backend-0.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
-  </url>
-  <url>
-    <loc>https://sadsock.github.io/posts/2026-03-17-70-percent-size-100-percent-accuracy-lossless-llm-compression-dfloat11.html</loc>
-    <lastmod>2026-04-20T12:03:05.441Z</lastmod>
-  </url>
-  <url>
-    <loc>https://sadsock.github.io/posts/2026-03-03-modern-nvidia-gpu-core-analysis.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
-  </url>
-  <url>
-    <loc>https://sadsock.github.io/posts/2020-12-03-RISCW-1.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
-  </url>
-  <url>
-    <loc>https://sadsock.github.io/posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html</loc>
-    <lastmod>2026-04-20T12:03:05.442Z</lastmod>
-  </url>
-  <url>
-    <loc>https://sadsock.github.io/posts/2020-12-06-RISCW-3.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
-  </url>
-  <url>
-    <loc>https://sadsock.github.io/posts/2020-11-01-TableGen-Overview.html</loc>
-    <lastmod>2026-04-20T12:03:05.439Z</lastmod>
-  </url>
-  <url>
-    <loc>https://sadsock.github.io/posts/2020-11-01-write-an-LLVM-backend.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
+    <loc>https://sadsock.github.io/posts/2026-04-23-m100-an-orchestrated-dataflow-architecture-powering-general-ai-computing.html</loc>
+    <lastmod>2026-04-24T08:12:05.257Z</lastmod>
   </url>
   <url>
     <loc>https://sadsock.github.io/posts/2026-03-04-tsp-isca20-translation.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
+    <lastmod>2026-04-24T08:12:05.256Z</lastmod>
+  </url>
+  <url>
+    <loc>https://sadsock.github.io/posts/2020-11-01-write-an-LLVM-backend.html</loc>
+    <lastmod>2026-04-24T08:12:05.255Z</lastmod>
+  </url>
+  <url>
+    <loc>https://sadsock.github.io/posts/2020-11-01-TableGen-Overview.html</loc>
+    <lastmod>2026-04-24T08:12:05.254Z</lastmod>
+  </url>
+  <url>
+    <loc>https://sadsock.github.io/posts/2020-12-06-RISCW-3.html</loc>
+    <lastmod>2026-04-24T08:12:05.255Z</lastmod>
+  </url>
+  <url>
+    <loc>https://sadsock.github.io/posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html</loc>
+    <lastmod>2026-04-24T08:12:05.257Z</lastmod>
+  </url>
+  <url>
+    <loc>https://sadsock.github.io/posts/2020-12-03-RISCW-1.html</loc>
+    <lastmod>2026-04-24T08:12:05.255Z</lastmod>
+  </url>
+  <url>
+    <loc>https://sadsock.github.io/posts/2026-03-03-modern-nvidia-gpu-core-analysis.html</loc>
+    <lastmod>2026-04-24T08:12:05.255Z</lastmod>
+  </url>
+  <url>
+    <loc>https://sadsock.github.io/posts/2026-03-17-70-percent-size-100-percent-accuracy-lossless-llm-compression-dfloat11.html</loc>
+    <lastmod>2026-04-24T08:12:05.256Z</lastmod>
+  </url>
+  <url>
+    <loc>https://sadsock.github.io/posts/2020-11-01-write-an-LLVM-backend-0.html</loc>
+    <lastmod>2026-04-24T08:12:05.255Z</lastmod>
+  </url>
+  <url>
+    <loc>https://sadsock.github.io/posts/2020-12-03-RISCW-5.html</loc>
+    <lastmod>2026-04-24T08:12:05.255Z</lastmod>
   </url>
   <url>
     <loc>https://sadsock.github.io/posts/2026-03-30-zipfloat-an-ultra-fast-and-lossless-floating-point-compressor-for-llm-inference-systems.html</loc>
-    <lastmod>2026-04-20T12:03:05.441Z</lastmod>
+    <lastmod>2026-04-24T08:12:05.256Z</lastmod>
   </url>
   <url>
     <loc>https://sadsock.github.io/posts/2020-12-03-RISCW-0.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
+    <lastmod>2026-04-24T08:12:05.255Z</lastmod>
   </url>
   <url>
     <loc>https://sadsock.github.io/posts/2020-12-03-RISCW-2.html</loc>
-    <lastmod>2026-04-20T12:03:05.440Z</lastmod>
+    <lastmod>2026-04-24T08:12:05.255Z</lastmod>
   </url>
   <url>
     <loc>https://sadsock.github.io/about.html</loc>
-    <lastmod>2026-04-20T12:03:05.388Z</lastmod>
+    <lastmod>2026-04-24T08:12:05.194Z</lastmod>
   </url>
 </urlset>
