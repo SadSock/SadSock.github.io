@@ -4,7 +4,7 @@
     "href": "index.html",
     "title": "主页",
     "section": "",
-    "text": "DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence\n\n\n\n\n\n2026年4月24日\n\n\n\n\n\n\n\nM100: An Orchestrated Dataflow Architecture Powering General AI Computing\n\n\n\n\n\n2026年4月23日\n\n\n\n\n\n\n\nMLIR: Scaling Compiler Infrastructure for Domain Specific Computation\n\n\n\n\n\n2026年4月16日\n\n\n\n\n\n\n\nZipFloat: An Ultra-fast and Lossless Floating-Point Compressor for LLM Inference Systems\n\n\n\n\n\n2026年3月30日\n\n\n\n\n\n\n\n70% Size, 100% Accuracy: Lossless LLM Compression for Efficient GPU Inference via Dynamic-Length Float (DFloat11)\n\n\n\n\n\n2026年3月17日\n\n\n\n\n\n\n\nCuTe Layout Representation and Algebra\n\n\n\n\n\n2026年3月6日\n\n\n\n\n\n\n\nThink Fast: A Tensor Streaming Processor (TSP)\n\n\n\n\n\n2026年3月4日\n\n\n\n\n\n\n\nAnalyzing Modern NVIDIA GPU cores\n\n\n\n\n\n2026年3月3日\n\n\n\n\n\n\n\n深入理解 LLVM code generator (一)\n\n\n\n\n\n2021年8月27日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(五)：算术指令\n\n\n\n\n\n2020年12月11日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(四)：指令选择\n\n\n\n\n\n2020年12月8日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(三)：配置构建系统\n\n\n\n\n\n2020年12月8日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(二)：创建后端\n\n\n\n\n\n2020年12月6日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(一)：入门\n\n\n\n\n\n2020年12月4日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(零)：简介\n\n\n\n\n\n2020年12月3日\n\n\n\n\n\n\n\nTableGen 简介\n\n\n\n\n\n2020年11月3日\n\n\n\n\n\n\n\n编写LLVM后端\n\n\n\n\n\n2020年11月1日\n\n\n\n\n\n\n\nWrite an LLVM Backend(零)：简介\n\n\n\n\n\n2020年11月1日\n\n\n\n\n\n无匹配项"
+    "text": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning\n\n\n\n\n\n2026年4月28日\n\n\n\n\n\n\n\nDeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence\n\n\n\n\n\n2026年4月24日\n\n\n\n\n\n\n\nM100: An Orchestrated Dataflow Architecture Powering General AI Computing\n\n\n\n\n\n2026年4月23日\n\n\n\n\n\n\n\nMLIR: Scaling Compiler Infrastructure for Domain Specific Computation\n\n\n\n\n\n2026年4月16日\n\n\n\n\n\n\n\nZipFloat: An Ultra-fast and Lossless Floating-Point Compressor for LLM Inference Systems\n\n\n\n\n\n2026年3月30日\n\n\n\n\n\n\n\n70% Size, 100% Accuracy: Lossless LLM Compression for Efficient GPU Inference via Dynamic-Length Float (DFloat11)\n\n\n\n\n\n2026年3月17日\n\n\n\n\n\n\n\nCuTe Layout Representation and Algebra\n\n\n\n\n\n2026年3月6日\n\n\n\n\n\n\n\nThink Fast: A Tensor Streaming Processor (TSP)\n\n\n\n\n\n2026年3月4日\n\n\n\n\n\n\n\nAnalyzing Modern NVIDIA GPU cores\n\n\n\n\n\n2026年3月3日\n\n\n\n\n\n\n\n深入理解 LLVM code generator (一)\n\n\n\n\n\n2021年8月27日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(五)：算术指令\n\n\n\n\n\n2020年12月11日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(四)：指令选择\n\n\n\n\n\n2020年12月8日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(三)：配置构建系统\n\n\n\n\n\n2020年12月8日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(二)：创建后端\n\n\n\n\n\n2020年12月6日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(一)：入门\n\n\n\n\n\n2020年12月4日\n\n\n\n\n\n\n\n为LLVM添加简易RISCV后端(零)：简介\n\n\n\n\n\n2020年12月3日\n\n\n\n\n\n\n\nTableGen 简介\n\n\n\n\n\n2020年11月3日\n\n\n\n\n\n\n\n编写LLVM后端\n\n\n\n\n\n2020年11月1日\n\n\n\n\n\n\n\nWrite an LLVM Backend(零)：简介\n\n\n\n\n\n2020年11月1日\n\n\n\n\n\n无匹配项"
   },
   {
     "objectID": "posts/2021-8-27-deeper-look-llvm-codegen-0.html",
@@ -539,32 +539,354 @@
     "text": "目标JIT信息"
   },
   {
-    "objectID": "posts/2020-11-01-TableGen-Overview.html",
-    "href": "posts/2020-11-01-TableGen-Overview.html",
-    "title": "TableGen 简介",
+    "objectID": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html",
+    "href": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html",
+    "title": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning",
     "section": "",
-    "text": "TableGen的目的是帮助开发者开发和维护特定领域的记录。这些记录的数量可能很大，所以它是专门来编写灵活的描述，并提取这些记录的共同特征。这减少了描述的重复量，减少了出错的机会，使构建特定领域的信息更容易。\nTableGen前端解析文件，实例化声明，并将结果交给特定领域的backend进行处理。有关TableGen的详细描述，请参阅 TableGen Programmer’s Reference 。有关调用TableGen的各种xxx-tblgen命令的详细信息，请参阅xxx-tblgen - Target Description to C++ Code 。\n目前TableGen的主要用户有 The LLVM Target-Independent Code Generator和Clang diagnostics and attributes。\n注意，如果您经常使用TableGen，并且使用emacs或vim，那么您可以在llvm发行版的llvm/utils/emacs和llvm/utils/vim目录中分别找到一个emacs“TableGen mode”和一个vim语言文件。"
+    "text": "原文版权声明：本文依据公开来源论文 AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning 进行中文翻译整理，仅供学习与研究使用。 我仅提供翻译与网页整理，不拥有原文版权；原文版权归作者及发布方所有。 转载、分发或用于商业用途时，请遵守原论文及原始发布平台的版权规定。\n原文信息：Chongxiao Li, Pengwei Jin, Di Huang, Guangrun Sun, Husheng Han, Jianan Mu, Xinyao Zheng, Jiaguo Zhu, Shuyi Xing, Hanjun Wei, Tianyun Ma, Shuyao Cheng, Rui Zhang, Ying Wang, Zidong Du, Qi Guo, Xing Hu. AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning. arXiv:2604.18445v1。\n说明：以下内容按原文句序逐句对应翻译整理。 图注、表注、表格说明与参考文献信息尽量保留原貌；参考文献通过 Quarto 的 BibTeX 与 CSL 机制生成，作者名、标题和期刊会议信息不翻译。 原文中的 LaTeX 自定义宏已展开为普通可移植写法，例如 AutoPPA、RTLRewriter、SymRTLO 与 E²I。\n作者：Chongxiao Li；Pengwei Jin；Di Huang；Guangrun Sun；Husheng Han；Jianan Mu；Xinyao Zheng；Jiaguo Zhu；Shuyi Xing；Hanjun Wei；Tianyun Ma；Shuyao Cheng；Rui Zhang；Ying Wang；Zidong Du；Qi Guo；Xing Hu。\n单位：State Key Lab of Processors, Institute of Computing Technology, Chinese Academy of Sciences, Beijing, China；University of Chinese Academy of Sciences, Beijing, China；University of Science and Technology of China, Hefei, China；Institute of AI for Industries, Chinese Academy of Sciences, Nanjing, China。"
   },
   {
-    "objectID": "posts/2020-11-01-TableGen-Overview.html#运行tablegen",
-    "href": "posts/2020-11-01-TableGen-Overview.html#运行tablegen",
-    "title": "TableGen 简介",
-    "section": "运行TableGen",
-    "text": "运行TableGen\nTableGen的运行就像其他任何LLVM工具一样。 第一个（可选）参数指定要读取的文件。 如果未指定文件名，则llvm-tblgen从标准输入读取。\n要使用TableGen就必须指定后端，这些后端可以在命令行中选择（输入“ llvm-tblgen -help”获取列表）。例如，要获取特定类型的子类的所有定义的列表(这对于构建这些记录的枚举很有用)，请使用print-enum选项：\n$ llvm-tblgen X86.td -print-enums -class=Register\nAH, AL, AX, BH, BL, BP, BPL, BX, CH, CL, CX, DH, DI, DIL, DL, DX, EAX, EBP, EBX,\nECX, EDI, EDX, EFLAGS, EIP, ESI, ESP, FP0, FP1, FP2, FP3, FP4, FP5, FP6, IP,\nMM0, MM1, MM2, MM3, MM4, MM5, MM6, MM7, R10, R10B, R10D, R10W, R11, R11B, R11D,\nR11W, R12, R12B, R12D, R12W, R13, R13B, R13D, R13W, R14, R14B, R14D, R14W, R15,\nR15B, R15D, R15W, R8, R8B, R8D, R8W, R9, R9B, R9D, R9W, RAX, RBP, RBX, RCX, RDI,\nRDX, RIP, RSI, RSP, SI, SIL, SP, SPL, ST0, ST1, ST2, ST3, ST4, ST5, ST6, ST7,\nXMM0, XMM1, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM2, XMM3, XMM4, XMM5,\nXMM6, XMM7, XMM8, XMM9,\n\n$ llvm-tblgen X86.td -print-enums -class=Instruction\nABS_F, ABS_Fp32, ABS_Fp64, ABS_Fp80, ADC32mi, ADC32mi8, ADC32mr, ADC32ri,\nADC32ri8, ADC32rm, ADC32rr, ADC64mi32, ADC64mi8, ADC64mr, ADC64ri32, ADC64ri8,\nADC64rm, ADC64rr, ADD16mi, ADD16mi8, ADD16mr, ADD16ri, ADD16ri8, ADD16rm,\nADD16rr, ADD32mi, ADD32mi8, ADD32mr, ADD32ri, ADD32ri8, ADD32rm, ADD32rr,\nADD64mi32, ADD64mi8, ADD64mr, ADD64ri32, ...\n默认后端打印出所有记录。 还有一个通用后端，它将所有记录输出为JSON数据结构，并使用-dump-json选项启用。\n如果您计划使用TableGen，那么您很可能必须编写一个后端来提取您需要的信息并以适当的方式格式化它。可以通过用C++扩展TableGen本身，或者用任何可以处理JSON的语言编写脚本来实现这一点。"
+    "objectID": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-background-rtl-ppa",
+    "href": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-background-rtl-ppa",
+    "title": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning",
+    "section": "背景：RTL PPA 优化",
+    "text": "背景：RTL PPA 优化\n从电路质量角度看，集成电路（IC）设计会经过三个主要阶段 [6], [7]：在寄存器传输级（RTL），工程师用 Verilog 或 VHDL 描述功能；随后，自动逻辑综合把 RTL 描述转换为门级网表；最后，物理设计阶段的布局布线工具在优化时序、功耗和面积的同时生成最终版图。 虽然每个阶段都会影响 PPA（性能、功耗和面积），但 RTL 位于设计层次的顶部，因此影响最大：冗余或次优的 RTL 会限制下游综合和物理工具能够弥补的空间。 因此，生成高质量 RTL 对满足严格 PPA 目标至关重要。 尽管自动化已经取得进展，RTL PPA 优化仍然严重依赖专业知识和人工调优，因为它耗时很长，而且结果会随着设计者经验而显著变化。"
   },
   {
-    "objectID": "posts/2020-11-01-TableGen-Overview.html#例子",
-    "href": "posts/2020-11-01-TableGen-Overview.html#例子",
-    "title": "TableGen 简介",
-    "section": "例子",
-    "text": "例子\n在没有其他参数的情况下，llvm-tblgen 解析指定的文件并输出所有的类，然后输出所有的定义。这是查看各种定义扩展到何种程度的好方法。在 X86.td 文件上运行这个命令会输出以下命令(在撰写本文时) :\n...\ndef ADD32rr {   // Instruction X86Inst I\n  string Namespace = \"X86\";\n  dag OutOperandList = (outs GR32:$dst);\n  dag InOperandList = (ins GR32:$src1, GR32:$src2);\n  string AsmString = \"add{l}\\t{$src2, $dst|$dst, $src2}\";\n  list&lt;dag&gt; Pattern = [(set GR32:$dst, (add GR32:$src1, GR32:$src2))];\n  list&lt;Register&gt; Uses = [];\n  list&lt;Register&gt; Defs = [EFLAGS];\n  list&lt;Predicate&gt; Predicates = [];\n  int CodeSize = 3;\n  int AddedComplexity = 0;\n  bit isReturn = 0;\n  bit isBranch = 0;\n  bit isIndirectBranch = 0;\n  bit isBarrier = 0;\n  bit isCall = 0;\n  bit canFoldAsLoad = 0;\n  bit mayLoad = 0;\n  bit mayStore = 0;\n  bit isImplicitDef = 0;\n  bit isConvertibleToThreeAddress = 1;\n  bit isCommutable = 1;\n  bit isTerminator = 0;\n  bit isReMaterializable = 0;\n  bit isPredicable = 0;\n  bit hasDelaySlot = 0;\n  bit usesCustomInserter = 0;\n  bit hasCtrlDep = 0;\n  bit isNotDuplicable = 0;\n  bit hasSideEffects = 0;\n  InstrItinClass Itinerary = NoItinerary;\n  string Constraints = \"\";\n  string DisableEncoding = \"\";\n  bits&lt;8&gt; Opcode = { 0, 0, 0, 0, 0, 0, 0, 1 };\n  Format Form = MRMDestReg;\n  bits&lt;6&gt; FormBits = { 0, 0, 0, 0, 1, 1 };\n  ImmType ImmT = NoImm;\n  bits&lt;3&gt; ImmTypeBits = { 0, 0, 0 };\n  bit hasOpSizePrefix = 0;\n  bit hasAdSizePrefix = 0;\n  bits&lt;4&gt; Prefix = { 0, 0, 0, 0 };\n  bit hasREX_WPrefix = 0;\n  FPFormat FPForm = ?;\n  bits&lt;3&gt; FPFormBits = { 0, 0, 0 };\n}\n...\n该定义对应于x86体系结构的32位寄存器-寄存器相加指令。 Def ADD32rr定义了一个名为ADD32rr的记录，行尾的注释表示该定义的父类。 记录体包含TableGen为记录汇编的所有数据，指示该指令是“x86”命名空间的一部分，指示代码生成器如何选择指令的模式，它是双地址指令，具有特定的编码等。记录中信息的内容和语义专用于X86后端，这里仅作为示例。\n正如您所看到的，代码生成器支持的每条指令都需要大量信息，手动指定所有指令将不可维护，容易出错，而且首先要做的事情很累人。因为我们正在使用 TableGen，所有的信息都来自以下定义:\nlet Defs = [EFLAGS],\n    isCommutable = 1,                  // X = ADD Y,Z --&gt; X = ADD Z,Y\n    isConvertibleToThreeAddress = 1 in // Can transform into LEA.\ndef ADD32rr  : I&lt;0x01, MRMDestReg, (outs GR32:$dst),\n                                   (ins GR32:$src1, GR32:$src2),\n                 \"add{l}\\t{$src2, $dst|$dst, $src2}\",\n                 [(set GR32:$dst, (add GR32:$src1, GR32:$src2))]&gt;;\n这个定义使用定制类 I (从定制类 X86Inst 扩展而来) ，这个定制类是在 x86特定的 TableGen 文件中定义的，可以提取了指令共享的公共特性。TableGen 的一个关键特性是，它允许最终用户定义他们在描述其信息时喜欢使用的抽象。"
+    "objectID": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-autoppa",
+    "href": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-autoppa",
+    "title": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning",
+    "section": "AutoPPA",
+    "text": "AutoPPA\n如图 图 2 所示，AutoPPA 包含两个阶段：1. 对比式代码规则库学习（小节 4），以及 2. 自适应规则驱动的 PPA 优化（小节 5）。\n提出对比式代码规则库学习，是为了在没有任何人工干预的情况下自动构建一个全面的规则库。 它由一个 Explore-Evaluate-Induce 工作流组成，其中我们先通过代码对采样探索优化机会，再基于等价性和 PPA 评估代码对，最后从代码对中归纳自然语言优化规则。\n自适应规则驱动的 PPA 优化是一种新的检索增强优化方法，用于利用学到的规则库。 它把单步自适应检索与多步规则增强搜索结合起来，使系统能够自动选择并组合对电路 PPA 优化最有效的规则。"
   },
   {
-    "objectID": "posts/2020-11-01-TableGen-Overview.html#基本概念",
-    "href": "posts/2020-11-01-TableGen-Overview.html#基本概念",
-    "title": "TableGen 简介",
-    "section": "基本概念",
-    "text": "基本概念\nTableGen文件由两个关键部分组成:“类”和“定义”，这两个部分都被认为是“记录”。\n记录 有一个唯一的名称、一个值列表和一个父类列表。 值列表是TableGen为每条记录构建的主要数据；正是该列表保存了应用程序的特定信息。 此数据的解释留给特定的后端，但结构和格式规则由TableGen负责。\n定义 是“记录”的具体形式。它通常不包含任何未定义的值，并用“ def”关键字进行标记。\ndef FeatureFPARMv8 : SubtargetFeature&lt;\"fp-armv8\", \"HasFPARMv8\", \"true\",\n                                      \"Enable ARMv8 FP\"&gt;;\n在此示例中，FeatureFPARMv8是使用某些值初始化的SubtargetFeature记录。 这些类通过关键字class定义在同一文件或其他文件中的。 对大多数平台来说，包含通用类的TableGen文件保存在include/llvm/Target中。\nclass 是用于构建和描述其他记录的抽象记录。这些类使最终用户可以为他们所针对的领域（例如LLVM代码生成器中的“ Register”，“ RegisterClass”和“ Instruction”）构建抽象，提取改领域的公共属性（例如“ FPInst”，用于表示X86后端中的浮点指令）。TableGen会跟踪用于建立定义的所有类，因此后端可以找到特定类的所有定义，例如“instruction”。\nclass ProcNoItin&lt;string Name, list&lt;SubtargetFeature&gt; Features&gt;\n      : Processor&lt;Name, NoItineraries, Features&gt;;\n在这里，类ProcNoItin通过类型为string的参数名、目标特性列表和硬编码的NoItineraries来特化Processor类。\nmulticlass 一次实例化一组抽象记录。每个实例化都会产生多个TableGen定义。如果一个multiclass继承了另一个multiclass，那么子multiclass中的定义将成为当前multiclass的一部分，就像它们是在当前multiclass中声明的一样。\nmulticlass ro_signed_pats&lt;string T, string Rm, dag Base, dag Offset, dag Extend,\n                        dag address, ValueType sty&gt; {\ndef : Pat&lt;(i32 (!cast&lt;SDNode&gt;(\"sextload\" # sty) address)),\n          (!cast&lt;Instruction&gt;(\"LDRS\" # T # \"w_\" # Rm # \"_RegOffset\")\n            Base, Offset, Extend)&gt;;\n\ndef : Pat&lt;(i64 (!cast&lt;SDNode&gt;(\"sextload\" # sty) address)),\n          (!cast&lt;Instruction&gt;(\"LDRS\" # T # \"x_\" # Rm # \"_RegOffset\")\n            Base, Offset, Extend)&gt;;\n}\n\ndefm : ro_signed_pats&lt;\"B\", Rm, Base, Offset, Extend,\n                      !foreach(decls.pattern, address,\n                               !subst(SHIFT, imm_eq0, decls.pattern)),\n                      i8&gt;;\n有关TableGen的深入描述，请参阅TableGen的TableGen Programmer’s Reference。"
+    "objectID": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-explore-code-sampling",
+    "href": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-explore-code-sampling",
+    "title": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning",
+    "section": "探索：代码采样",
+    "text": "探索：代码采样\n在这一阶段，我们的目标是创建一个足够大且足够多样的、功能有效的 RTL 代码语料库，使其中能够涌现有意义的优化规则。 我们从公开 GitHub 仓库中抓取了约 130K 份 Verilog RTL 代码。 这些代码经历了一个两阶段综合过程：\n\n轻量级过滤： 我们先使用轻量级 Yosys 工具 [8] 综合所有收集到的设计，以丢弃任何非自包含或不可综合的设计。\n精确综合与 PPA 指标： 随后，剩余的过滤后代码会用 SiliconCompiler [9] 综合，该工具结合 Yosys 和 OpenSTA [10]，以更长综合时间为代价提供更精确的 PPA 测量。 RTL 代码及其关联的 PPA 性能指标都会被保存，用于后续规则库学习。\n\n有了大规模原始电路代码语料后，我们探索初始设计的多样化重写形式。 通用语言模型缺乏用于电路优化的准确且专业的知识，但展现出大规模采样多样化代码的强能力。 我们利用这种能力为初始电路生成多个重写版本，以发现潜在优化洞见。 我们先从过滤后的语料中选取 100K 个面积值处于中等范围的 RTL 代码。 每个代码由 LLM Qwen2.5-Coder-7B-Instruct [11] 重写 \\(N\\) 次（默认 \\(N=50\\)），生成超过 5M 对电路代码。 这些经过广泛探索的代码对随后被传递到评估阶段，以识别并保留其中可能包含有价值优化洞见的样本。"
+  },
+  {
+    "objectID": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-evaluate-contrastive-pairs",
+    "href": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-evaluate-contrastive-pairs",
+    "title": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning",
+    "section": "评估：使用 EDA 工具评估对比式代码对",
+    "text": "评估：使用 EDA 工具评估对比式代码对\n在这一阶段，我们的目标是评估海量代码对，通过评估识别出功能等价且 PPA 存在显著差异的代码对，为提取稳健优化规则奠定基础。 在获得大量具有多样化重写模式的代码对之后，我们先评估它们的 PPA 指标和功能等价性。\n对于 PPA 评估，我们采用与 小节 4.1 相同的设置。 功能等价性评估更具挑战性，因为很难为具有多样触发模式、时序行为和功能的电路构造 testbench。 为解决这一问题，我们开发了一个自动 testbench 生成器。 使用 Yosys，我们自动提取每个电路的顶层模块、端口、时钟和复位信息。 随后，我们为所有代码对构造 testbench。 该 testbench 会完整验证时钟和复位行为，施加多条长随机激励序列，并比较原始电路与重写电路的输出，以验证等价性。 在我们的测试电路上，生成的 testbench 达到了 100% 行覆盖率和高可靠性。\n在验证并综合每个 RTL 设计的所有重写版本之后，我们计算功能等价版本之间 PPA 分布的 Shannon entropy，以度量多样性。 更高的 entropy 值表明可以提取出更丰富的潜在优化模式。 非等价代码被赋予零 PPA 改进，并从计算中排除。 我们按 entropy 对设计排序，并选择前 \\(K\\%\\)（\\(K=25\\)）作为候选。 对于每个被选中的设计，我们只保留相对 PPA 差异超过 5% 的等价代码对，并将其记为 \\((C_{non}, C_{opt})\\)，分别表示非优化版本和优化版本。"
+  },
+  {
+    "objectID": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-induce",
+    "href": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-induce",
+    "title": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning",
+    "section": "归纳：基于对比式代码的规则归纳",
+    "text": "归纳：基于对比式代码的规则归纳\n在这一阶段，我们把关键优化洞见总结为更高层规则。 为了提取可执行的电路优化策略，我们把每条规则定义为一个三元组（snippet, condition, action）：\n\nsnippet：具有代表性的低效率 RTL 代码片段，它们作为优化目标。\ncondition：描述优化规则何时适用的泛化上下文条件。\naction：说明如何修改原始 RTL 代码以获得优化后 PPA 的变换动作。\n\n对于每一对 \\((C_{non}, C_{opt})\\)，我们首先通过 LLM 生成一组候选规则，从而得到 \\(n\\) 条（默认 \\(n=2\\)）可能解释 \\(C_{opt}\\) 中所观察到改进的不同规则。\n随后，我们通过系统性评估识别高质量规则。 每条规则会被重新应用到原始电路上，并由 LLM 进行多次优化尝试，然后与该代码对中的原始非优化电路和优化电路的 PPA 进行比较。 我们使用公式 式 1 对结果进行归一化：\n\\[\ns_i=\\mathbf{1}_{\\text{eq}}(i)\\;\\cdot\\;\\mathrm{clip}_{[0,1]}\\!\\left(\\alpha+\\beta\\,\\frac{\\mathrm{PPA}_n - \\mathrm{PPA}_i}{\\mathrm{PPA}_n - \\mathrm{PPA}_o}\\right)\n\\tag{1}\\]\n其中，\\(s_i\\) 表示第 \\(i\\) 个重写电路的得分。 \\(\\mathrm{PPA}_n\\)、\\(\\mathrm{PPA}_o\\) 和 \\(\\mathrm{PPA}_i\\) 分别是非优化电路 \\(C_{non}\\)、优化电路 \\(C_{opt}\\) 和第 \\(i\\) 个重写版本的 PPA 值。 \\(\\mathbf{1}_{\\text{eq}}(i)\\) 确保只有功能等价的重写版本才能得到非零分数。 参数 \\(\\alpha\\)（默认 0.25）和 \\(\\beta\\)（默认 0.5）用于归一化改进：功能等价但没有 PPA 收益的重写版本得分为 0.25，而达到优化电路同等改进的重写版本得分为 0.75。\n随后，对每条规则的所有尝试得分取平均。 平均分高于 0.7 的规则被归类为高质量规则，并被加入规则库，表示它们具有很强的电路改进潜力。"
+  },
+  {
+    "objectID": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-mthd-arao",
+    "href": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-mthd-arao",
+    "title": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning",
+    "section": "Adaptive Retrieval Augmented Optimization",
+    "text": "Adaptive Retrieval Augmented Optimization\n为了利用优化规则库进行 RTL 代码 PPA 优化，我们通过匹配 RTL 代码中的结构条件和潜在动作来检索规则，并使用检索到的规则指导 LLM 优化 RTL 代码。 我们观察到，有些规则包含面向其源代码对的描述，这可能污染当前电路的优化上下文。 我们还观察到，直接按语义 embedding 相似度检索可能会引入噪声。 因此，我们设计了一个 Adaptive Retrieval Augmented Optimization（ARAO）流程，以降低这些问题的影响。 该流程包含四个步骤：\n\nSpeculate： 提示 LLM 为目标代码总结一条优化规则 \\((\\textit{snippet}_t, \\textit{condition}_t, \\textit{action}_t)\\)。\nRetrieve： 使用 \\(\\textit{condition}_t\\) 和 \\(\\textit{action}_t\\)，我们基于规则 embedding 之间的 cosine similarity，从规则库中检索三条最相似的规则。\nAdapt： 为缓解检索规则中源特定信息带来的干扰，我们利用 LLM 结合目标代码调整这些规则，确保它们的适用性和相关性。\nOptimize： 目标代码和自适应规则被输入 LLM，后者生成优化代码变体。 随后，这些变体会被验证功能等价性，并进行综合以评估 PPA 改进。"
+  },
+  {
+    "objectID": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-mthd-kes",
+    "href": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-mthd-kes",
+    "title": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning",
+    "section": "Rule-based Enhanced Searching",
+    "text": "Rule-based Enhanced Searching\n虽然 ARAO 对单步优化有效，但全面的 PPA 改进往往需要在复杂代码优化的大搜索空间中进行高效搜索。 因此，我们提出一个基于 beam search 的多步搜索框架。 在每次迭代中，会选择得分最高的前 \\(k\\) 个候选代码（beam width 为 \\(k\\)）。 对于每个候选，ARAO 流程会扩展出 \\(m\\) 个优化变体。 下一轮迭代的候选池由所有新变体和当前最优候选组成，最多迭代 \\(s\\) 次。\n候选评分函数定义如下：\n\\[\n\\text{Score} = \\omega \\cdot \\text{Score}_{diversity} + (1-\\omega) \\cdot \\text{Score}_{ppa}\n\\tag{2}\\]\n其中，\\(\\text{Score}_{diversity}\\) 使用相对于父代码的 TF-IDF 相似度 [12] 量化多样性，\\(\\text{Score}_{ppa}\\) 纳入功能等价性和相对 PPA 表现，且 \\(\\omega=0.25\\)。 这会同时鼓励 PPA 改进和对多样化优化策略的探索。"
+  },
+  {
+    "objectID": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-exp-setting",
+    "href": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-exp-setting",
+    "title": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning",
+    "section": "实验设置",
+    "text": "实验设置\nBenchmarks. 我们使用 RTLRewriter [3] benchmark，该 benchmark 专门为 RTL 代码优化设计。 它包含 54 个具有全面优化模式的设计，以及 3 个可综合的实用大型设计。 遵循 RTLRewriter，我们把这 3 个实用设计划分为 6 个不同模块，最终得到总计 60 个设计。 对于每个设计，我们生成严格的 testbench（在非冗余代码上达到 100% 行覆盖率和分支覆盖率），以验证优化代码与原始实现之间的等价性。\nBaselines. (1) SOTA RTL 代码优化方法。 为与 RTLRewriter 比较，我们使用对齐后的综合流程，综合其公开仓库中的全部 11 个优化电路。 对于 SymRTLO [4]，我们在 5 个实现复杂算法的电路上，把结果与其自报告结果进行比较。 (2) 熟练 Verilog 工程师。 我们把本方法与一位拥有两年以上经验的 Verilog 工程师在完整 benchmark 上手工优化得到的结果进行比较。 该工程师获得了标准验证与综合环境，并被允许使用 16 个工作小时进行充分优化，同时在这一过程中总结优化规则。 (3) 代表性 LLM。 我们把结果与表 表 1 中列出的代表性 LLM 进行比较。 为公平比较，我们在相同采样 RTL 代码数量下，评估每个 LLM 生成的最优代码。 在所有实验中，我们统一使用 0.6 的生成温度，并提供与本方法一致的 prompts。\nMetrics. 我们报告综合后的总 cell area（单位为 \\(\\mu m^2\\)）、cycle delay（单位为 \\(ns\\)）和 dynamic power（单位为 \\(mW\\)），用于评估电路面积、性能和功耗。 除非另有说明，所有综合都使用 SiliconCompiler 和 FreePDK 45nm 工艺 [13]。 对于等价且优化后的电路，我们按 \\(Impr=1- { PPA_{opt}}/{ PPA_{original}}\\) 报告其 PPA 改进。 如果生成电路不等价，或者目标 PPA 更差，则标记为 0 改进。 对于 vanilla LLM baseline，遵循代码生成任务中被广泛采用的 \\(Pass@k\\) 指标 [14]，我们提出 Impr@k 指标，用于基于总计 \\(n &gt; k\\) 个样本的结果估计从 \\(k\\) 个样本中获得的期望最优 PPA 优化，如公式 式 3 所示：\n\\[\n\\operatorname{Impr@k} := \\mathbb{E}_{\\text{circuits}}\\left[\n\\sum_{j=1}^n \\left(\n   Impr_j^{\\downarrow} \\cdot \\frac{\\binom{n-j}{k-1}}{\\binom{n}{k}}\n\\right)\n\\right]\n\\tag{3}\\]\n其中，\\({Impr}^{\\downarrow}_j\\) 表示 \\(n\\) 个样本中的第 \\(j\\) 大 PPA 改进，也就是 \\({Impr}^{\\downarrow}_1 \\ge {Impr}^{\\downarrow}_2 \\ge \\cdots \\ge {Impr}^{\\downarrow}_n\\)。\nAutoPPA 设置。 我们根据表 表 2 配置不同搜索规模，为每种配置分别生成 15、50、104 和 210 个 RTL 代码样本。 我们使用 gte_Qwen2-7B-instruct [15] 作为 embedding model，对规则库和检索查询进行 embedding。 在搜索中，我们为 AutoPPA 配置了较小的 Qwen2.5-7B-Instruct 和 Qwen2.5-Coder-7B-Instruct 模型，以及较大的 DeepSeek-V3-0324 模型，以展示框架的通用性。 我们把所有模型的 LLM 生成温度都设为 0.6。\n\n\n\n表 1: 实验中的 baseline language models。\n\n\n\n\n\n类型\n模型\n缩写\n参数量\n\n\n\n\nRTL Specific\nCodeV-All-QC\nCodeV\n7.62B\n\n\nRTL Specific\nHaVen-DeepSeek\nHaVen\n6.74B\n\n\nCoding Specific\nQwen2.5-Coder-7B-Instruct\nQwen Coder\n7.62B\n\n\nReasoning\nDeepSeek-R1-Distill-Qwen-7B\nDS-R1-Dist\n7.62B\n\n\nGeneral Purpose\nDeepSeek-V3-0324\nDeepSeek-V3\n685B\n\n\n\n\n\n\n\n\n\n表 2: AutoPPA 搜索规模配置，其中 \\(n = (1 + k \\cdot (s-1)) \\cdot m\\)。\n\n\n\n\n\n\n\n\n\n\n\n\n配置缩写\nBeam Width (\\(k\\))\nNum Expand (\\(m\\))\nMax Steps (\\(s\\))\nTotal RTL Searched (\\(n\\))\n\n\n\n\n2-3-3\n2\n3\n3\n15\n\n\n3-5-4\n3\n5\n4\n50\n\n\n3-8-5\n3\n8\n5\n104\n\n\n5-10-5\n5\n10\n5\n210"
+  },
+  {
+    "objectID": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-exp-result",
+    "href": "posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html#sec-exp-result",
+    "title": "AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning",
+    "section": "实验结果",
+    "text": "实验结果\nAutoPPA 超过人工努力和 SOTA 方法。 (1) AutoPPA 在面向面积的电路优化上优于 RTLRewriter 和人工优化。 我们对 RTLRewriter 开源的优化 RTL 代码和人工优化结果进行了逐电路比较。 我们使用 DeepSeek-V3 作为 AutoPPA 的 backbone model，采用 5-10-5 搜索设置，并将优化目标与 RTLRewriter 对齐为面向面积的优化。 结果如表 表 3 所示，最佳结果以粗体高亮，相较原始设计未能实现优化的结果以浅色显示。 我们的方法取得了更优性能，在 11 个电路中的 10 个上获得了最小面积。 平均来看，与 RTLRewriter 相比，本方法带来了显著改进：面积提升 7.56%，功耗提升 9.00%。 人工优化表现相对较差，这表明即使对有熟练经验的人类工程师而言，优化这些电路也具有相当大的挑战性。\n\n\n\n\n表 3: AutoPPA 与人工努力和 RTLRewriter 的面积导向优化比较。AutoPPA 分别比人工努力和 RTLRewriter 高出 19.25% 和 7.56%。\n\n\n\n\n\n\n\n\n\n\n\n\nDesign\nOriginal Area / Delay / Power\nManual Area / Delay / Power\nRTLRewriter Area / Delay / Power\nAutoPPA-DS Area / Delay / Power\n\n\n\n\nadd3\n65.17 / 0.26 / 0.85\n65.17 / 0.26 / 0.85\n42.83 / 0.21 / 0.62\n65.17 / 0.26 / 0.85\n\n\nmux_type1\n2.39 / 0.04 / 0.00010\n2.39 / 0.04 / 0.00010\n2.13 / 0.04 / 0.00010\n2.13 / 0.04 / 0.00010\n\n\nmux_type3\n2.39 / 0.05 / 0.00010\n2.39 / 0.05 / 0.00010\n2.39 / 0.05 / 0.00010\n2.39 / 0.05 / 0.00010\n\n\nmux_type5\n6.12 / 0.13 / 0.00010\n6.12 / 0.13 / 0.00010\n6.12 / 0.13 / 0.00010\n6.12 / 0.13 / 0.00010\n\n\nexample1\n61.71 / 0.22 / 0.78\n60.116 / 0.21 / 0.87\n48.15 / 0.24 / 0.84\n29.26 / 0.23 / 0.68\n\n\nexample3\n52.40 / 0.27 / 2.33\n49.476 / 0.31 / 2.07\n37.51 / 0.21 / 1.54\n36.44 / 0.21 / 1.25\n\n\ncom_subexp\n11967.34 / 2.98 / 0.26\n11370.17 / 3.00 / 0.24\n11389.58 / 3.12 / 0.24\n11310.85 / 3.06 / 0.24\n\n\nadd_bit_wid\n63.57 / 0.32 / 0.0016\n63.57 / 0.32 / 0.0016\n63.57 / 0.32 / 0.0016\n36.44 / 0.59 / 0.00070\n\n\nadd_subexp\n132.73 / 0.57 / 0.0029\n132.73 / 0.57 / 0.0029\n132.74 / 0.57 / 0.0029\n132.73 / 0.57 / 0.0029\n\n\nm_con_mul\n1374.16 / 1.17 / 0.031\n1374.16 / 1.17 / 0.031\n1026.76 / 1.13 / 0.023\n876.47 / 1.04 / 0.02\n\n\nm_con_mul2\n1628.72 / 1.22 / 0.038\n1628.72 / 1.22 / 0.038\n1370.17 / 1.22 / 0.031\n873.01 / 1.16 / 0.021\n\n\nAvg. Impr.\n-\n1.20% / -0.99% / 0.60%\n12.89% / 2.83% / 9.35%\n20.45% / -4.85% / 18.35%\n\n\n\n\n\n\n\n(2) AutoPPA 在更具挑战性的复杂和大型电路优化任务上优于 SymRTLO。 由于 SymRTLO 没有开源其优化 RTL 代码或综合脚本，我们无法在完全相同的标准下进行比较。 在表 表 4 中，我们展示了 SymRTLO 对复杂功能电路的自报告面积优化结果、人工优化结果、vanilla LLM 结果，以及以 DeepSeek-V3 [16] 作为 backbone model 并采用 5-10-5 搜索设置的 AutoPPA 结果。 为了尽可能与 SymRTLO 的综合设置对齐，我们使用 Design Compiler 2018，分别把电路综合到 SMIC 12nm 和 TSMC 65nm 工艺。 实验结果表明，在两个工艺上，AutoPPA 的电路面积改进都高于 SymRTLO（18.12% / 18.93% 对 17.58%）。 然而，我们再次强调，工艺节点和综合脚本的差异可能导致 PPA 结果出现显著变化。 由于我们无法访问 SymRTLO 使用的具体工艺节点和脚本，实现完全公平的比较仍然是一项挑战。\n\n\n\n\n表 4: AutoPPA、人工优化、vanilla DeepSeek-V3 sampling 和 SymRTLO 的面积导向优化结果比较，使用 Design Compiler 综合。SymRTLO 的结果复制自其原始论文。每个数值单元为 Area / Delay / Power。\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n工艺/设置\n方法\nspmv\nsubexp_elim\nadder_architecture\nvending_machine\nfft\nAvg. Impr.\n\n\n\n\nSSC\nOriginal\n22908.69 / 7.95 / 1.46\n9484.15 / 11.78 / 4.61\n541.92 / 2.29 / 0.17\n240079.30 / 7.90 / 11.46\n1857805.00 / 7.90 / 51.12\n-\n\n\nSSC\nSymRTLO\n22908.69 / 7.95 / 1.46\n6791.88 / 11.78 / 3.53\n531.88 / 2.48 / 0.17\n151593.90 / 7.90 / 8.18\n1471378.00 / 8.98 / 26.32\n17.58% / -4.39% / 20.12%\n\n\nSMIC 12nm\nOriginal\n423.94 / 0.16 / 6.71\n162.75 / 1.27 / 0.22\n8.48 / 0.15 / 0.01\n3747.36 / 0.23 / 17.59\n31271.32 / 0.75 / 46.68\n-\n\n\nSMIC 12nm\nManual\n423.94 / 0.16 / 6.71\n162.75 / 1.27 / 0.22\n8.48 / 0.15 / 0.01\n3747.36 / 0.23 / 17.59\n29346.88 / 0.81 / 37.23\n1.23% / -0.27% / 5.27%\n\n\nSMIC 12nm\nDeepSeek-V3\n295.28 / 0.19 / 4.36\n123.54 / 1.27 / 0.18\n8.48 / 0.15 / 0.01\n3608.39 / 0.23 / 17.59\n31271.32 / 0.75 / 46.68\n11.63% / -2.42% / 12.30%\n\n\nSMIC 12nm\nAutoPPA-DS\n295.28 / 0.19 / 4.36\n116.81 / 1.27 / 0.17\n8.48 / 0.14 / 0.01\n2966.91 / 0.36 / 9.70\n27769.19 / 0.79 / 42.85\n18.12% / -14.79% / 23.57%\n\n\nTSMC 65nm\nOriginal\n4021.20 / 0.60 / 4.61\n1588.68 / 4.03 / 0.97\n80.64 / 0.69 / 0.04\n38829.96 / 0.72 / 26.75\n304913.90 / 2.63 / 39.05\n-\n\n\nTSMC 65nm\nManual\n4021.20 / 0.60 / 4.61\n1588.68 / 4.03 / 0.97\n80.64 / 0.69 / 0.04\n38829.96 / 0.72 / 26.75\n295164.72 / 2.51 / 35.67\n0.64% / 0.91% / 1.73%\n\n\nTSMC 65nm\nDeepSeek-V3\n2904.12 / 0.59 / 3.54\n1195.92 / 4.03 / 0.78\n80.64 / 0.69 / 0.04\n37383.12 / 0.75 / 24.96\n304913.88 / 2.63 / 39.05\n11.25% / -0.50% / 10.00%\n\n\nTSMC 65nm\nAutoPPA-DS\n2904.12 / 0.59 / 3.54\n1130.04 / 4.03 / 0.75\n79.92 / 0.71 / 0.04\n29798.64 / 1.12 / 13.51\n262633.70 / 2.73 / 35.47\n18.93% / -12.12% / 21.85%\n\n\n\n\n\n\n\n(3) AutoPPA 在面积导向和延迟导向优化上都优于所有 baseline LLM 方法。 我们把评估扩展到完整 benchmark 中的全部 60 个电路，将本方法与 baseline LLM 比较，并应用从 2-3-3 到 5-10-5 的设置。 在搜索中使用 Qwen2.5-7B 系列模型和 DeepSeek-V3 作为 backbone model，我们把结果与表 表 1 中列出的语言模型进行比较，目标分别是面积优化和延迟优化。 结果见表 表 5，并在图 图 3 中展示。\n\n\n\n\n表 5: 在 60 个电路上，AutoPPA 与 vanilla LLM 的面积导向和延迟导向优化比较。Area-oriented 行中的数值为 Area / Delay / Power；Delay-oriented 行中的数值为 Delay / Area / Power。\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n优化目标\n类型\n方法\nImpr@15 (%)\nImpr@50 (%)\nImpr@104 (%)\nImpr@210 (%)\n\n\n\n\nArea-oriented\nRTL-Specific Models\nHaVen\n1.33% / 0.12% / 1.48%\n3.02% / 0.33% / 3.46%\n4.14% / 0.51% / 4.82%\n4.77% / 0.60% / 5.57%\n\n\nArea-oriented\nRTL-Specific Models\nCodeV\n1.35% / 0.47% / 1.61%\n3.10% / 1.06% / 3.53%\n4.36% / 1.63% / 4.75%\n5.32% / 2.27% / 5.45%\n\n\nArea-oriented\nReasoning\nDS-R1-Dist\n3.74% / 0.55% / 3.86%\n6.01% / 1.21% / 6.27%\n7.78% / 1.90% / 8.11%\n9.22% / 2.76% / 9.55%\n\n\nArea-oriented\nGeneral Models\nQwen-Coder\n4.79% / 1.29% / 5.52%\n6.90% / 1.97% / 8.00%\n8.74% / 2.87% / 10.10%\n10.60% / 3.97% / 12.37%\n\n\nArea-oriented\nGeneral Models\nDeepSeek-V3\n8.98% / 1.63% / 9.95%\n10.55% / 1.85% / 11.40%\n11.04% / 2.09% / 11.97%\n11.20% / 2.36% / 12.29%\n\n\nArea-oriented\nOurs\nAutoPPA-Qw\n4.98% / 2.12% / 5.41%\n8.83% / 3.25% / 9.97%\n9.50% / 2.94% / 11.13%\n11.05% / 4.87% / 14.31%\n\n\nArea-oriented\nOurs\nAutoPPA-DS\n9.56% / 1.66% / 10.84%\n11.91% / 2.57% / 13.44%\n12.45% / 2.05% / 13.58%\n15.31% / 0.43% / 15.97%\n\n\nDelay-oriented\nRTL-Specific Models\nHaVen\n1.00% / 0.46% / 0.93%\n1.88% / 1.38% / 1.89%\n2.33% / 2.11% / 2.60%\n2.49% / 2.97% / 3.30%\n\n\nDelay-oriented\nRTL-Specific Models\nCodeV\n1.92% / 1.98% / 2.50%\n2.49% / 2.49% / 3.36%\n2.80% / 2.39% / 3.34%\n3.15% / 1.69% / 2.61%\n\n\nDelay-oriented\nReasoning\nDS-R1-Dist\n1.51% / 1.87% / 2.32%\n2.52% / 2.47% / 3.00%\n3.02% / 2.48% / 3.06%\n3.33% / 2.00% / 2.56%\n\n\nDelay-oriented\nGeneral Models\nQwen-Coder\n2.76% / 3.61% / 4.51%\n4.61% / 4.02% / 5.11%\n6.11% / 4.56% / 5.89%\n7.74% / 5.83% / 7.49%\n\n\nDelay-oriented\nGeneral Models\nDeepSeek-V3\n4.20% / 1.65% / 2.90%\n5.15% / 2.11% / 3.44%\n5.67% / 2.48% / 3.96%\n6.37% / 2.90% / 4.49%\n\n\nDelay-oriented\nOurs\nAutoPPA-Qw\n4.65% / 3.10% / 4.62%\n6.15% / 4.82% / 5.52%\n9.80% / 9.75% / 11.79%\n11.28% / 8.00% / 10.87%\n\n\nDelay-oriented\nOurs\nAutoPPA-DS\n5.36% / 1.09% / 1.54%\n5.87% / 0.73% / 1.74%\n7.14% / 2.10% / 2.44%\n9.95% / 6.37% / 7.78%\n\n\n\n\n\n\n\n\n\n\n\n\n\n图 3: AutoPPA 与 vanilla LLM sampling 的面积和延迟改进比较。AutoPPA 得到持续更高的 impr@k，并且增长率优于 DeepSeek-V3。\n\n\n\n表 表 5 的结果表明，在面积和延迟优化目标上，本方法在相近规模模型中都取得了最佳优化结果。 重要的是，随着搜索预算增加，本方法表现出持续改进。 图 图 3 进一步展示了 AutoPPA 与 vanilla DeepSeek-V3 在优化上的比较：随着样本数量增长，AutoPPA 得到持续更高的 impr@k，并且增长率优于 DeepSeek-V3。 在最大搜索预算下，本方法在面积导向优化上比 vanilla LLM 高出 4.11%，在延迟导向优化上高出 3.58%。\n值得注意的是，在以延迟优化为目标时，使用较小的 Qwen2.5-7B 系列模型作为搜索 backbone，效果优于使用 DeepSeek-V3。 我们把这一点归因于 Qwen2.5-7B 在延迟优化任务上的 baseline 表现优于 DeepSeek-V3。 尽管 DS-R1-Distill 从 DeepSeek-R1 蒸馏而来，并在 Qwen2.5-Math-7B 上微调，其优化能力仍弱于具有相同架构和参数规模的 Qwen2.5-Coder-Instruct 模型，这表明 reasoning model 的蒸馏会导致其在特定任务上的性能退化。 尽管 HaVen 和 CodeV 是面向 RTL 生成的专用模型，它们在 RTL 优化任务上的优化效果最低。 这凸显了多任务微调对于提升领域专用能力的重要性。\nAutoPPA 对多种综合设置有效。 结合表 表 3 和表 表 4 的结果，AutoPPA 在开源和商业 EDA 工具链上都展现了显著 PPA 改进。 这一结果凸显了 AutoPPA 的广泛适用性。 值得注意的是，AutoPPA 在 RTLRewriter Benchmark 中的 2 个大型实用电路（fft 和 vending_machine）上，跨 12nm 到 65nm 工艺节点都取得了显著面积优化，在 12nm 工艺下分别达到 11.20% 和 20.83%，在 65nm 工艺下分别达到 13.87% 和 23.26%。 我们观察到，虽然同一个电路在不同工艺节点上表现出相似的优化趋势，但具体优化比例存在明显差异。 这突出了采用统一综合工具链和工艺节点来确保不同工作之间公平评估的重要性。 据我们所知，我们是首个在多个 EDA 工具（SiliconCompiler 和 Design Compiler）与多个工艺（从 12nm、45nm 到 65nm）上评估基于 LLM 的 RTL 代码 PPA 优化的工作。\nAutoPPA 的规则库超过人工构造的规则库。 我们进行了一项实验，用以比较通过我们的 explore-evaluate-induce（E²I）流程自动导出的优化规则，与由 Verilog 工程师人工总结的优化规则之间的有效性。 该比较使用相同的 3-5-4 搜索设置，以 Qwen2.5 系列模型作为搜索 backbone，在全部 60 个电路上进行面积导向优化。 唯一差异是优化过程中使用的规则库。 表 表 6 给出了实验结果。 我们 E²I 流程的可扩展性生成了显著更多规则（101,987 条规则），相比之下，16 小时人工努力只得到 12 条规则，因此也带来了更好的优化结果。\n\n\n\n表 6: AutoPPA 学到的规则库与人工构造规则库之间的面积导向优化比较，测试使用 AutoPPA-Qw。\n\n\n\n\n\n\n\n\n\n设置\nImpr@50（Area / Delay / Power）\n\n\n\n\nAutoPPA-Qw with E²I rules (ours)\n8.83% / 3.25% / 9.97%\n\n\nwith manual rules\n6.56% / 0.80% / 5.46%\n\n\n\n\n\n\nAblation Study. 为验证所提出方法中每个组件的有效性，我们进行了一系列消融研究。 完整设计包含 LLM 生成规则 speculation、使用这些 speculative 结果进行规则库 retrieval、对检索规则进行 adaptation，以及 search 框架。 我们在相同 RTL 代码采样开销下进行消融实验。 表 表 7 给出了实验结果，展示了设计中每个组件的有效性。 每个消融设置下观察到的性能下降，都验证了我们集成方法对最佳性能的重要性。\n\n\n\n表 7: AutoPPA 自适应规则驱动 PPA 优化框架在面积导向优化上的消融。\n\n\n\n\n\n设置\nImpr@50（Area / Delay / Power）\n\n\n\n\nAutoPPA-Qw (ours)\n8.83% / 3.25% / 9.97%\n\n\nw/o Search\n7.83% / 3.14% / 7.94%\n\n\nw/o Adapt\n6.96% / 2.58% / 7.62%\n\n\nw/o Retrieve, Adapt\n5.34% / 2.41% / 5.67%\n\n\nw/o Speculate, Retrieve, Adapt\n6.39% / 1.95% / 5.84%"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "",
+    "text": "近年来，GPU 已不仅用于图形渲染，也被广泛用于通用计算负载[1]。GPU 架构提供的大规模并行性可被许多现代应用充分利用，例如生物信息学[2], [3]、物理模拟[4], [5]、化学计算[6], [7]等。如今，GPU 是加速现代机器学习工作负载的核心平台，这些工作负载对内存带宽与计算能力的需求极高[8]。近年来 GPU 微架构、互连技术（如 NVLink[9]）与通信框架（如 NCCL[10]）持续演进，这些进步使得需要数千块 GPU 的大语言模型训练与推理成为可能[11]。\n然而，现代商业 GPU 的微架构细节信息十分稀缺，学术研究中常用的模型仍以 2006 年发布的 Tesla 架构为基线[12], [13], [14]。现代 GPU 相比 Tesla 已发生了显著变化，基于旧架构的模型可能导致结论偏差。本文旨在揭示现代 NVIDIA GPU 架构中的关键特性与组件细节，以提升学术界 GPU 微架构模型的准确性，从而帮助研究者更好地识别未来 GPU 的挑战与机会。本文的主要贡献如下：\n\n描述发射阶段的运行机制，包括依赖处理、warp 就绪条件以及发射调度策略。\n描述一种可信的取指阶段与其调度器，并说明其与发射阶段的协调方式。\n给出寄存器文件的重要细节并解释寄存器文件缓存的行为，表明现代 NVIDIA GPU 不使用 operand collection 阶段或 collector units。\n揭示内存流水线的多项细节。\n重新设计 Accel-Sim 模拟器中的 SM/Core 模型，并整合本文揭示的全部细节。\n将新模型与真实硬件进行验证并与 Accel-Sim 对比。对 NVIDIA RTX A6000（Ampere）而言，我们的新模型在执行周期上的 MAPE 为 13.98%，比旧模型提升 18.24%。\n证明基于流缓冲的朴素指令预取在性能精度上优于预期，效果接近“完美指令缓存”。\n分析寄存器文件缓存和寄存器文件读端口数量对仿真精度与性能的影响。\n比较本文揭示的依赖管理机制与传统记分牌方法在性能、面积与仿真精度上的差异，表明这种软硬协同设计更高效。\n证明模型对 NVIDIA 其他架构（如 Turing）的可移植性。\n\n本文其余部分结构如下：第 小节 2 节介绍背景与动机；第 小节 3 节说明逆向方法；第 小节 4 节描述现代 NVIDIA GPU 的控制位（control bits）及其行为；第 小节 5 节呈现 GPU 核心微架构；第 小节 6 节描述仿真模型；第 小节 7 节评估模型准确性并分析指令预取、寄存器文件缓存与依赖管理机制等因素；第 小节 8 节回顾相关工作；最后第 小节 9 节总结全文。"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-warpscheduler",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-warpscheduler",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "发射调度器",
+    "text": "发射调度器\n本小节解析现代 NVIDIA GPU 的发射调度器。我们先在 小节 5.1.1 中描述每周期哪些 warp 会被视为“可发射”，再在 小节 5.1.2 中说明选择策略。\n\n\n\n\n\n\n图 4: 四个 warp 发射时间线示例。\n\n\n\n\nWarp 就绪条件\n若一个 warp 在某周期要被视为其最老指令的候选发射者，需要满足若干条件。这些条件既依赖该 warp 的历史指令状态，也依赖核心的全局状态。\n显然，需要指令缓冲区中存在有效指令。另一个条件是该 warp 的最老指令不能与同一 warp 中尚未完成的更老指令存在数据依赖。依赖由控制位进行软件处理，如 小节 4 所述。\n此外，对于固定延迟指令，只有在能够保证其发射后执行所需资源可用时，该 warp 才能在该周期发射最老指令。\n其中一类资源是执行单元。执行单元存在输入锁存器，指令到达执行阶段时该锁存器必须为空。当执行单元宽度为半个 warp 时，锁存器会被占用两个周期；宽度为一个 warp 时则占用一个周期。\n对于源操作数位于常量缓存（Constant Cache）的指令，标签查找在发射阶段进行。若所选 warp 的最老指令需要常量缓存而发生 miss，则调度器不会发射任何指令直到 miss 被服务；如果 4 个周期后 miss 仍未完成，则调度器切换到另一条指令就绪的 warp（选择最年轻的）。\n关于寄存器文件读端口的可用性，我们观察到发射调度器并不会考虑“未来若干周期是否会发生端口冲突”。我们的实验表明，即使移除最后一个 FFMA 与 CLOCK 之间的 NOP，寄存器读冲突也不会阻止第二个 CLOCK 的发射。我们进行了大量实验以推断从发射到执行之间的流水线结构，虽然无法完全拟合所有案例，但以下模型对绝大多数实验有效，因此采用该模型：固定延迟指令在发射阶段与读操作数阶段之间有两个中间阶段。第一个阶段称为 Control，适用于固定和可变延迟指令，用于递增依赖计数器或读取时钟计数器等。由此可以解释：如果一条指令递增依赖计数器，紧随其后的指令又需要等待该计数器归零，则两者之间至少需要插入一个周期，否则递增在下一周期才生效，因此连续指令无法依赖计数器直接避免冒险，除非前一条指令设置了 Yield 或设置了大于 1 的停顿计数器。\n第二个阶段仅用于固定延迟指令，我们称之为 Allocate。在该阶段检查寄存器文件读端口是否可用，若无法保证在后续周期无冲突读取操作数，则在该阶段停顿，直到可以保证读取。寄存器文件读写流水线及其缓存细节见 小节 5.3。\n可变延迟指令（如内存指令）在通过 Control 阶段后直接进入队列，不经过 Allocate。队列中的指令只有在确认不会发生读端口冲突时才进入寄存器文件读流水线。固定延迟指令优先于可变延迟指令获得读端口分配，因为固定延迟指令必须在固定周期内完成以保证依赖正确性。\n\n\n调度策略\n为揭示发射调度策略，我们设计了多种涉及多个 warp 的测试，记录每周期调度器选择哪个 warp 发射。该信息通过保存 GPU CLOCK 计数器的指令获取，但硬件不允许连续发射两条此类指令，因此我们在中间插入固定数量的其他指令（通常为 NOP），并变化 Yield 与停顿计数器控制位的取值。\n实验结果表明，warp 调度器采用贪心策略：若同一 warp 满足就绪条件，则继续从该 warp 发射；当需要切换 warp 时，选择满足就绪条件的“最年轻”warp。\n图 4 展示了四个 warp 在同一 sub-core 中执行时的发射时间线。每个 warp 执行相同的代码，包含 32 条彼此独立的指令，理论上每周期可发射 1 条。\n在情况 (a) 中，所有停顿计数器、依赖掩码与 Yield 均为 0。调度器从最年轻的 warp（W3）开始发射，直到其 ICache miss；此时 W3 没有有效指令，调度器切换到 W2。由于 W2 复用了 W3 带入的指令，因此其 ICache 命中；当 W2 执行到 W3 miss 的位置时，miss 已被服务，后续指令命中，于是调度器继续贪心地完成 W2。随后调度器继续从 W3（最年轻）发射至结束，再转到 W1、W0。\n情况 (b) 中，每个 warp 的第二条指令将停顿计数器设为 4。调度器在 W3 发射两条后切换至 W2，再两条后切换至 W1，然后回到 W3（其停顿计数器已归零）。当 W3、W2、W1 结束后，调度器开始发射 W0。W0 发射第二条指令后，由于没有其他 warp 可隐藏停顿，产生 4 个气泡。\n情况 (c) 中，每个 warp 的第二条指令设置 Yield。调度器在发射第二条指令后切换到其他 warp 中最年轻的一个，例如 W3 切换到 W2，W2 再切回 W3。我们还测试了“Yield 置位且无其他 warp 可选”的情况（图中未示），此时调度器产生 1 个周期的气泡。\n我们将该策略称为“编译器引导的贪心后选最年轻（CGGTY）”，因为调度器由控制位（停顿计数器、Yield 与依赖计数器）引导。\n需要说明的是，我们仅验证了同一 CTA 内 warp 的行为；尚未有可靠方法分析不同 CTA 之间 warp 的交互。"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-frontend",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-frontend",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "前端",
+    "text": "前端\n根据 NVIDIA 多份文档中的 SM 结构图[19], [20], [21], [22], [23], [24], [25]，SM 包含四个 sub-core，warp 以轮转方式分配到 sub-core（即 warp ID mod 4）[32], [33]。每个 sub-core 有私有 L0 指令缓存，并连接到全 SM 共享的 L1 指令缓存。我们假设存在仲裁器协调多个 sub-core 的请求。\n每个 L0 ICache 都有指令预取器[44]。我们的实验印证了 Cao 等人关于 GPU 指令预取有效性的结论[45]。尽管我们无法确认 NVIDIA 的具体实现，但推测为类似流缓冲的简单方案[46]，即在 miss 发生时预取后续连续的缓存行。基于分析，我们假设流缓冲大小为 16（见 小节 7.3）。\n我们无法通过实验确认精确的取指策略，但若其与发射策略差异过大，将频繁出现“指令缓冲区无有效指令”的情况，而我们并未观察到这一现象。因此，我们假设每个 sub-core 每周期可取指并译码 1 条指令。取指调度器优先从上次（或最近一次）发射指令的 warp 取指，除非该 warp 的指令缓冲区中已存在的指令数加上在途取指数达到缓冲区容量。此时调度器切换到指令缓冲区有空位的最年轻 warp。我们假设每个 warp 有 3 个指令缓冲区条目，足以支撑“贪心发射”策略，因为从取指到发射有 2 个流水阶段。如果缓冲区仅有 2 项，贪心策略将被破坏：例如在所有请求 ICache 命中、所有 warp 缓冲区均满的情况下，若第 1 周期发射 W1 同时取指 W0，第 2 周期将发射 W1 的第 2 条并取指第 3 条；第 3 周期 W1 的第 3 条仍在译码中，缓冲区无有效指令，贪心策略失败，被迫切换 warp。3 项缓冲区可避免该问题，这与我们的实验一致。多数文献假设取指/译码宽度为 2 且缓冲区为 2 项，并且只有当缓冲区为空才取指，这会导致每两个连续指令后就切换 warp，与我们的观察不符。"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-regfile",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-regfile",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "寄存器文件",
+    "text": "寄存器文件\n我们通过大量实验（不同 SASS 指令组合、不同寄存器文件端口压力、是否使用寄存器文件缓存）来揭示寄存器文件组织。\n现代 NVIDIA GPU 具有多种寄存器文件：\n\n常规寄存器（Regular）：最近架构每个 SM 有 65536 个 32 位寄存器[19], [20], [21], [22], [23]，用于保存线程计算值。寄存器按 32 个为一组，对应 warp 中 32 个线程，形成 2048 个“warp 寄存器”。寄存器在 sub-core 间均匀分布，每个 sub-core 的寄存器文件分成两个 bank[32], [33]。每个 warp 可使用 1 至 256 个寄存器，编译时确定。每 warp 使用寄存器越多，SM 并行 warp 数越少。\n统一寄存器（Uniform）：每个 warp 有 64 个私有 32 位寄存器，用于保存该 warp 所有线程共享的值[33]。\n谓词寄存器（Predicate）：每个 warp 有 8 个 32 位寄存器，每个 bit 对应 warp 中一个线程，用于指示是否执行指令及分支走向。\n统一谓词寄存器（Uniform Predicate）：每个 warp 有 8 个 1-bit 寄存器，用于全 warp 共享的谓词。\nSB 寄存器：每个 warp 有 6 个“依赖计数器”寄存器，用于追踪可变延迟依赖（见 小节 4）。\nB 寄存器：每个 warp 至少有 16 个 B 寄存器用于控制流重汇合（re-convergence）[47]。\n特殊寄存器：用于存放线程 ID、block ID 等特殊值。\n\n与以往假设存在 operand collector 以处理寄存器端口冲突的工作不同[13], [15], [48]，现代 NVIDIA GPU 并未使用 operand collector。若使用 collector，会引入发射到写回的可变延迟，使得 NVIDIA ISA 的固定延迟无法在编译期确定，无法正确依赖管理（见 小节 4）。我们通过多组生产者—消费者指令序列的实验验证了 collector 的不存在：无论寄存器端口冲突数量如何，停顿计数器所需值与指令执行时间均保持不变。\n实验显示，每个寄存器文件 bank 有一个 1024-bit 专用写端口。此外，当一条 load 指令与一条固定延迟指令在同周期完成时，被延迟的是 load 指令；而当两个固定延迟指令（如 IADD3 与 IMAD）写同一 bank 时，两者都不延迟。这表明固定延迟指令使用了类似 Fermi 中引入的结果队列[49]。其消费者不被延迟，说明存在旁路（bypass）以在写回前转发结果。\n在读方面，我们观察到每 bank 1024-bit 带宽。通过连续 FADD、FMUL、FFMA 指令测得这一结果。1\n例如，当 FMUL 的两个源操作数来自同一 bank 时会产生 1 个周期气泡；若来自不同 bank 则无气泡。FFMA 的三个源操作数都在同一 bank 时会产生 2 个周期气泡。\n我们未能找到一个完全匹配所有案例的读端口仲裁策略，因为气泡生成还依赖指令类型与操作数角色。最接近实验结果的模型为：固定延迟指令在发射与读操作数之间有两个中间阶段 Control 与 Allocate（见 小节 5.1.1）。Allocate 负责保留寄存器文件读端口；每 bank 有一个 1024-bit 读端口，并通过寄存器文件缓存缓解读冲突。实验显示所有固定延迟指令读取操作数会持续 3 个周期，即便某些周期空闲（例如仅有两个源操作数），因为 FADD 与 FMUL 的延迟与 FFMA 相同，而 FFMA 不论三操作数是否在同一 bank 延迟都相同。若指令在 Allocate 阶段发现无法在后续三周期内读取完所有操作数，则其被阻塞在该阶段并向上游施加气泡，直到能够预留所需端口。\n\n寄存器文件缓存\n寄存器文件缓存（RFC）可缓解寄存器文件端口争用并节能，这一思路已被多项研究探讨[50], [51], [52], [53], [54]。\n我们的实验表明 NVIDIA 的设计与 Gebhart 等人的方案类似[51]。RFC 由编译器控制，仅用于常规寄存器操作数。关于 Last Result File 结构，我们称之为结果队列，其行为类似，但并未采用两级发射调度器（见 小节 5.1.2）。\nRFC 组织结构如下：每个 sub-core 的两个寄存器 bank 各有一个入口，每个入口存放三个 1024-bit 值，对应三类常规寄存器源操作数。总容量为 6 个 1024-bit 操作数值（子条目）。某些指令的一个操作数可能需要连续两个寄存器（如张量核心指令），此时两个寄存器分别来自不同 bank，并缓存到对应入口。\n编译器控制分配策略。当指令发射并读取操作数时，若该操作数设置了 reuse，其值将被写入 RFC。若后续指令来自同一 warp，且寄存器 ID 与 RFC 中一致、并且该操作数在指令中的位置一致，则可从 RFC 命中。若有新的读请求到达同一 bank 和同一操作数位置，则该缓存值将失效（无论命中与否）。这一行为在下面示例 2 中展示：为了让第三条指令命中 R2，第二条指令必须再次为 R2 设置 reuse，即便 R2 已经缓存。\n# 寄存器文件缓存行为示例\n# Example 1\nIADD3 R1, R2.reuse, R3, R4 # Allocates R2\nFFMA R5, R2, R7, R8 # R2 hits and becomes unavailable\nIADD3 R10, R2, R12, R13 # R2 misses\n\n# Example 2\nIADD3 R1, R2.reuse, R3, R4 # Allocates R2\nFFMA R5, R2.reuse, R7, R8 # R2 hits and is retained\nIADD3 R10, R2, R12, R13 # R2 hits\n\n# Example 3. R2 misses in the second instruction since it is\n# cached in another slot. R2 remains available in the first\n# slot since R7 uses a different bank\nIADD3 R1, R2.reuse, R3, R4 # Allocates R2\nFFMA R5, R7, R2, R8 # R2 misses\nIADD3 R10, R2, R12, R13 # R2 hits\n\n# Example 4. R2 misses in the third instruction since the\n# second instruction uses a different register that goes to\n# the same bank in the same operand slot\nIADD3 R1, R2.reuse, R3, R4 # Allocates R2\nFFMA R5, R4, R7, R8 # R4 misses and R2 becomes unavailable\nIADD3 R10, R2, R12, R13 # R2 misses"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-memory-pipeline",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-memory-pipeline",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "内存流水线",
+    "text": "内存流水线\n现代 NVIDIA GPU 的内存流水线包含每个 sub-core 本地的初始阶段，而实际访存的后续阶段由四个 sub-core 共享，因为数据缓存与共享内存为 SM 共享结构[24], [25]。本节揭示每个 sub-core 的 load/store 队列大小、sub-core 向共享结构发送请求的速率，以及不同内存指令的延迟。\n注意内存访问分为两大类：共享内存访问（SM 内部、线程块共享）与全局内存访问（GPU 主存）。\n为了确定队列大小与内存带宽，我们进行了一系列实验，每个 sub-core 要么执行一个 warp，要么空闲。每个 warp 执行一串相互独立的 load/store 指令，这些指令始终命中数据缓存或共享内存，并使用常规寄存器。表 1 展示实验结果。第一列为指令序号，其余四列为不同活跃 sub-core 数量下该指令的发射周期（每格按周期升序列出所有活跃 sub-core）。\n\n\n\n表 1: 每条内存指令的发射周期（每格为所有活跃 sub-core 按周期升序的列表）。\n\n\n\n\n\n\n\n\n\n\n\n\n指令编号\n活跃 sub-core 数 = 1\n活跃 sub-core 数 = 2\n活跃 sub-core 数 = 3\n活跃 sub-core 数 = 4\n\n\n\n\n1\n2\n2/2\n2/2/2\n2/2/2/2\n\n\n2\n3\n3/3\n3/3/3\n3/3/3/3\n\n\n3\n4\n4/4\n4/4/4\n4/4/4/4\n\n\n4\n5\n5/5\n5/5/5\n5/5/5/5\n\n\n5\n6\n6/6\n6/6/6\n6/6/6/6\n\n\n6\n13\n13/15\n13/15/17\n13/15/17/19\n\n\n7\n17\n17/19\n19/21/23\n21/23/25/27\n\n\n8\n21\n21/23\n25/27/29\n29/31/33/35\n\n\n\\(i&gt;8\\)\n\\((i-1)+4\\)\n\\((i-1)+4\\)\n\\((i-1)+6\\)\n\\((i-1)+8\\)\n\n\n\n\n\n\n可以看到，在 Ampere 中每个 sub-core 可连续 5 条内存指令按每周期一条发射，第 6 条指令的发射会产生停顿，且停顿周期取决于活跃 sub-core 数量。这表明每个 sub-core 可无阻塞地缓冲 5 条指令，而全局共享结构可每两周期从任一 sub-core 接收一个内存请求。观察多 sub-core 情形可知：第 6 条及之后的指令在每个 sub-core 上以两周期间隔发射。\n我们还可推断 sub-core 中的地址计算吞吐率为每 4 周期一条指令：当只有一个 sub-core 活跃时，第 6 条指令之后出现 4 周期间隔。两 sub-core 活跃时，由于共享结构吞吐率为每 2 周期一条，故每个 sub-core 可每 4 周期发射一条；更多 sub-core 活跃时共享结构成为瓶颈。例如四 sub-core 活跃时，每个 sub-core 只能每 8 周期发射一条，因为共享结构最大吞吐为每 2 周期一条。\n关于每个 sub-core 内存队列大小，我们估计为 4，尽管每个 sub-core 可缓冲 5 条连续指令。指令进入单元时占用槽位，离开单元时释放槽位。\n我们测量了不同内存指令在缓存命中且单线程执行时的两类延迟。第一类是从 load 发射到消费者或覆盖同一目的寄存器的指令可以发射的最早时间（RAW/WAW 延迟；store 不产生寄存器 RAW/WAW）。第二类是从 load/store 发射到能够写入其源寄存器的指令可发射的最早时间（WAR 延迟）。结果见 表 2。\n\n\n\n表 2: 内存指令延迟（周期）。带 * 的值为近似值。\n\n\n\n\n\n指令\n地址寄存器类型\nWAR\nRAW/WAW\n\n\n\n\nLoad Global 32 bit\nUniform\n9\n29\n\n\nLoad Global 64 bit\nUniform\n9\n31\n\n\nLoad Global 128 bit\nUniform\n9\n35\n\n\nLoad Global 32 bit\nRegular\n11\n32\n\n\nLoad Global 64 bit\nRegular\n11\n34\n\n\nLoad Global 128 bit\nRegular\n11\n38\n\n\nStore Global 32 bit\nUniform\n10\n-\n\n\nStore Global 64 bit\nUniform\n12*\n-\n\n\nStore Global 128 bit\nUniform\n16*\n-\n\n\nStore Global 32 bit\nRegular\n14\n-\n\n\nStore Global 64 bit\nRegular\n16\n-\n\n\nStore Global 128 bit\nRegular\n20\n-\n\n\nLoad Shared 32 bit\nUniform\n9\n23\n\n\nLoad Shared 64 bit\nUniform\n9\n23\n\n\nLoad Shared 128 bit\nUniform\n9\n25\n\n\nLoad Shared 32 bit\nRegular\n9\n24\n\n\nLoad Shared 64 bit\nRegular\n9\n24\n\n\nLoad Shared 128 bit\nRegular\n9\n26\n\n\nStore Shared 32 bit\nUniform\n10\n-\n\n\nStore Shared 64 bit\nUniform\n12\n-\n\n\nStore Shared 128 bit\nUniform\n16\n-\n\n\nStore Shared 32 bit\nRegular\n12\n-\n\n\nStore Shared 64 bit\nRegular\n14\n-\n\n\nStore Shared 128 bit\nRegular\n18\n-\n\n\nLoad Constant 32 bit\nImmediate\n10\n26\n\n\nLoad Constant 32 bit\nRegular\n29\n29\n\n\nLoad Constant 64 bit\nRegular\n29\n29\n\n\nLDGSTS 32 bit\nRegular\n13\n39\n\n\nLDGSTS 64 bit\nRegular\n13\n39\n\n\nLDGSTS 128 bit\nRegular\n13\n39\n\n\n\n\n\n\n我们观察到：使用统一寄存器计算地址的全局内存访问比使用常规寄存器更快，因为前者所有线程共享同一地址，仅需计算一个地址，而后者每线程可能不同。\n共享内存 load 的延迟低于全局内存。其 WAR 延迟对常规与统一寄存器相同，而 RAW/WAW 延迟在统一寄存器时少 1 个周期。这表明共享内存的地址计算在共享结构中完成，WAR 依赖在源寄存器读取后即可解除。\n如预期，延迟也受访问粒度影响。对于 WAR 依赖，load 延迟不随数据大小变化，因为源操作数仅用于地址计算且大小固定；对于 store，写入数据也是源操作数，数据越大 WAR 延迟越高。RAW/WAW 依赖（仅适用于 load）随数据大小增大而增大，因为需要更多数据传输到寄存器文件。我们测得该传输带宽为每周期 512 bit。\n此外，常量缓存的 WAR 延迟显著高于全局内存 load，而 RAW/WAW 延迟略低。我们尚无法给出合理解释。但我们发现，固定延迟指令访问常量空间使用不同的缓存层级：通过 LDC 预加载常量地址并等待完成后，再发射使用同一常量地址的固定延迟指令，会出现约 79 周期的 miss 延迟，而非命中。这表明固定延迟指令访问常量空间使用 L0 FL（固定延迟）常量缓存，而 LDC 指令使用 L0 VL（可变延迟）常量缓存。\n最后，我们分析 LDGSTS 指令，该指令用于减少寄存器文件压力并提升数据传输效率[55]。它从全局内存加载数据并直接写入共享内存，绕过寄存器文件，节省指令与寄存器。其延迟与指令粒度无关。WAR 依赖在地址计算完成后解除；RAW/WAW 依赖在读阶段完成后解除。"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-methodoloy",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-methodoloy",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "方法",
+    "text": "方法\n我们通过将模拟器结果与真实 GPU 的硬件计数器指标进行对比来验证准确性。使用了四种 Ampere GPU[21]（规格见 表 4），CUDA 版本为 11.4，NVBit 为 1.5.5。我们也将模型与原始 Accel-Sim 进行对比，因为新模型基于其构建。\n我们选取了来自 12 个基准套件的广泛基准。各套件、应用数量与输入集数量见 表 3。总计 143 个基准，其中 83 个为不同应用，其余为同应用不同输入。\n\n\n\n表 3: 基准套件。\n\n\n\n\n\n套件\n应用数\n输入集\n\n\n\n\nCutlass[60]\n1\n17\n\n\nDeepbench[61]\n3\n27\n\n\nDragon[62]\n4\n6\n\n\nGPU Microbenchmark[13]\n15\n15\n\n\nISPASS 2009[12]\n8\n8\n\n\nLonestargpu[63]\n3\n6\n\n\nPannotia[64]\n7\n11\n\n\nParboil[65]\n6\n6\n\n\nPolybench[66]\n8\n8\n\n\nProxy Apps DOE[67]\n3\n4\n\n\nRodinia 2[68]\n10\n10\n\n\nRodinia 3[68]\n15\n25\n\n\n合计\n83\n143"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-cycle-accuracy",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-cycle-accuracy",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "性能准确性",
+    "text": "性能准确性\n\n\n\n表 4: GPU 规格与性能准确性。\n\n\n\n\n\n\nRTX 3080\nRTX 3080 Ti\nRTX 3090\nRTX A6000\nRTX 2080 Ti\n\n\n\n\n规格\n\n\n\n\n\n\n\n核心频率\n1710 MHz\n1365 MHz\n1395 MHz\n1800 MHz\n1350 MHz\n\n\n显存频率\n9500 MHz\n9500 MHz\n9750 MHz\n8000 MHz\n7000 MHz\n\n\nSM 数量\n68\n80\n82\n84\n68\n\n\n每 SM warp 数\n48\n48\n48\n48\n32\n\n\n每 SM 共享内存/L1D\n128 KB\n128 KB\n128 KB\n128 KB\n96 KB\n\n\n内存分区数\n20\n24\n24\n24\n22\n\n\nL2 总容量\n5 MB\n6 MB\n6 MB\n6 MB\n5.5 MB\n\n\n验证\n\n\n\n\n\n\n\n我们模型 MAPE\n17.15%\n18%\n17.93%\n13.98%\n19.73%\n\n\nAccel-Sim MAPE\n27.95%\n28.19%\n28.5%\n32.22%\n26.67%\n\n\n我们模型相关系数\n0.99\n0.99\n0.98\n0.98\n0.98\n\n\nAccel-Sim 相关系数\n0.98\n0.98\n0.98\n0.97\n0.95\n\n\n\n\n\n\n表 4 展示了我们模型与 Accel-Sim 相对于真实硬件的 MAPE。可以看到，我们模型在所有 GPU 上都更准确，且对最大规模的 NVIDIA RTX A6000，MAPE 不到 Accel-Sim 的一半。相关系数方面，两者接近，但我们略优。\n\n\n\n\n\n\n图 5: NVIDIA RTX A6000 在各基准下的绝对百分比误差。基准按误差从小到大排序。\n\n\n\n图 5 展示了 RTX A6000 上两种模型的 APE 分布（基准按误差排序）。我们模型在所有应用上 APE 更低，并且对约半数应用差距显著。Accel-Sim 在 10 个应用上 APE 大于等于 100%，最坏达到 543%，而我们的模型 APE 从未超过 62%。以 90 分位为衡量尾部准确性，Accel-Sim 为 82.64%，而我们为 31.47%。这表明我们的模型明显更准确且更稳健。"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-results-instruction-prefetching",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-results-instruction-prefetching",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "指令预取的敏感性分析",
+    "text": "指令预取的敏感性分析\n流缓冲指令预取器的参数对模型准确性影响很大。我们评估了多种配置：关闭预取、完美指令缓存，以及流缓冲大小为 1、2、4、8、16、32 的配置，均基于 RTX A6000。结果见 表 5，可见最佳准确性对应流缓冲大小为 16。\n\n\n\n表 5: 不同预取配置的 MAPE 与相对性能提升。\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n配置\n关闭\n1\n2\n4\n8\n16\n32\n完美 ICache\n\n\n\n\nMAPE\n56.61%\n43.94%\n28.59%\n18.55%\n14.67%\n13.98%\n14.35%\n15.2%\n\n\n加速比\n1\n1.08x\n1.2x\n1.33x\n1.42x\n1.47x\n1.46x\n1.58x\n\n\n\n\n\n\n从 表 5 的加速结果还可得出一条结论：简单的流缓冲预取器在 GPU 上的行为接近完美指令缓存。这是因为 sub-core 中的不同 warp 往往执行同一代码区域，而典型 GPGPU 应用控制流较简单，预取连续 \\(N\\) 行通常有效。由于 GPU 不进行分支预测，采用 Fetch-Directed 预取[69] 不划算。\n就仿真准确性而言，当不研究指令缓存增强时，完美指令缓存通常能以更高速度提供近似准确性。但对控制流较复杂的基准（如 Rodinia 的 dwt2d、lud、nw），完美指令缓存或不使用流缓冲会导致显著不准确（相对完美 ICache 误差超过 20%，相对无预取甚至超过 200%）。这是因为完美 ICache 无法体现频繁跳转带来的性能惩罚，而无预取则过度惩罚程序的其他部分，这也表明这些基准仍有改进空间。"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-eval-rf",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-eval-rf",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "寄存器文件架构的敏感性分析",
+    "text": "寄存器文件架构的敏感性分析\n表 6 展示了寄存器文件缓存（RFC）与每 bank 读端口数量对准确性与性能的影响，并给出了理想配置（所有操作数可在一个周期取回）。总体平均性能与准确性在各配置间相近，但特定基准表现更微妙：例如计算密集型的 MaxFlops（Accel-Sim GPU Microbenchmark）与使用 sgemm 参数的 Cutlass[13], [60]。这两者高度依赖固定延迟算术指令，而这类指令通常有 3 个操作数，易受寄存器文件访问限制影响。\n\n\n\n表 6: 不同寄存器文件配置的 MAPE 与相对性能。\n\n\n\n\n\n配置\n1R + RFC 开\n1R + RFC 关\n2R + RFC 关\n理想\n\n\n\n\nMAPE\n13.98%\n16.05%\n13.38%\n13.57%\n\n\n加速比\n1x\n0.984x\n1.012x\n1.013x\n\n\nMaxFlops APE\n2.82%\n2.82%\n28.97%\n28.97%\n\n\nMaxFlops 加速比\n1x\n1x\n1.44x\n1.44x\n\n\nCutlass APE\n9.72%\n39.35%\n0.97%\n2.3%\n\n\nCutlass 加速比\n1x\n0.79x\n1.11x\n1.12x\n\n\n\n\n\n\n对 MaxFlops 而言，RFC 是否存在对性能影响不大，因为仅有一条静态指令使用 RFC。但当每 bank 读端口数增至 2（总共 4 个读端口）时，性能提升约 44%，因为每条指令常有 3 个操作数。相对地，从仿真准确性角度看，2 端口配置偏差明显。\n对 Cutlass（sgemm）而言，单端口且无 RFC 会导致性能显著下降（0.78x），与程序中约 35.9% 的静态指令至少有一个操作数使用 RFC 的观察一致。引入每 bank 2 个读端口则提升约 12% 性能，说明寄存器文件与缓存结构仍有优化空间。\n总之，寄存器文件架构及其缓存对个别基准影响显著，准确建模十分关键。平均而言，单端口 + 简单缓存已接近“无限端口”效果，但对某些基准差距仍很大，值得进一步研究。"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-deps-analysis",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-deps-analysis",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "依赖管理机制分析",
+    "text": "依赖管理机制分析\n本小节比较本文揭示的软硬协同依赖管理机制与传统记分牌方法在性能与面积上的影响。表 7 给出结果。面积开销相对于一个 SM 的常规寄存器文件（256 KB）。\n\n\n\n表 7: 不同依赖管理机制的速度、面积与 MAPE。\n\n\n\n\n\n指标\n控制位方案\n记分牌（最大消费者 63）\n记分牌（无限制）\n\n\n\n\n加速比\n1\n0.97x\n0.97x\n\n\n面积开销\n0.09%\n5.32%\n-\n\n\nMAPE\n13.98%\n14.87%\n14.87%\n\n\n\n\n\n\n传统记分牌机制需要为所有可写寄存器提供条目，即每 warp 332 个条目（255 常规寄存器、63 统一寄存器、7 谓词寄存器、7 统一谓词寄存器）。此外需两个记分牌：一个处理 RAW/WAW，另一个处理 WAR[17]，因为虽然发射顺序严格，但可变延迟指令的读写可能乱序，导致 WAR。WAR 记分牌需要记录每条目消费者数量。若支持最多 63 个消费者，则单 warp 需要 2324 bit（\\(332 + 332\\times log2(63+1)\\)）。按 48 个 warp 的 SM 计算，总计 111,552 bit，占寄存器文件面积的 5.32%。\n相比之下，本文的软硬协同机制仅需每 warp 6 个 6-bit 依赖计数器、4-bit 停顿计数器与 1-bit Yield，共 41 bit。每个 SM 仅 1968 bit，占寄存器文件面积的 0.09%，远小于记分牌方案。\n综上，基于控制位的软硬协同机制在性能与面积上优于其他方案，且面积开销极小。在支持 64 个 warp/SM 的架构（如 Hopper[22]）中，对比更显著：控制位方案开销为 0.13%，而记分牌方案（63 消费者）为 7.09%。此外，在无法获取控制位的应用场景（如部分 Deepbench 内核）中，使用双记分牌（RAW/WAW 与 WAR）且最大消费者 63 的方案在仿真准确性上与控制位接近，因此是有效替代方案。"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-use-other-archs",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-use-other-archs",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "向其他 NVIDIA 架构的可移植性",
+    "text": "向其他 NVIDIA 架构的可移植性\n本文主要聚焦 Ampere，但结论同样适用于 Turing 等架构。除四种 Ampere GPU 的结果外，表 4 还给出 Turing GPU 结果，显示对 NVIDIA RTX 2080 Ti 的 MAPE 相比 Accel-Sim 提升 6.94%。\n虽然我们仅在 Turing 与 Ampere 上验证了模型，但认为其结论可适用于更广泛的 NVIDIA 架构。公开资料与 SM 结构图显示，近期架构的重大变化主要集中在张量核心、光线追踪单元，以及如 TPC 内 SM 之间共享内存的分布式特性等小幅改动[22]。不过，为适配其他架构仍需重新估计部分指令（如内存指令）的延迟。"
+  },
+  {
+    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#footnotes",
+    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#footnotes",
+    "title": "Analyzing Modern NVIDIA GPU cores",
+    "section": "脚注",
+    "text": "脚注\n\n\nAmpere 允许 FP32 操作在 FP32 与 INT32 执行单元上执行[21]，因此两个连续 FP32 指令之间不会因执行单元冲突产生气泡。↩︎"
+  },
+  {
+    "objectID": "posts/2020-12-06-RISCW-3.html",
+    "href": "posts/2020-12-06-RISCW-3.html",
+    "title": "为LLVM添加简易RISCV后端(三)：配置构建系统",
+    "section": "",
+    "text": "为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程12。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。"
+  },
+  {
+    "objectID": "posts/2020-12-06-RISCW-3.html#配置构建系统",
+    "href": "posts/2020-12-06-RISCW-3.html#配置构建系统",
+    "title": "为LLVM添加简易RISCV后端(三)：配置构建系统",
+    "section": "配置构建系统",
+    "text": "配置构建系统\n在前面，我们提到每个LLVM后端都有一个单独的目录LLVM/lib/Target，后端的大部分代码都在其中。 此外，LLVM依赖CMake为实际的构建系统(如Make、Ninja等)生成构建文件。 在这篇文章中，我们将仔细研究其中的一些CMake配置文件。\n注意:RISCW后端代码可以在这里找到。\n\nCMake配置文件\n回想一下，RISCW后端存放在llvm/lib/Target/RISCW目录下。 该目录及其子目录都有两个构建文件(CMakeLists.txt和LLVMBuild.txt)，描述后端模块的结构，提供链接信息等。 RISCW后端目前非常简单，目录结构是这样的:\nllvm/lib/Target/RISCW\n|- CMakeLists.txt\n|- LLVMBuild.txt\n|- Other C++, TableGen, etc files\n|- TargetInfo/\n|  |- CMakeLists.txt\n|  |- LLVMBuild.txt\n|  |- Other C++, TableGen, etc files\n|- MCTargetDesc/\n   |- CMakeLists.txt\n   |- LLVMBuild.txt\n   |- Other C++, TableGen, etc files\n每个使用CMake的项目都会包含CMakeLists.txt文件3，RISCW也不例外。 这些文件包含一系列CMake指令，这些指令用于驱动构建文件的生成。 在LLVM后端中，CMake会根据这些指令执行一些操作，例如指示要编译的C++源文件或生成TableGen指令。 LLVMBuild.txt文件对当前目录中包含的组件提供了描述。\n\n\nLLVMBuild.txt文件\n让我们看一下llvm/lib/Target/RISCW/LLVMBuild.txt的内容。\n[common]\nsubdirectories = MCTargetDesc TargetInfo\n\n[component_0]\ntype = TargetGroup\nname = RISCW\nparent = Target\nhas_asmprinter = 1\n\n[component_1]\ntype = Library\nname = RISCWCodeGen\nparent = RISCW\nrequired_libraries = AsmPrinter CodeGen Core MC RISCWDesc RISCWInfo\n  SelectionDAG Support Target\n\nadd_to_library_groups = RISCW\n该文件告诉构建系统RISCW后端具有两个组件。 其中一个是顶级组件RISCW，其类型为TargetGroup，该类型表明RISCW是一个后端，构建系统对该类型有一些特殊处理。 Target是RISCW的父组件。 请注意，此命名与LLVM后端的目录结构匹配，即llvm/lib/Target/RISCW。 RISCW的名称也不是任意的，它必须与后端的TableGen文件中的定义匹配。\nLLVM后端提供了一系列可选功能， 例如assembly printing，assembly parsing等， LLVMBuild.txt文件表明了后端支持哪些可选功能。 比如，最后一行告诉构建系统RISCW后端实现了assembly printing功能。\n注意：查看现有后端（如ARM或RISCV）中的代码，以了解它们除了has_asmprinter之外还启用了哪些功能。\nLLVMBuild.txt文件还定义了第二个名为RISCWCodeGen的组件，其类型为Library，其父级为RISCW。 另外，文件还指明了RISCWCodeGen需要的依赖库，例如AsmPrinter，CodeGen等，构建LLVM时，缺少库会导致链接错误。\nllvm/lib/Target/RISCW的每个子目录也会包含一个LLVMBuild.txt文件，该文件使用RISCW作为父级来定义自己的组件。\n\n\nCMakeLists.txt文件\n让我们看一下llvm/lib/Target/RISCW/CMakeLists.txt文件的内容。\nset(LLVM_TARGET_DEFINITIONS RISCW.td)\n\ntablegen(LLVM RISCWGenRegisterInfo.inc -gen-register-info)\ntablegen(LLVM RISCWGenInstrInfo.inc -gen-instr-info)\n# Other TableGen commands\n\nadd_public_tablegen_target(RISCWCommonTableGen)\n\n# RISCWCodeGen should match with LLVMBuild.txt RISCWCodeGen\nadd_llvm_target(RISCWCodeGen\n  RISCWAsmPrinter.cpp\n  # Other files\n)\n\n# Should match with \"subdirectories =  MCTargetDesc TargetInfo\" in LLVMBuild.txt\nadd_subdirectory(TargetInfo)\nadd_subdirectory(MCTargetDesc)\n文件顶部的set命令将LLVM_TARGET_DEFINITION定义为`RISCW.td**。 这个文件通常包含一些顶级定义， 并通过包含其他文件的方式来引入其他TableGen定义——我们将在后面的文章中更仔细地研究TableGen， 但是请随时查看代码库中的RISCW.td。\n然后我们在CMake文件中看到一些TableGen命令。 它们命令构建系统使TableGen工具根据*.td文件生成RISCWGen*.inc。 这些*.inc文件实际上就是传统的C++代码，在编译完LLVM之后，你可以在build/lib/Target/RISCW的构建目录中找到它们；它们可以用于调试，但是不容易阅读。\n接下来的命令，也就是add_llvm_target， 指定了当前目录中要构建的C++文件，被指定的文件不能位于子目录中。 add_llvm_target命令的第一个参数是目标的名称，并且应该与LLVMBuild.txt中定义名称匹配。\n最后，CMakeLists.txt指定了CMake应该查看的子目录，在后端RISCW中，只有两个:TargetInfo和MCTargetDesc。 子目录中的CMakeLists.txt与此类似，但要简单得多!\n注意:后端文件的命名约定通常很重要，显然应该与构建文件的内容相匹配。 例如，set(LLVM_TARGET_DEFINITIONS RISCW.td)命令要求RISCW.td存在! 一定要仔细检查这些错误，因为构建错误可能有点含糊不清。"
+  },
+  {
+    "objectID": "posts/2020-12-06-RISCW-3.html#注释",
+    "href": "posts/2020-12-06-RISCW-3.html#注释",
+    "title": "为LLVM添加简易RISCV后端(三)：配置构建系统",
+    "section": "注释",
+    "text": "注释"
+  },
+  {
+    "objectID": "posts/2020-12-06-RISCW-3.html#footnotes",
+    "href": "posts/2020-12-06-RISCW-3.html#footnotes",
+    "title": "为LLVM添加简易RISCV后端(三)：配置构建系统",
+    "section": "脚注",
+    "text": "脚注\n\n\n公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。↩︎\n这个教程描述了如何开发LLVM后端，但我发现很难理解。↩︎\n您可以在此处找到有关CMake的更多信息。↩︎"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "",
+    "text": "原文版权声明：本文依据公开来源论文 MLIR: Scaling Compiler Infrastructure for Domain Specific Computation 进行中文翻译整理，仅供学习与研究使用。我仅提供翻译与网页整理，不拥有原文版权；原文版权归作者及出版方所有。转载、分发或用于商业用途时，请遵守原论文及原始发布平台的版权规定。\n原文信息：Chris Lattner, Mehdi Amini, Uday Bondhugula, Albert Cohen, Andy Davis, Jacques Pienaar, River Riddle, Tatiana Shpeisman, Nicolas Vasilache, Oleksandr Zinenko. MLIR: Scaling Compiler Infrastructure for Domain Specific Computation. 2021 IEEE/ACM International Symposium on Code Generation and Optimization (CGO 2021). DOI: 10.1109/CGO51591.2021.9370308。\n说明：以下内容按原文句序逐句对应翻译。图注、脚注、代码示例、安装命令与参考文献信息均尽量保留原貌；其中代码与参考文献信息不做中文改写。\n作者：Chris Lattner；Mehdi Amini；Uday Bondhugula；Albert Cohen；Andy Davis；Jacques Pienaar；River Riddle；Tatiana Shpeisman；Nicolas Vasilache；Oleksandr Zinenko\n单位：Google, USA；Google, USA；Indian Institute of Science, India；Google, France；Google, USA；Google, USA；Google, USA；Google, USA；Google, USA；Google, France\n注：* 发表时任职于 SiFive。† 本文工作期间在 Google 进行访问研究。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-contributions",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-contributions",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "贡献",
+    "text": "贡献\nMLIR 系统的大多数组成部分都建立在众所周知的概念和算法之上。 然而，它的目标和设计足够新颖，对其展开研究将带来大量研究机会，尤其是在以下总体原则的边界内更是如此：\n\n简约性（Parsimony）：对内建语义、概念和编程接口运用奥卡姆剃刀。 通过抽象操作和类型的属性，驾驭本质复杂性与偶发复杂性。 不变量只规定一次，但在全过程中验证其正确性。 在特定编译 pass 的上下文中查询属性。 由于内建内容极少，这为可扩展性与可定制性打开了大门。\n可追踪性（Traceability）：保留信息，而不是事后恢复信息。 通过声明规则和属性来支持变换，而不是用逐步的命令式规约。 可扩展性伴随着通用的信息追踪手段，并由广泛验证来保障。 组合式抽象来自对其属性进行“玻璃盒化”，并将其角色分离开来，例如类型、控制、数据流等。\n渐进性（Progressivity）：过早 lowering 是万恶之源。 除了表示层次之外，还要允许多条变换路径按需对单个 region 做 lowering。 再结合与抽象无关的原则和接口，这就能实现跨多个领域的复用。\n\n尽管这些原则已经较为成熟，但它们中的某一个往往会以牺牲另一个为代价来实现，例如，网络栈和操作系统栈中的分层符合渐进性原则，却破坏了简约性。 在具有多层 IR 的编译器中，这种情况也同样存在。 此外，遵循这些原则可能会损害表达能力和有效性，例如，在安全关键和安全敏感系统中，实现可追踪性意味着要限制优化及其激进程度。\n简而言之，我们识别出一组设计与工程原则，它们使编译器构造能够在一条狭窄的中间道路上繁荣发展，从而支持一个开放语义生态。 我们发现，复杂性可以在不限制表达能力的前提下得到驯服，这使得跨领域的 IR 设计探索与收敛能够快速进行，而这两点在生产系统中都严重缺失。\n本文的贡献是：（1）以经过验证的设计与工程原则为基础，对构建可扩展、模块化编译器系统的问题进行定位；（2）描述一种遵循这些原则的新型编译器基础设施，并展示其重要的工业与研究应用；（3）探讨若干面向不同领域的应用，以说明这种方法的通用性，并分享开发基于 MLIR 基础设施的系统时的经验。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-where-mlir-came-from",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-where-mlir-came-from",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "MLIR 从何而来？",
+    "text": "MLIR 从何而来？\nMLIR 的工作始于这样一个认识：现代机器学习框架由许多不同的编译器、图技术和运行时系统组成（见图 图 1），而它们并不共享一套共同的基础设施或设计原则。 这在用户层面体现为多种可见问题，包括糟糕的错误消息、边界情形失败、性能不可预测，以及难以将整套技术栈推广到新硬件上。\n我们很快意识到，整个编译器行业也存在类似问题：LLVM 这类现有系统在统一和整合多种语言工作负载方面非常成功，但高层语言最终往往会构建自己的高层 IR，并在更高抽象层上重新发明同类技术（见图 图 2）。 与此同时，LLVM 社区一直在并行结构表示、以及如何共享前端 lowering 基础设施（例如 C 调用约定，或者 OpenMP 这类跨语言特性）方面苦苦挣扎，而一直没有令人满意的解决方案。\n面对这一挑战，考虑到我们无法承担实现 N 个“更好的编译器实例”的成本，我们决定转向一种更通用的解决方案：投资于高质量基础设施，使其能够惠及多个领域，渐进地升级现有系统，更容易应对诸如面向专用加速器的异构编译这类紧迫问题，并提供新的研究机会。 现在，我们已经积累了大量构建和部署基于 MLIR 系统的经验，因此能够回过头来审视它的提出动机和设计，并讨论我们为何选择这一路线。\n\n\n\n\n\n\n图 1: TensorFlow 执行跨越不同框架。\n\n\n\n\n\n\n\n\n\n图 2: 带中间层语言 IR 的编译流水线。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-tensorflow-graphs",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-tensorflow-graphs",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "TensorFlow 图",
+    "text": "TensorFlow 图\n尽管前面讨论的其他表示形式对大多数编译器开发者都很熟悉，但 MLIR 的一个关键用例，是支持机器学习框架的开发。 这类框架的内部表示通常基于具有动态执行语义的数据流图 [22]。\nTensorFlow [23] 就是这样一个框架。 它的表示是一种高层数据流计算，其中节点代表计算，而这些计算可以放置在不同设备上，包括特定的硬件加速器。\nMLIR 被 TensorFlow 用来建模这种内部表示，并为图 图 1 所示的那些用例执行变换：从简单的代数优化，到将图重定向为适合数据中心集群上并行与分布式执行、以及异步硬件加速的表示；从 lowering 到适合移动端部署的表示，再到使用 XLA [24] 这类领域专用代码生成器生成高效原生代码。 图 图 6 中给出了 TensorFlow 图在 MLIR 中的表示。 它展示了异步并发的建模方式，其中数据流图通过隐式 future 被去同步化，而具有副作用的 Op 则通过显式控制信号被串行化，这同样遵循数据流语义。 尽管其中涉及的抽象极为不同，包括并发、异步、延迟求值等，MLIR 仍为其提供了与其他任何 dialect 或编译 pass 相同的基础设施、分析与变换能力。 特别是，Grappler5 中实现的关键图级变换，在 MLIR 中既可用于 TensorFlow 模型，也可用于低层 LLVM IR：死代码/死节点消除、常量折叠、canonicalization、循环不变代码外提、公共子表达式/子图消除、特定指令或设备内核选择、重物化、布局优化；而其他变换则可能是领域特定的，例如混合精度优化、op fusion 与形状算术优化。\n\n\n\n%0 = tf.graph (%arg0 : tensor&lt;f32&gt;, %arg1 : tensor&lt;f32&gt;,\n               %arg2 : !tf.resource) {\n  // Execution of these operations is asynchronous, the %control return value\n  // can be used to impose extra runtime ordering, for example the assignment\n  // to the variable %arg2 is ordered after the read explicitly below.\n  %1, %control = tf.ReadVariableOp(%arg2)\n     : (!tf.resource) -&gt; (tensor&lt;f32&gt;, !tf.control)\n  %2, %control_1 = tf.Add(%arg0, %1)\n     : (tensor&lt;f32&gt;, tensor&lt;f32&gt;) -&gt; (tensor&lt;f32&gt;, !tf.control)\n  %control_2 = tf.AssignVariableOp(%arg2, %arg0, %control)\n     : (!tf.resource, tensor&lt;f32&gt;) -&gt; !tf.control\n  %3, %control_3 = tf.Add(%2, %arg1)\n     : (tensor&lt;f32&gt;, tensor&lt;f32&gt;) -&gt; (tensor&lt;f32&gt;, !tf.control)\n  tf.fetch %3, %control_2 : tensor&lt;f32&gt;, !tf.control\n}\n\n\n图 6: TensorFlow 图在 MLIR 中的 SSA 表示。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-polyhedral-codegen",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-polyhedral-codegen",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "Polyhedral 代码生成",
+    "text": "Polyhedral 代码生成\nMLIR 最初的动机之一，是探索面向加速器的 polyhedral 代码生成。 affine dialect 是一种简化的 polyhedral 表示，其设计目标是支持渐进 lowering。 虽然在本文中无法完整展开其全部设计点，但我们会展示 affine dialect 的若干方面，以说明 MLIR 的建模能力，并将 affine dialect 与既有表示进行对比 [25], [26], [27], [28], [29]。\n1) 相似性： MLIR 的 affine dialect 在所有内存访问上都使用结构化多维类型。 在默认情形下，这些结构化类型是单射的：不同索引方式按构造保证不会别名，而这是 polyhedral 依赖分析的一个常见前提条件。\nAffine 建模被拆分为两部分。 Attribute 用于在编译期建模 affine map 与整数集合，而 Op 则用于将 affine 约束施加到代码上。 具体而言，affine.for Op 是一种 for 循环，其边界由 affine map 表示，而这些 map 的值要求在函数内保持不变。 因此，这些循环具有静态控制流。 类似地，affine.if 是一种受 affine 整数集合限制的条件语句。 循环体与条件体都是 region，并通过 affine.load 与 affine.store 限制索引必须是外围循环迭代变量的 affine 形式。 这使得精确的 affine 依赖分析成为可能，同时避免了从有信息损失的低层表示中反推 affine 形式的需要。\n\n\n\n// Affine loops are Ops with regions.\naffine.for %arg0 = 0 to %N {\n  // Only loop-invariant values, loop iterators, and affine functions of\n  // those are allowed.\n  affine.for %arg1 = 0 to %N {\n    // Body of affine for loops obey SSA.\n    %0 = affine.load %A[%arg0] : memref&lt;? x f32&gt;\n    // Structured memory reference (memref) type can have\n    // affine layout maps.\n    %1 = affine.load %B[%arg1] : memref&lt;? x f32, (d0)[s0] -&gt; (d0 + s0)&gt;\n    %2 = mulf %0, %1 : f32\n    // Affine load/store can have affine expressions as subscripts.\n    %3 = affine.load %C[%arg0 + %arg1] : memref&lt;? x f32&gt;\n    %4 = addf %3, %2 : f32\n    affine.store %4, %C[%arg0 + %arg1] : memref&lt;? x f32&gt;\n  }\n}\n\n\n图 7: affine dialect 对多项式乘法 C(i+j) += A(i) * B(j) 的表示。\n\n\n\n2) 与现有 polyhedral 的差异： 差异很多。 （1）丰富的类型：MLIR 的结构化 memory reference 类型包含一个 layout map，用以连接 buffer 的索引空间与实际地址空间。 这种关注点分离使循环变换与数据变换更容易组合：数据布局变化不会影响代码，也不会污染依赖分析。 这类混合变换此前已有探索 [30]，但并不常见。\n（2）抽象混合：在 MLIR 中，affine 循环体可以使用带类型的 SSA 值上的 operation 来表达。 因此，所有传统编译器分析与变换仍然适用，并且可以与 polyhedral 变换交错执行。 相反，polyhedral 编译器常常会把这类细节完全抽象掉，从而使 polyhedral 编译器难以处理例如向量类型等对象。\n（3）更小的表示鸿沟：polyhedral 模型的一个关键特性，是它能够在类型系统中表示循环迭代顺序。 在这一系统里，大量循环变换可以直接组合，并能用简单数学抽象来推理 [26]。 然而，polyhedral 变换要求先提升到一种往往与原始表示截然不同的表示 [31], [32]。 此外，把变换后的 polyhedra 再转换回循环在计算上是困难的 [33]。 基于 MLIR 的表示会在较低层表示周围保留高层循环结构，从而消除了“再提升”的需要。\n（4）编译速度：正如 小节 6.4 所讨论的那样，编译速度是 MLIR 的一个关键目标，但这并非大多数现有 polyhedral 方法的关注重点。 这些方法严重依赖指数复杂度算法：既依赖整数线性规划来自动导出循环顺序，也依赖 polyhedron scanning 算法来把表示转换回循环。 而 MLIR 方法显式不依赖 polyhedron scanning，因为循环本身就被保留在 IR 中。 此外，代码生成既可以在 ahead-of-time 情况下发生，例如生成适用于动态 shape 的通用代码，也可以在 just-in-time 情况下发生，例如对静态 shape 的 tensor operation 做特化。 后者对可用资源提出了更严格约束，而这两类场景都很重要。\n使用 affine dialect 的经验表明，一等 affine 抽象有助于设计和实现领域专用代码生成器，其中包括 linalg dialect6 以及 RISE 中的声明式重写规则7。 这些发展以及 affine dialect 本身，都代表了 MLIR 设计所促成的重要探索。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-fir",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-fir",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "Fortran IR（FIR）",
+    "text": "Fortran IR（FIR）\nLLVM 的 Fortran 前端 flang 目前仍在大规模开发中，该工作由 NVIDIA/PGI 牵头。 与 Swift、Rust 等类似，flang 需要一种专门的 IR，以支持面向高性能 Fortran 代码库的高级变换，因此它使用 MLIR 来支持这些面向 Fortran 的特定优化 [34]。 这些高层优化，包括高级循环优化、数组复制消除、调用特化以及去虚化，如果只使用 LLVM 将很难实现。\n例如，FIR 能够把 Fortran 的虚分发表建模为一等概念，如图 图 8 所示。\n\n\n\n// Dispatch table for type(u)\nfir.dispatch_table @dtable_type_u {\n  fir.dt_entry \"method\", @u_method\n}\n\nfunc @some_func() {\n  %uv = fir.alloca !fir.type&lt;u&gt; : !fir.ref&lt;!fir.type&lt;u&gt;&gt;\n  fir.dispatch \"method\"(%uv) : (!fir.ref&lt;!fir.type&lt;u&gt;&gt;) -&gt; ()\n  // ...\n}\n\n\n图 8: FIR 对动态虚函数分发表提供了一等支持。\n\n\n\n能够在结构化 IR 中建模编程语言的高层语义，是非常强大的能力。 例如，对分发表的一等建模使实现一个健壮的去虚化 pass 成为可能。 尽管这本来也可以借助专用编译器 IR 来实现，但使用 MLIR 使 flang 开发者能够把工程资源集中投入到其领域内的 IR 设计上，而不是重新实现基本基础设施。\n选择 MLIR 还释放了其他非 Fortran 专用 dialect 的复用能力：一个语言无关的 OpenMP dialect 可以在 Fortran 和 C 语言前端之间共享。 类似地，在 MLIR 中，通过共享与复用面向 GPU 的 dialect 与 pass，针对异构平台支持 OpenACC 也变得可行。 这之所以直接可行，正是因为 MLIR 从一开始就是为支持可组合 dialect 混用而设计的。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-domain-specific-compilers",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-domain-specific-compilers",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "领域专用编译器",
+    "text": "领域专用编译器\n上面的应用都处于较大的工作流之中。 但 MLIR 也有助于构建更小型的领域专用编译器。 一个可复用、模块化的基础设施，使这些专门路径变得可行，而且构建成本相对低廉。\n优化 MLIR Pattern Rewriting： MLIR 拥有一个可扩展的模式重写系统。 除了静态声明的 pattern 之外，我们还遇到过一些应用场景，在这些场景中重写 pattern 需要在运行时动态扩展，以允许硬件厂商在驱动中添加新的 lowering。 解决方案是把 MLIR pattern rewrite 本身表示成一个 MLIR dialect，从而允许我们使用 MLIR 基础设施，在运行时即时构建并优化高效的 Finite State Machine（FSM）匹配器与重写器。 这项工作包括其他系统中已经出现过的 FSM 优化，例如 LLVM SelectionDAG 和 GlobalISel 的指令选择系统。\nLattice Regression Compiler： Lattice regression [35] 是一种以求值速度快且可解释性强而著称的机器学习技术。 该编译器的前身使用 C++ template 实现。 这种方式虽然能借助元编程获得高性能代码，但要对端到端模型表达通用优化却并不直接。 这个特定的 lattice regression 系统被用于拥有数百万用户的应用中，因此性能改进至关重要。\nMLIR 被用作这一专门领域中新编译器的基础，而该编译器由一种专门的搜索方法驱动，也就是说，在编译期间实际上解决了一个机器学习问题。 这个最终编译器只投入了 3 人月的开发工作，却在某个生产模型上带来了最高 8× 的性能提升，同时也提高了编译过程的透明性。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-reusable-passes",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-reusable-passes",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "可复用的编译器 Pass",
+    "text": "可复用的编译器 Pass\n能够在同一个 IR 中表示多个抽象层级，会激励那些跨这些层级工作的 pass。 MLIR 通过反转常见做法来处理可扩展性：因为 Op 的数量比 pass 多，所以让 Op 了解 pass 更容易。 这也改进了模块化，因为 dialect 特定逻辑是在 dialect 内部实现的，而不是塞进核心变换里。 由于 pass 很少需要知道某个 Op 的全部方面，MLIR 依赖以下机制来实现通用 pass。\nOperation Trait： 许多常见的“面包黄油型”编译器 pass，例如死代码消除或公共子表达式消除，只依赖于诸如“是否是 terminator”或“是否可交换”这类简单属性。 我们把这类属性定义为 Op Trait。 一个 Op 无条件地具有某个 trait，例如，一个 standard branch Op 总是 terminator。 对许多 pass 来说，只要知道某个 Op 具备一组 trait，就足以对它操作，例如交换 operand，或者删除那些没有副作用且没有用户的 Op。\nTrait 还可以充当验证钩子，以便在多个具备该 trait 的 Op 之间共享逻辑。 例如，isolated from above trait 会验证 Op 中的 region 不会使用由包围它的 region 中定义的值。 它允许对函数、模块以及其他自包含结构进行通用处理。\nInterface： 当无条件、静态的行为表达力不足时，就可以通过 interface 对处理逻辑进行参数化，这一概念借鉴自面向对象编程。 Interface 定义了一个对 IR 对象行为的视图，并把不必要的细节抽象掉。 与 trait 不同，interface 是由 IR 对象通过任意 C++ 代码实现的，因此不同对象可以给出不同结果。 例如，call Op 实现了 call-like interface，但该 Op 的不同实例会调用不同的函数。\nMLIR pass 可以基于 interface 来实现，从而与任何选择接入该 pass 的 Op 建立契约。 继续用 call-like 的例子，考虑 MLIR 的 inlining pass，它可以处理 TensorFlow 图、Flang 函数、函数式语言中的闭包等。 这样的 pass 需要知道两件事：（1）把一个 operation 内联进某个 region 是否有效；（2）当 terminator operation 在内联后跑到了 block 中间时，应当如何处理。\n为了查询某个 Op 的这些属性，pass 会定义一个专用 interface，以便 Op 通过向 MLIR 注册其实现来受益于内联。 而内联 pass 会对任何没有实现相应 interface 的 operation 采取保守策略，也就是直接忽略。\n常量折叠也是通过同样的机制实现的：每个 Op 都实现 fold interface，通过提供一个函数，在该 Op 可折叠时返回一个持有对应值的 attribute。 更通用的 canonicalization 也可以类似地实现：某个 interface 会填充一组适用于 pattern rewriting 的 canonicalization pattern。 这种设计把通用逻辑与 Op 特定逻辑分离开来，并将后者放进 Op 自身，从而减轻了 LLVM 中 InstCombine、PeepholeOptimizer 之类组件众所周知的维护与复杂性负担。\nInterface 也可以由 dialect 而不是具体 Op 来实现，这允许共享行为，或把逻辑委托给外部实现，例如对 TensorFlow Op 执行常量折叠时就是如此。 Interface 同样支持 type 和 attribute，例如，一个加法 operation 可以支持任何自声明为“integer-like”且可查询其有符号语义的类型。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-dialect-specific-passes",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-dialect-specific-passes",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "方言特定 Pass",
+    "text": "方言特定 Pass\n最后，定义只针对特定 dialect 的 pass 也是合理且有用的，因为这类 pass 可以充分利用它所面向 dialect 中 operation 的完整语义。 在 MLIR 系统里，这类 pass 与在其他编译器系统里一样有用。 例如，某些代码生成器希望基于特定机器约束，或者基于其他不适合纳入更广泛框架的技巧，对机器指令做定制调度。 对于不要求一般化的新变换来说，这是一种简单且实用的起点。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-mixing-dialects",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-mixing-dialects",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "将多个 Dialect 混合在一起",
+    "text": "将多个 Dialect 混合在一起\nMLIR 最深刻、但也最难让人一下子理解的一个方面，是它允许并鼓励在一个程序中混合来自不同 dialect 的 operation。 其中一些情况相对容易理解，例如在同一 module 中同时容纳主机端与加速器端的计算。 但最有趣的情况发生在 dialect 被直接混合时，因为这使一种我们此前在其他系统里从未见过的复用类别成为可能。\n考虑 小节 5.2 中描述的 affine dialect。 affine 控制流与 affine 映射的定义，独立于那些被包含在 affine region 中的 operation 语义。 在我们的例子里，我们把 affine dialect 与 standard dialect 组合在一起，后者以类似 LLVM IR 的目标无关形式表示简单算术，同时还会与多个针对内部加速器的目标相关机器指令 dialect 组合。 其他人也已经把它与来自其他问题域的抽象结合起来。\n能够复用通用 polyhedral 变换，同时利用 Op interface 来获取特定变换中 operation 的语义，是一种非常强大、也让我们十分兴奋的编译器基础设施组织方式。 另一个例子是，OpenMP dialect 可以在多种源语言 IR 中被使用与复用。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-parallel-compilation",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-parallel-compilation",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "并行编译",
+    "text": "并行编译\nMLIR 的一个重要方面，是能够利用多核机器来提高编译速度。 特别地，isolated from above trait（见 小节 6.1）允许函数之类的 Op 接入 MLIR pass manager 支持的并发 IR 遍历机制。 事实上，这个 trait 保证 SSA use-def 链不会跨越 region 边界，因此相关区域可以被隔离处理。 MLIR 也不具有跨整个 module 的 use-def 链，而是通过 symbol table（见 小节 4）引用全局对象，并把常量定义为带 attribute 的 operation（见 小节 4）。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-interoperability",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-interoperability",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "互操作性",
+    "text": "互操作性\n我们的工作涉及与大量现有系统互操作，例如以 protocol buffer 编码的机器学习图、包括 LLVM IR 在内的编译器 IR，以及专有指令集等。 这些表示形式往往都带有一些次优或不够理想的决定，而这些决定在原系统语境里可能是合理的，但 MLIR 的能力允许我们使用一种表达力更强的表示。 由于 importer 和 exporter 众所周知地很难测试，因为测试样例往往是二进制，我们希望尽可能降低它们的复杂度。\n解决方案是定义一个尽可能直接对应外部系统的 dialect，从而允许与该格式进行简单且可预测的双向 round-trip。 一旦 IR 被导入 MLIR，就可以利用全部 MLIR 基础设施把它提升到更方便的 IR，再将其 lowering 回去；而这也使得这些变换可以像其他 MLIR pass 一样接受测试。\n此类 dialect 已有大量例子，其中包括把 LLVM IR 映射进 MLIR 的 LLVM dialect。 这种做法对我们来说效果良好，而 MLIR 工具链也被证明对为这些外部文件格式编写测试很有帮助。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-unopinionated-design",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-unopinionated-design",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "无预设立场的设计带来了新的挑战",
+    "text": "无预设立场的设计带来了新的挑战\n尽管 MLIR 允许人们定义几乎任意的抽象，但它对究竟应当怎么做提供的指导却很少：什么样的做法实践中更好，什么样的做法更差？ 我们已经积累了一些经验，看到不少工程师和研究者把这些技术与方法应用到新的问题域上，并认识到编译器与语言领域对于编译器 IR 设计和抽象设计这门“艺术”的理解并不充分；很多人都是在既有系统的约束内工作，但真正有机会亲自定义这些抽象的人相对较少。\n这既是挑战，也是又一组未来研究机会。 更广泛的 MLIR 社区正在围绕这些抽象设计权衡建立经验，而我们预计，这会在未来成为一个富有成果的研究方向。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-looking-forward",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-looking-forward",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "展望未来",
+    "text": "展望未来\nMLIR 的设计与其他编译器基础设施差异足够大，以至于即便我们已经把它构建并应用于许多不同系统，我们仍在学习之中。 我们相信，仍然有大量内容有待发现，而且还需要若干年的研究，才能更好理解这些设计点并建立最佳实践。 例如，out-of-tree dialect 的兴起、越来越多使用 MLIR 的源语言前端、MLIR 在 Abstract Syntax Tree 上的潜在应用，以及其在结构化数据，例如 JSON 和 protocol buffer 上的应用，目前都还很早期，而它们很可能会揭示出新的有趣挑战与机会。 更好的 just-in-time 编译支持与精确垃圾回收支持，也会是有趣方向，因为它们都能利用 IR 的模块化与可编程性。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-appendix-abstract",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-appendix-abstract",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "工件摘要",
+    "text": "工件摘要\n本文对应的工件包括 MLIR 系统、如何下载和构建它的说明，以及指向 TensorFlow 中与 MLIR 相关源代码的链接。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-artifact-checklist",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-artifact-checklist",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "工件核对清单（元信息）",
+    "text": "工件核对清单（元信息）\n\nProgram: MLIR\nCompilation: LLVM C++ toolchain\nRun-time environment: Recommended Linux\nPublicly available?: Yes\nArchived: DOI 10.5281/zenodo.4283090"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-description",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-description",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "说明",
+    "text": "说明\n1) 交付方式： 若要下载 MLIR，请执行：\ngit clone \\\nhttps://github.com/llvm/llvm-project.git\n关于下载和构建 MLIR 的说明，也可见于 https://mlir.llvm.org/getting_started。 更多信息可见 https://mlir.llvm.org。\n2) 软件依赖： 下载 MLIR 需要 git。 构建 MLIR 需要 Ninja（https://ninja-build.org/）以及一个可用的 C++ 工具链，其中包括 clang 和 lld。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-installation",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-installation",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "安装",
+    "text": "安装\n要在 Linux 上构建并测试 MLIR，请执行以下命令：\nmkdir llvm-project/build\ncd llvm-project/build\ncmake -G Ninja ../llvm \\\n  -DLLVM_ENABLE_PROJECTS=mlir \\\n  -DLLVM_BUILD_EXAMPLES=ON \\\n  -DLLVM_TARGETS_TO_BUILD=\"X86;NVPTX;AMDGPU\" \\\n  -DCMAKE_BUILD_TYPE=Release \\\n  -DLLVM_ENABLE_ASSERTIONS=ON \\\n  -DCMAKE_C_COMPILER=clang \\\n  -DCMAKE_CXX_COMPILER=clang++ \\\n  -DLLVM_ENABLE_LLD=ON\ncmake --build . --target check-mlir"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-applications",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-applications",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "应用",
+    "text": "应用\nTensorFlow 中对 MLIR 的使用可在代码位置 https://github.com/tensorflow/tensorflow/tree/master/tensorflow/compiler/mlir/ 中看到。 位于 tensorflow/tests 子目录中的测试包含 MLIR 片段，它们展示了 TensorFlow 图表示与相关变换。 关于从源码构建 TensorFlow 的说明，可见 https://www.tensorflow.org/install/source。"
+  },
+  {
+    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#footnotes",
+    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#footnotes",
+    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
+    "section": "脚注",
+    "text": "脚注\n\n\nhttps://mlir.llvm.org↩︎\n文中原注：已经有人提出替代方案，试图获得更高生产力、更强健全性保证，以及与高层语言更好的互操作性；这仍是积极设计讨论中的主题。↩︎\nhttps://www.c4ml.org/↩︎\nhttp://www.cs.utah.edu/~mhall/mlir4hpc↩︎\nhttps://www.tensorflow.org/guide/graph_optimization↩︎\nhttps://mlir.llvm.org/docs/Dialects/Linalg/↩︎\nhttps://rise-lang.org/mlir/↩︎\nhttps://google.github.io/iree/↩︎"
+  },
+  {
+    "objectID": "posts/2020-12-03-RISCW-1.html",
+    "href": "posts/2020-12-03-RISCW-1.html",
+    "title": "为LLVM添加简易RISCV后端(一)：入门",
+    "section": "",
+    "text": "为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程12。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。"
+  },
+  {
+    "objectID": "posts/2020-12-03-RISCW-1.html#入门",
+    "href": "posts/2020-12-03-RISCW-1.html#入门",
+    "title": "为LLVM添加简易RISCV后端(一)：入门",
+    "section": "入门",
+    "text": "入门\n在为新项目编写代码之前，我通常会配置环境，并对查看经存在的代码，这就是这一节要做的。在这一节中，我将展示如何下载编译LLVM和其他对调试有用的工具。我们还将了解如何使用现有的LLVM后端和GNU工具链来编译、汇编、链接和运行程序。\n\n环境\n我正在使用Ubuntu，但是你应该能够在其他系统中重复这些步骤，而且(相对来说)几乎没有什么不同。您将需要以下工具来构建软件。\n\nMakefile\nC/C++ Compiler – 我用 GCC 9.2.1\nautotools\nCMake\nNinja\nGit\n大量耐心\n\n注意：我可能忘记了一些东西，但是构建系统会通过一个错误告诉您；\n\n\n编译LLVM\nLLVM维护者已经建立了这个方便的repo，它包含LLVM和工具链的其他部分，比如Clang。\ngit clone https://github.com/llvm/llvm-project\n在本系列文章中，我们将使用llvm 10.0.1，我建议您也使用该版本的LLVM。 因为LLVM的变化非常快，这里显示的一些代码在旧/新版本中可能无法工作。 不过，原理应该大致相同。\nLLVM使用CMake为构建系统生成构建文件，LLVM支持的构建系有：Ninja，Makefiles，Visual Studio和XCode。 我通常使用Ninja，因为我认为它在我的系统中速度最快（我没有证据支持该判断！）。 您可以通过cmake命令的-G参数来更改构建系统。\nCMake有很多选项，我鼓励您对其进行研究，因为有些选项对调试非常有帮助。 您可以在这里阅读所有构建选项。 在本教程中，我将使用以下选项:\n\n-DLLVM_ENABLE_PROJECTS 构建编译器的其余部分，比如Clang。\n-DLLVM_TARGETS_TO_BUILD 指定要构建的后端。查看其他后端的输出对调试很有帮助，但是如果添加太多，构建会花费很长时间。\n-DCMAKE_BUILD_TYPE 构建Debug版本。\n-DLLVM_ENABLE_ASSERTIONS=On 启用断言，对调试很有帮助。\n\n以下是在克隆repo之后构建LLVM的方法。\ncd llvm-project\ngit checkout llvmorg-10.0.1\nmkdir build\ncd build\ncmake -G \"Ninja\" -DLLVM_ENABLE_PROJECTS=\"clang\" -DLLVM_TARGETS_TO_BUILD=\"ARM;Lanai;RISCV\" -DCMAKE_BUILD_TYPE=\"Debug\" -DLLVM_ENABLE_ASSERTIONS=On ../llvm\nninja\n注意：您可以在这里和这里找到更多有关构建LLVM的信息。\n注意：您可以为Ninja传递-j &lt;NUM_JOBS&gt;选项，以指示要并行的作业数。 过高的&lt;NUM_JOBS&gt;会导致构建崩溃，并产生collect2：ld ...错误消息。\n\n\n编译RISC V的GNU工具链\n你可能有点困惑，为什么我建议构建GCC的RISC V后端？ 难道我们不是要自己编写编译器后端吗？\n我们构建GCC的RISC V后端，是因为我们希望在初始阶段使用GCC的汇编器和链接器来测试LLVM后端生成的代码。 编译过程分为很多阶段，在初始阶段，我们已经有以下结构:\n\nClang 编译C代码到LLVM IR\nLLVM 优化IR\nLLVM后端 编译IR到汇编\nGCC 汇编和链接可执行文件\n\n使用以下命令下载，构建和安装GCC for RISCV。\ngit clone https://github.com/riscv/riscv-gnu-toolchain\ncd riscv-gnu-toolchain\nmkdir build\ncd build\n../configure --with-arch=rv32gc --with-abi=ilp32\nmake\nmake install\n注意：请确保为指令集的正确变体（即RV32）构建GCC工具链，因为构建系统的默认值为RV64！\n注意：GNU工具链支持RISC V的多个ABI，例如ilp32，ilp32d和ilp32f，这取决于您是否需要软浮点，硬浮点。\n\n\n编译C程序\n现在，构建和运行C代码的环境已经配置好了，尽管我们还没自己的后端（还！）。让我们从一个简单的C程序开始：\n#include &lt;stdio.h&gt;\n\nint main(void)\n{\n    printf(\"Hello world!\\n\");\n    return 0;\n}\n首先，使用Clang将C代码编译为LLVM IR。 我们的计划是使用标准库中来自头文件stdio.h的函数printf，如果不能找到头文件，编译器会提示出错。 为了使用GCC自带的RISC V标准C库，我们使用了-isystem参数。 这会将包含所需头文件的目录添加到Clang预处理器的搜索目录列表中。\nclang -O2 -emit-llvm -target riscv64 -isystem &lt;PATH_TO_GCC&gt;/riscv64-unknown-elf/include -c test.c -o test.bc\n上面的命令把C语言文件test.c编译到LLVM IR文件test.bc，这是专门为机器设计的语言人类很难直接阅读。 我们可以使用以下命令反汇编该文件：\nllvm-dis test.bc\n现在，使用包含以下内容的后端将IR编译为程序集，而无需使用以下命令下载LLVM： 现在，使用LLVM自带的后端将IR编译为程汇编：\nllc -march=riscv64 -O2 -filetype=asm test.bc -o test.S\nGCC可以直接生成程序的二进制文件。 我将其分为两个步骤，但是您可以根据需要使用单个命令。\nriscv64-unknown-elf-gcc -c test.S -o test.o\nriscv64-unknown-elf-gcc test.o -o test\n最后，我们可以使用模拟器或真实硬件运行程序。"
+  },
+  {
+    "objectID": "posts/2020-12-03-RISCW-1.html#注释",
+    "href": "posts/2020-12-03-RISCW-1.html#注释",
+    "title": "为LLVM添加简易RISCV后端(一)：入门",
+    "section": "注释",
+    "text": "注释"
+  },
+  {
+    "objectID": "posts/2020-12-03-RISCW-1.html#footnotes",
+    "href": "posts/2020-12-03-RISCW-1.html#footnotes",
+    "title": "为LLVM添加简易RISCV后端(一)：入门",
+    "section": "脚注",
+    "text": "脚注\n\n\n公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。↩︎\n这个教程描述了如何开发LLVM后端，但我发现很难理解。↩︎"
   },
   {
     "objectID": "posts/2026-04-24-deepseek-v4-towards-highly-efficient-million-token-context-intelligence.html",
@@ -714,284 +1036,32 @@
     "text": "致谢\n我们感谢 Dolly Deng 与其他 testers，就 DeepSeek-V4 系列模型的能力提供了宝贵建议与反馈。"
   },
   {
-    "objectID": "posts/2020-12-03-RISCW-1.html",
-    "href": "posts/2020-12-03-RISCW-1.html",
-    "title": "为LLVM添加简易RISCV后端(一)：入门",
+    "objectID": "posts/2020-11-01-TableGen-Overview.html",
+    "href": "posts/2020-11-01-TableGen-Overview.html",
+    "title": "TableGen 简介",
     "section": "",
-    "text": "为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程12。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。"
+    "text": "TableGen的目的是帮助开发者开发和维护特定领域的记录。这些记录的数量可能很大，所以它是专门来编写灵活的描述，并提取这些记录的共同特征。这减少了描述的重复量，减少了出错的机会，使构建特定领域的信息更容易。\nTableGen前端解析文件，实例化声明，并将结果交给特定领域的backend进行处理。有关TableGen的详细描述，请参阅 TableGen Programmer’s Reference 。有关调用TableGen的各种xxx-tblgen命令的详细信息，请参阅xxx-tblgen - Target Description to C++ Code 。\n目前TableGen的主要用户有 The LLVM Target-Independent Code Generator和Clang diagnostics and attributes。\n注意，如果您经常使用TableGen，并且使用emacs或vim，那么您可以在llvm发行版的llvm/utils/emacs和llvm/utils/vim目录中分别找到一个emacs“TableGen mode”和一个vim语言文件。"
   },
   {
-    "objectID": "posts/2020-12-03-RISCW-1.html#入门",
-    "href": "posts/2020-12-03-RISCW-1.html#入门",
-    "title": "为LLVM添加简易RISCV后端(一)：入门",
-    "section": "入门",
-    "text": "入门\n在为新项目编写代码之前，我通常会配置环境，并对查看经存在的代码，这就是这一节要做的。在这一节中，我将展示如何下载编译LLVM和其他对调试有用的工具。我们还将了解如何使用现有的LLVM后端和GNU工具链来编译、汇编、链接和运行程序。\n\n环境\n我正在使用Ubuntu，但是你应该能够在其他系统中重复这些步骤，而且(相对来说)几乎没有什么不同。您将需要以下工具来构建软件。\n\nMakefile\nC/C++ Compiler – 我用 GCC 9.2.1\nautotools\nCMake\nNinja\nGit\n大量耐心\n\n注意：我可能忘记了一些东西，但是构建系统会通过一个错误告诉您；\n\n\n编译LLVM\nLLVM维护者已经建立了这个方便的repo，它包含LLVM和工具链的其他部分，比如Clang。\ngit clone https://github.com/llvm/llvm-project\n在本系列文章中，我们将使用llvm 10.0.1，我建议您也使用该版本的LLVM。 因为LLVM的变化非常快，这里显示的一些代码在旧/新版本中可能无法工作。 不过，原理应该大致相同。\nLLVM使用CMake为构建系统生成构建文件，LLVM支持的构建系有：Ninja，Makefiles，Visual Studio和XCode。 我通常使用Ninja，因为我认为它在我的系统中速度最快（我没有证据支持该判断！）。 您可以通过cmake命令的-G参数来更改构建系统。\nCMake有很多选项，我鼓励您对其进行研究，因为有些选项对调试非常有帮助。 您可以在这里阅读所有构建选项。 在本教程中，我将使用以下选项:\n\n-DLLVM_ENABLE_PROJECTS 构建编译器的其余部分，比如Clang。\n-DLLVM_TARGETS_TO_BUILD 指定要构建的后端。查看其他后端的输出对调试很有帮助，但是如果添加太多，构建会花费很长时间。\n-DCMAKE_BUILD_TYPE 构建Debug版本。\n-DLLVM_ENABLE_ASSERTIONS=On 启用断言，对调试很有帮助。\n\n以下是在克隆repo之后构建LLVM的方法。\ncd llvm-project\ngit checkout llvmorg-10.0.1\nmkdir build\ncd build\ncmake -G \"Ninja\" -DLLVM_ENABLE_PROJECTS=\"clang\" -DLLVM_TARGETS_TO_BUILD=\"ARM;Lanai;RISCV\" -DCMAKE_BUILD_TYPE=\"Debug\" -DLLVM_ENABLE_ASSERTIONS=On ../llvm\nninja\n注意：您可以在这里和这里找到更多有关构建LLVM的信息。\n注意：您可以为Ninja传递-j &lt;NUM_JOBS&gt;选项，以指示要并行的作业数。 过高的&lt;NUM_JOBS&gt;会导致构建崩溃，并产生collect2：ld ...错误消息。\n\n\n编译RISC V的GNU工具链\n你可能有点困惑，为什么我建议构建GCC的RISC V后端？ 难道我们不是要自己编写编译器后端吗？\n我们构建GCC的RISC V后端，是因为我们希望在初始阶段使用GCC的汇编器和链接器来测试LLVM后端生成的代码。 编译过程分为很多阶段，在初始阶段，我们已经有以下结构:\n\nClang 编译C代码到LLVM IR\nLLVM 优化IR\nLLVM后端 编译IR到汇编\nGCC 汇编和链接可执行文件\n\n使用以下命令下载，构建和安装GCC for RISCV。\ngit clone https://github.com/riscv/riscv-gnu-toolchain\ncd riscv-gnu-toolchain\nmkdir build\ncd build\n../configure --with-arch=rv32gc --with-abi=ilp32\nmake\nmake install\n注意：请确保为指令集的正确变体（即RV32）构建GCC工具链，因为构建系统的默认值为RV64！\n注意：GNU工具链支持RISC V的多个ABI，例如ilp32，ilp32d和ilp32f，这取决于您是否需要软浮点，硬浮点。\n\n\n编译C程序\n现在，构建和运行C代码的环境已经配置好了，尽管我们还没自己的后端（还！）。让我们从一个简单的C程序开始：\n#include &lt;stdio.h&gt;\n\nint main(void)\n{\n    printf(\"Hello world!\\n\");\n    return 0;\n}\n首先，使用Clang将C代码编译为LLVM IR。 我们的计划是使用标准库中来自头文件stdio.h的函数printf，如果不能找到头文件，编译器会提示出错。 为了使用GCC自带的RISC V标准C库，我们使用了-isystem参数。 这会将包含所需头文件的目录添加到Clang预处理器的搜索目录列表中。\nclang -O2 -emit-llvm -target riscv64 -isystem &lt;PATH_TO_GCC&gt;/riscv64-unknown-elf/include -c test.c -o test.bc\n上面的命令把C语言文件test.c编译到LLVM IR文件test.bc，这是专门为机器设计的语言人类很难直接阅读。 我们可以使用以下命令反汇编该文件：\nllvm-dis test.bc\n现在，使用包含以下内容的后端将IR编译为程序集，而无需使用以下命令下载LLVM： 现在，使用LLVM自带的后端将IR编译为程汇编：\nllc -march=riscv64 -O2 -filetype=asm test.bc -o test.S\nGCC可以直接生成程序的二进制文件。 我将其分为两个步骤，但是您可以根据需要使用单个命令。\nriscv64-unknown-elf-gcc -c test.S -o test.o\nriscv64-unknown-elf-gcc test.o -o test\n最后，我们可以使用模拟器或真实硬件运行程序。"
+    "objectID": "posts/2020-11-01-TableGen-Overview.html#运行tablegen",
+    "href": "posts/2020-11-01-TableGen-Overview.html#运行tablegen",
+    "title": "TableGen 简介",
+    "section": "运行TableGen",
+    "text": "运行TableGen\nTableGen的运行就像其他任何LLVM工具一样。 第一个（可选）参数指定要读取的文件。 如果未指定文件名，则llvm-tblgen从标准输入读取。\n要使用TableGen就必须指定后端，这些后端可以在命令行中选择（输入“ llvm-tblgen -help”获取列表）。例如，要获取特定类型的子类的所有定义的列表(这对于构建这些记录的枚举很有用)，请使用print-enum选项：\n$ llvm-tblgen X86.td -print-enums -class=Register\nAH, AL, AX, BH, BL, BP, BPL, BX, CH, CL, CX, DH, DI, DIL, DL, DX, EAX, EBP, EBX,\nECX, EDI, EDX, EFLAGS, EIP, ESI, ESP, FP0, FP1, FP2, FP3, FP4, FP5, FP6, IP,\nMM0, MM1, MM2, MM3, MM4, MM5, MM6, MM7, R10, R10B, R10D, R10W, R11, R11B, R11D,\nR11W, R12, R12B, R12D, R12W, R13, R13B, R13D, R13W, R14, R14B, R14D, R14W, R15,\nR15B, R15D, R15W, R8, R8B, R8D, R8W, R9, R9B, R9D, R9W, RAX, RBP, RBX, RCX, RDI,\nRDX, RIP, RSI, RSP, SI, SIL, SP, SPL, ST0, ST1, ST2, ST3, ST4, ST5, ST6, ST7,\nXMM0, XMM1, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM2, XMM3, XMM4, XMM5,\nXMM6, XMM7, XMM8, XMM9,\n\n$ llvm-tblgen X86.td -print-enums -class=Instruction\nABS_F, ABS_Fp32, ABS_Fp64, ABS_Fp80, ADC32mi, ADC32mi8, ADC32mr, ADC32ri,\nADC32ri8, ADC32rm, ADC32rr, ADC64mi32, ADC64mi8, ADC64mr, ADC64ri32, ADC64ri8,\nADC64rm, ADC64rr, ADD16mi, ADD16mi8, ADD16mr, ADD16ri, ADD16ri8, ADD16rm,\nADD16rr, ADD32mi, ADD32mi8, ADD32mr, ADD32ri, ADD32ri8, ADD32rm, ADD32rr,\nADD64mi32, ADD64mi8, ADD64mr, ADD64ri32, ...\n默认后端打印出所有记录。 还有一个通用后端，它将所有记录输出为JSON数据结构，并使用-dump-json选项启用。\n如果您计划使用TableGen，那么您很可能必须编写一个后端来提取您需要的信息并以适当的方式格式化它。可以通过用C++扩展TableGen本身，或者用任何可以处理JSON的语言编写脚本来实现这一点。"
   },
   {
-    "objectID": "posts/2020-12-03-RISCW-1.html#注释",
-    "href": "posts/2020-12-03-RISCW-1.html#注释",
-    "title": "为LLVM添加简易RISCV后端(一)：入门",
-    "section": "注释",
-    "text": "注释"
+    "objectID": "posts/2020-11-01-TableGen-Overview.html#例子",
+    "href": "posts/2020-11-01-TableGen-Overview.html#例子",
+    "title": "TableGen 简介",
+    "section": "例子",
+    "text": "例子\n在没有其他参数的情况下，llvm-tblgen 解析指定的文件并输出所有的类，然后输出所有的定义。这是查看各种定义扩展到何种程度的好方法。在 X86.td 文件上运行这个命令会输出以下命令(在撰写本文时) :\n...\ndef ADD32rr {   // Instruction X86Inst I\n  string Namespace = \"X86\";\n  dag OutOperandList = (outs GR32:$dst);\n  dag InOperandList = (ins GR32:$src1, GR32:$src2);\n  string AsmString = \"add{l}\\t{$src2, $dst|$dst, $src2}\";\n  list&lt;dag&gt; Pattern = [(set GR32:$dst, (add GR32:$src1, GR32:$src2))];\n  list&lt;Register&gt; Uses = [];\n  list&lt;Register&gt; Defs = [EFLAGS];\n  list&lt;Predicate&gt; Predicates = [];\n  int CodeSize = 3;\n  int AddedComplexity = 0;\n  bit isReturn = 0;\n  bit isBranch = 0;\n  bit isIndirectBranch = 0;\n  bit isBarrier = 0;\n  bit isCall = 0;\n  bit canFoldAsLoad = 0;\n  bit mayLoad = 0;\n  bit mayStore = 0;\n  bit isImplicitDef = 0;\n  bit isConvertibleToThreeAddress = 1;\n  bit isCommutable = 1;\n  bit isTerminator = 0;\n  bit isReMaterializable = 0;\n  bit isPredicable = 0;\n  bit hasDelaySlot = 0;\n  bit usesCustomInserter = 0;\n  bit hasCtrlDep = 0;\n  bit isNotDuplicable = 0;\n  bit hasSideEffects = 0;\n  InstrItinClass Itinerary = NoItinerary;\n  string Constraints = \"\";\n  string DisableEncoding = \"\";\n  bits&lt;8&gt; Opcode = { 0, 0, 0, 0, 0, 0, 0, 1 };\n  Format Form = MRMDestReg;\n  bits&lt;6&gt; FormBits = { 0, 0, 0, 0, 1, 1 };\n  ImmType ImmT = NoImm;\n  bits&lt;3&gt; ImmTypeBits = { 0, 0, 0 };\n  bit hasOpSizePrefix = 0;\n  bit hasAdSizePrefix = 0;\n  bits&lt;4&gt; Prefix = { 0, 0, 0, 0 };\n  bit hasREX_WPrefix = 0;\n  FPFormat FPForm = ?;\n  bits&lt;3&gt; FPFormBits = { 0, 0, 0 };\n}\n...\n该定义对应于x86体系结构的32位寄存器-寄存器相加指令。 Def ADD32rr定义了一个名为ADD32rr的记录，行尾的注释表示该定义的父类。 记录体包含TableGen为记录汇编的所有数据，指示该指令是“x86”命名空间的一部分，指示代码生成器如何选择指令的模式，它是双地址指令，具有特定的编码等。记录中信息的内容和语义专用于X86后端，这里仅作为示例。\n正如您所看到的，代码生成器支持的每条指令都需要大量信息，手动指定所有指令将不可维护，容易出错，而且首先要做的事情很累人。因为我们正在使用 TableGen，所有的信息都来自以下定义:\nlet Defs = [EFLAGS],\n    isCommutable = 1,                  // X = ADD Y,Z --&gt; X = ADD Z,Y\n    isConvertibleToThreeAddress = 1 in // Can transform into LEA.\ndef ADD32rr  : I&lt;0x01, MRMDestReg, (outs GR32:$dst),\n                                   (ins GR32:$src1, GR32:$src2),\n                 \"add{l}\\t{$src2, $dst|$dst, $src2}\",\n                 [(set GR32:$dst, (add GR32:$src1, GR32:$src2))]&gt;;\n这个定义使用定制类 I (从定制类 X86Inst 扩展而来) ，这个定制类是在 x86特定的 TableGen 文件中定义的，可以提取了指令共享的公共特性。TableGen 的一个关键特性是，它允许最终用户定义他们在描述其信息时喜欢使用的抽象。"
   },
   {
-    "objectID": "posts/2020-12-03-RISCW-1.html#footnotes",
-    "href": "posts/2020-12-03-RISCW-1.html#footnotes",
-    "title": "为LLVM添加简易RISCV后端(一)：入门",
-    "section": "脚注",
-    "text": "脚注\n\n\n公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。↩︎\n这个教程描述了如何开发LLVM后端，但我发现很难理解。↩︎"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "",
-    "text": "原文版权声明：本文依据公开来源论文 MLIR: Scaling Compiler Infrastructure for Domain Specific Computation 进行中文翻译整理，仅供学习与研究使用。我仅提供翻译与网页整理，不拥有原文版权；原文版权归作者及出版方所有。转载、分发或用于商业用途时，请遵守原论文及原始发布平台的版权规定。\n原文信息：Chris Lattner, Mehdi Amini, Uday Bondhugula, Albert Cohen, Andy Davis, Jacques Pienaar, River Riddle, Tatiana Shpeisman, Nicolas Vasilache, Oleksandr Zinenko. MLIR: Scaling Compiler Infrastructure for Domain Specific Computation. 2021 IEEE/ACM International Symposium on Code Generation and Optimization (CGO 2021). DOI: 10.1109/CGO51591.2021.9370308。\n说明：以下内容按原文句序逐句对应翻译。图注、脚注、代码示例、安装命令与参考文献信息均尽量保留原貌；其中代码与参考文献信息不做中文改写。\n作者：Chris Lattner；Mehdi Amini；Uday Bondhugula；Albert Cohen；Andy Davis；Jacques Pienaar；River Riddle；Tatiana Shpeisman；Nicolas Vasilache；Oleksandr Zinenko\n单位：Google, USA；Google, USA；Indian Institute of Science, India；Google, France；Google, USA；Google, USA；Google, USA；Google, USA；Google, USA；Google, France\n注：* 发表时任职于 SiFive。† 本文工作期间在 Google 进行访问研究。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-contributions",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-contributions",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "贡献",
-    "text": "贡献\nMLIR 系统的大多数组成部分都建立在众所周知的概念和算法之上。 然而，它的目标和设计足够新颖，对其展开研究将带来大量研究机会，尤其是在以下总体原则的边界内更是如此：\n\n简约性（Parsimony）：对内建语义、概念和编程接口运用奥卡姆剃刀。 通过抽象操作和类型的属性，驾驭本质复杂性与偶发复杂性。 不变量只规定一次，但在全过程中验证其正确性。 在特定编译 pass 的上下文中查询属性。 由于内建内容极少，这为可扩展性与可定制性打开了大门。\n可追踪性（Traceability）：保留信息，而不是事后恢复信息。 通过声明规则和属性来支持变换，而不是用逐步的命令式规约。 可扩展性伴随着通用的信息追踪手段，并由广泛验证来保障。 组合式抽象来自对其属性进行“玻璃盒化”，并将其角色分离开来，例如类型、控制、数据流等。\n渐进性（Progressivity）：过早 lowering 是万恶之源。 除了表示层次之外，还要允许多条变换路径按需对单个 region 做 lowering。 再结合与抽象无关的原则和接口，这就能实现跨多个领域的复用。\n\n尽管这些原则已经较为成熟，但它们中的某一个往往会以牺牲另一个为代价来实现，例如，网络栈和操作系统栈中的分层符合渐进性原则，却破坏了简约性。 在具有多层 IR 的编译器中，这种情况也同样存在。 此外，遵循这些原则可能会损害表达能力和有效性，例如，在安全关键和安全敏感系统中，实现可追踪性意味着要限制优化及其激进程度。\n简而言之，我们识别出一组设计与工程原则，它们使编译器构造能够在一条狭窄的中间道路上繁荣发展，从而支持一个开放语义生态。 我们发现，复杂性可以在不限制表达能力的前提下得到驯服，这使得跨领域的 IR 设计探索与收敛能够快速进行，而这两点在生产系统中都严重缺失。\n本文的贡献是：（1）以经过验证的设计与工程原则为基础，对构建可扩展、模块化编译器系统的问题进行定位；（2）描述一种遵循这些原则的新型编译器基础设施，并展示其重要的工业与研究应用；（3）探讨若干面向不同领域的应用，以说明这种方法的通用性，并分享开发基于 MLIR 基础设施的系统时的经验。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-where-mlir-came-from",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-where-mlir-came-from",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "MLIR 从何而来？",
-    "text": "MLIR 从何而来？\nMLIR 的工作始于这样一个认识：现代机器学习框架由许多不同的编译器、图技术和运行时系统组成（见图 图 1），而它们并不共享一套共同的基础设施或设计原则。 这在用户层面体现为多种可见问题，包括糟糕的错误消息、边界情形失败、性能不可预测，以及难以将整套技术栈推广到新硬件上。\n我们很快意识到，整个编译器行业也存在类似问题：LLVM 这类现有系统在统一和整合多种语言工作负载方面非常成功，但高层语言最终往往会构建自己的高层 IR，并在更高抽象层上重新发明同类技术（见图 图 2）。 与此同时，LLVM 社区一直在并行结构表示、以及如何共享前端 lowering 基础设施（例如 C 调用约定，或者 OpenMP 这类跨语言特性）方面苦苦挣扎，而一直没有令人满意的解决方案。\n面对这一挑战，考虑到我们无法承担实现 N 个“更好的编译器实例”的成本，我们决定转向一种更通用的解决方案：投资于高质量基础设施，使其能够惠及多个领域，渐进地升级现有系统，更容易应对诸如面向专用加速器的异构编译这类紧迫问题，并提供新的研究机会。 现在，我们已经积累了大量构建和部署基于 MLIR 系统的经验，因此能够回过头来审视它的提出动机和设计，并讨论我们为何选择这一路线。\n\n\n\n\n\n\n图 1: TensorFlow 执行跨越不同框架。\n\n\n\n\n\n\n\n\n\n图 2: 带中间层语言 IR 的编译流水线。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-tensorflow-graphs",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-tensorflow-graphs",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "TensorFlow 图",
-    "text": "TensorFlow 图\n尽管前面讨论的其他表示形式对大多数编译器开发者都很熟悉，但 MLIR 的一个关键用例，是支持机器学习框架的开发。 这类框架的内部表示通常基于具有动态执行语义的数据流图 [22]。\nTensorFlow [23] 就是这样一个框架。 它的表示是一种高层数据流计算，其中节点代表计算，而这些计算可以放置在不同设备上，包括特定的硬件加速器。\nMLIR 被 TensorFlow 用来建模这种内部表示，并为图 图 1 所示的那些用例执行变换：从简单的代数优化，到将图重定向为适合数据中心集群上并行与分布式执行、以及异步硬件加速的表示；从 lowering 到适合移动端部署的表示，再到使用 XLA [24] 这类领域专用代码生成器生成高效原生代码。 图 图 6 中给出了 TensorFlow 图在 MLIR 中的表示。 它展示了异步并发的建模方式，其中数据流图通过隐式 future 被去同步化，而具有副作用的 Op 则通过显式控制信号被串行化，这同样遵循数据流语义。 尽管其中涉及的抽象极为不同，包括并发、异步、延迟求值等，MLIR 仍为其提供了与其他任何 dialect 或编译 pass 相同的基础设施、分析与变换能力。 特别是，Grappler5 中实现的关键图级变换，在 MLIR 中既可用于 TensorFlow 模型，也可用于低层 LLVM IR：死代码/死节点消除、常量折叠、canonicalization、循环不变代码外提、公共子表达式/子图消除、特定指令或设备内核选择、重物化、布局优化；而其他变换则可能是领域特定的，例如混合精度优化、op fusion 与形状算术优化。\n\n\n\n%0 = tf.graph (%arg0 : tensor&lt;f32&gt;, %arg1 : tensor&lt;f32&gt;,\n               %arg2 : !tf.resource) {\n  // Execution of these operations is asynchronous, the %control return value\n  // can be used to impose extra runtime ordering, for example the assignment\n  // to the variable %arg2 is ordered after the read explicitly below.\n  %1, %control = tf.ReadVariableOp(%arg2)\n     : (!tf.resource) -&gt; (tensor&lt;f32&gt;, !tf.control)\n  %2, %control_1 = tf.Add(%arg0, %1)\n     : (tensor&lt;f32&gt;, tensor&lt;f32&gt;) -&gt; (tensor&lt;f32&gt;, !tf.control)\n  %control_2 = tf.AssignVariableOp(%arg2, %arg0, %control)\n     : (!tf.resource, tensor&lt;f32&gt;) -&gt; !tf.control\n  %3, %control_3 = tf.Add(%2, %arg1)\n     : (tensor&lt;f32&gt;, tensor&lt;f32&gt;) -&gt; (tensor&lt;f32&gt;, !tf.control)\n  tf.fetch %3, %control_2 : tensor&lt;f32&gt;, !tf.control\n}\n\n\n图 6: TensorFlow 图在 MLIR 中的 SSA 表示。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-polyhedral-codegen",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-polyhedral-codegen",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "Polyhedral 代码生成",
-    "text": "Polyhedral 代码生成\nMLIR 最初的动机之一，是探索面向加速器的 polyhedral 代码生成。 affine dialect 是一种简化的 polyhedral 表示，其设计目标是支持渐进 lowering。 虽然在本文中无法完整展开其全部设计点，但我们会展示 affine dialect 的若干方面，以说明 MLIR 的建模能力，并将 affine dialect 与既有表示进行对比 [25], [26], [27], [28], [29]。\n1) 相似性： MLIR 的 affine dialect 在所有内存访问上都使用结构化多维类型。 在默认情形下，这些结构化类型是单射的：不同索引方式按构造保证不会别名，而这是 polyhedral 依赖分析的一个常见前提条件。\nAffine 建模被拆分为两部分。 Attribute 用于在编译期建模 affine map 与整数集合，而 Op 则用于将 affine 约束施加到代码上。 具体而言，affine.for Op 是一种 for 循环，其边界由 affine map 表示，而这些 map 的值要求在函数内保持不变。 因此，这些循环具有静态控制流。 类似地，affine.if 是一种受 affine 整数集合限制的条件语句。 循环体与条件体都是 region，并通过 affine.load 与 affine.store 限制索引必须是外围循环迭代变量的 affine 形式。 这使得精确的 affine 依赖分析成为可能，同时避免了从有信息损失的低层表示中反推 affine 形式的需要。\n\n\n\n// Affine loops are Ops with regions.\naffine.for %arg0 = 0 to %N {\n  // Only loop-invariant values, loop iterators, and affine functions of\n  // those are allowed.\n  affine.for %arg1 = 0 to %N {\n    // Body of affine for loops obey SSA.\n    %0 = affine.load %A[%arg0] : memref&lt;? x f32&gt;\n    // Structured memory reference (memref) type can have\n    // affine layout maps.\n    %1 = affine.load %B[%arg1] : memref&lt;? x f32, (d0)[s0] -&gt; (d0 + s0)&gt;\n    %2 = mulf %0, %1 : f32\n    // Affine load/store can have affine expressions as subscripts.\n    %3 = affine.load %C[%arg0 + %arg1] : memref&lt;? x f32&gt;\n    %4 = addf %3, %2 : f32\n    affine.store %4, %C[%arg0 + %arg1] : memref&lt;? x f32&gt;\n  }\n}\n\n\n图 7: affine dialect 对多项式乘法 C(i+j) += A(i) * B(j) 的表示。\n\n\n\n2) 与现有 polyhedral 的差异： 差异很多。 （1）丰富的类型：MLIR 的结构化 memory reference 类型包含一个 layout map，用以连接 buffer 的索引空间与实际地址空间。 这种关注点分离使循环变换与数据变换更容易组合：数据布局变化不会影响代码，也不会污染依赖分析。 这类混合变换此前已有探索 [30]，但并不常见。\n（2）抽象混合：在 MLIR 中，affine 循环体可以使用带类型的 SSA 值上的 operation 来表达。 因此，所有传统编译器分析与变换仍然适用，并且可以与 polyhedral 变换交错执行。 相反，polyhedral 编译器常常会把这类细节完全抽象掉，从而使 polyhedral 编译器难以处理例如向量类型等对象。\n（3）更小的表示鸿沟：polyhedral 模型的一个关键特性，是它能够在类型系统中表示循环迭代顺序。 在这一系统里，大量循环变换可以直接组合，并能用简单数学抽象来推理 [26]。 然而，polyhedral 变换要求先提升到一种往往与原始表示截然不同的表示 [31], [32]。 此外，把变换后的 polyhedra 再转换回循环在计算上是困难的 [33]。 基于 MLIR 的表示会在较低层表示周围保留高层循环结构，从而消除了“再提升”的需要。\n（4）编译速度：正如 小节 6.4 所讨论的那样，编译速度是 MLIR 的一个关键目标，但这并非大多数现有 polyhedral 方法的关注重点。 这些方法严重依赖指数复杂度算法：既依赖整数线性规划来自动导出循环顺序，也依赖 polyhedron scanning 算法来把表示转换回循环。 而 MLIR 方法显式不依赖 polyhedron scanning，因为循环本身就被保留在 IR 中。 此外，代码生成既可以在 ahead-of-time 情况下发生，例如生成适用于动态 shape 的通用代码，也可以在 just-in-time 情况下发生，例如对静态 shape 的 tensor operation 做特化。 后者对可用资源提出了更严格约束，而这两类场景都很重要。\n使用 affine dialect 的经验表明，一等 affine 抽象有助于设计和实现领域专用代码生成器，其中包括 linalg dialect6 以及 RISE 中的声明式重写规则7。 这些发展以及 affine dialect 本身，都代表了 MLIR 设计所促成的重要探索。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-fir",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-fir",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "Fortran IR（FIR）",
-    "text": "Fortran IR（FIR）\nLLVM 的 Fortran 前端 flang 目前仍在大规模开发中，该工作由 NVIDIA/PGI 牵头。 与 Swift、Rust 等类似，flang 需要一种专门的 IR，以支持面向高性能 Fortran 代码库的高级变换，因此它使用 MLIR 来支持这些面向 Fortran 的特定优化 [34]。 这些高层优化，包括高级循环优化、数组复制消除、调用特化以及去虚化，如果只使用 LLVM 将很难实现。\n例如，FIR 能够把 Fortran 的虚分发表建模为一等概念，如图 图 8 所示。\n\n\n\n// Dispatch table for type(u)\nfir.dispatch_table @dtable_type_u {\n  fir.dt_entry \"method\", @u_method\n}\n\nfunc @some_func() {\n  %uv = fir.alloca !fir.type&lt;u&gt; : !fir.ref&lt;!fir.type&lt;u&gt;&gt;\n  fir.dispatch \"method\"(%uv) : (!fir.ref&lt;!fir.type&lt;u&gt;&gt;) -&gt; ()\n  // ...\n}\n\n\n图 8: FIR 对动态虚函数分发表提供了一等支持。\n\n\n\n能够在结构化 IR 中建模编程语言的高层语义，是非常强大的能力。 例如，对分发表的一等建模使实现一个健壮的去虚化 pass 成为可能。 尽管这本来也可以借助专用编译器 IR 来实现，但使用 MLIR 使 flang 开发者能够把工程资源集中投入到其领域内的 IR 设计上，而不是重新实现基本基础设施。\n选择 MLIR 还释放了其他非 Fortran 专用 dialect 的复用能力：一个语言无关的 OpenMP dialect 可以在 Fortran 和 C 语言前端之间共享。 类似地，在 MLIR 中，通过共享与复用面向 GPU 的 dialect 与 pass，针对异构平台支持 OpenACC 也变得可行。 这之所以直接可行，正是因为 MLIR 从一开始就是为支持可组合 dialect 混用而设计的。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-domain-specific-compilers",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-domain-specific-compilers",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "领域专用编译器",
-    "text": "领域专用编译器\n上面的应用都处于较大的工作流之中。 但 MLIR 也有助于构建更小型的领域专用编译器。 一个可复用、模块化的基础设施，使这些专门路径变得可行，而且构建成本相对低廉。\n优化 MLIR Pattern Rewriting： MLIR 拥有一个可扩展的模式重写系统。 除了静态声明的 pattern 之外，我们还遇到过一些应用场景，在这些场景中重写 pattern 需要在运行时动态扩展，以允许硬件厂商在驱动中添加新的 lowering。 解决方案是把 MLIR pattern rewrite 本身表示成一个 MLIR dialect，从而允许我们使用 MLIR 基础设施，在运行时即时构建并优化高效的 Finite State Machine（FSM）匹配器与重写器。 这项工作包括其他系统中已经出现过的 FSM 优化，例如 LLVM SelectionDAG 和 GlobalISel 的指令选择系统。\nLattice Regression Compiler： Lattice regression [35] 是一种以求值速度快且可解释性强而著称的机器学习技术。 该编译器的前身使用 C++ template 实现。 这种方式虽然能借助元编程获得高性能代码，但要对端到端模型表达通用优化却并不直接。 这个特定的 lattice regression 系统被用于拥有数百万用户的应用中，因此性能改进至关重要。\nMLIR 被用作这一专门领域中新编译器的基础，而该编译器由一种专门的搜索方法驱动，也就是说，在编译期间实际上解决了一个机器学习问题。 这个最终编译器只投入了 3 人月的开发工作，却在某个生产模型上带来了最高 8× 的性能提升，同时也提高了编译过程的透明性。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-reusable-passes",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-reusable-passes",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "可复用的编译器 Pass",
-    "text": "可复用的编译器 Pass\n能够在同一个 IR 中表示多个抽象层级，会激励那些跨这些层级工作的 pass。 MLIR 通过反转常见做法来处理可扩展性：因为 Op 的数量比 pass 多，所以让 Op 了解 pass 更容易。 这也改进了模块化，因为 dialect 特定逻辑是在 dialect 内部实现的，而不是塞进核心变换里。 由于 pass 很少需要知道某个 Op 的全部方面，MLIR 依赖以下机制来实现通用 pass。\nOperation Trait： 许多常见的“面包黄油型”编译器 pass，例如死代码消除或公共子表达式消除，只依赖于诸如“是否是 terminator”或“是否可交换”这类简单属性。 我们把这类属性定义为 Op Trait。 一个 Op 无条件地具有某个 trait，例如，一个 standard branch Op 总是 terminator。 对许多 pass 来说，只要知道某个 Op 具备一组 trait，就足以对它操作，例如交换 operand，或者删除那些没有副作用且没有用户的 Op。\nTrait 还可以充当验证钩子，以便在多个具备该 trait 的 Op 之间共享逻辑。 例如，isolated from above trait 会验证 Op 中的 region 不会使用由包围它的 region 中定义的值。 它允许对函数、模块以及其他自包含结构进行通用处理。\nInterface： 当无条件、静态的行为表达力不足时，就可以通过 interface 对处理逻辑进行参数化，这一概念借鉴自面向对象编程。 Interface 定义了一个对 IR 对象行为的视图，并把不必要的细节抽象掉。 与 trait 不同，interface 是由 IR 对象通过任意 C++ 代码实现的，因此不同对象可以给出不同结果。 例如，call Op 实现了 call-like interface，但该 Op 的不同实例会调用不同的函数。\nMLIR pass 可以基于 interface 来实现，从而与任何选择接入该 pass 的 Op 建立契约。 继续用 call-like 的例子，考虑 MLIR 的 inlining pass，它可以处理 TensorFlow 图、Flang 函数、函数式语言中的闭包等。 这样的 pass 需要知道两件事：（1）把一个 operation 内联进某个 region 是否有效；（2）当 terminator operation 在内联后跑到了 block 中间时，应当如何处理。\n为了查询某个 Op 的这些属性，pass 会定义一个专用 interface，以便 Op 通过向 MLIR 注册其实现来受益于内联。 而内联 pass 会对任何没有实现相应 interface 的 operation 采取保守策略，也就是直接忽略。\n常量折叠也是通过同样的机制实现的：每个 Op 都实现 fold interface，通过提供一个函数，在该 Op 可折叠时返回一个持有对应值的 attribute。 更通用的 canonicalization 也可以类似地实现：某个 interface 会填充一组适用于 pattern rewriting 的 canonicalization pattern。 这种设计把通用逻辑与 Op 特定逻辑分离开来，并将后者放进 Op 自身，从而减轻了 LLVM 中 InstCombine、PeepholeOptimizer 之类组件众所周知的维护与复杂性负担。\nInterface 也可以由 dialect 而不是具体 Op 来实现，这允许共享行为，或把逻辑委托给外部实现，例如对 TensorFlow Op 执行常量折叠时就是如此。 Interface 同样支持 type 和 attribute，例如，一个加法 operation 可以支持任何自声明为“integer-like”且可查询其有符号语义的类型。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-dialect-specific-passes",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-dialect-specific-passes",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "方言特定 Pass",
-    "text": "方言特定 Pass\n最后，定义只针对特定 dialect 的 pass 也是合理且有用的，因为这类 pass 可以充分利用它所面向 dialect 中 operation 的完整语义。 在 MLIR 系统里，这类 pass 与在其他编译器系统里一样有用。 例如，某些代码生成器希望基于特定机器约束，或者基于其他不适合纳入更广泛框架的技巧，对机器指令做定制调度。 对于不要求一般化的新变换来说，这是一种简单且实用的起点。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-mixing-dialects",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-mixing-dialects",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "将多个 Dialect 混合在一起",
-    "text": "将多个 Dialect 混合在一起\nMLIR 最深刻、但也最难让人一下子理解的一个方面，是它允许并鼓励在一个程序中混合来自不同 dialect 的 operation。 其中一些情况相对容易理解，例如在同一 module 中同时容纳主机端与加速器端的计算。 但最有趣的情况发生在 dialect 被直接混合时，因为这使一种我们此前在其他系统里从未见过的复用类别成为可能。\n考虑 小节 5.2 中描述的 affine dialect。 affine 控制流与 affine 映射的定义，独立于那些被包含在 affine region 中的 operation 语义。 在我们的例子里，我们把 affine dialect 与 standard dialect 组合在一起，后者以类似 LLVM IR 的目标无关形式表示简单算术，同时还会与多个针对内部加速器的目标相关机器指令 dialect 组合。 其他人也已经把它与来自其他问题域的抽象结合起来。\n能够复用通用 polyhedral 变换，同时利用 Op interface 来获取特定变换中 operation 的语义，是一种非常强大、也让我们十分兴奋的编译器基础设施组织方式。 另一个例子是，OpenMP dialect 可以在多种源语言 IR 中被使用与复用。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-parallel-compilation",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-parallel-compilation",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "并行编译",
-    "text": "并行编译\nMLIR 的一个重要方面，是能够利用多核机器来提高编译速度。 特别地，isolated from above trait（见 小节 6.1）允许函数之类的 Op 接入 MLIR pass manager 支持的并发 IR 遍历机制。 事实上，这个 trait 保证 SSA use-def 链不会跨越 region 边界，因此相关区域可以被隔离处理。 MLIR 也不具有跨整个 module 的 use-def 链，而是通过 symbol table（见 小节 4）引用全局对象，并把常量定义为带 attribute 的 operation（见 小节 4）。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-interoperability",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-interoperability",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "互操作性",
-    "text": "互操作性\n我们的工作涉及与大量现有系统互操作，例如以 protocol buffer 编码的机器学习图、包括 LLVM IR 在内的编译器 IR，以及专有指令集等。 这些表示形式往往都带有一些次优或不够理想的决定，而这些决定在原系统语境里可能是合理的，但 MLIR 的能力允许我们使用一种表达力更强的表示。 由于 importer 和 exporter 众所周知地很难测试，因为测试样例往往是二进制，我们希望尽可能降低它们的复杂度。\n解决方案是定义一个尽可能直接对应外部系统的 dialect，从而允许与该格式进行简单且可预测的双向 round-trip。 一旦 IR 被导入 MLIR，就可以利用全部 MLIR 基础设施把它提升到更方便的 IR，再将其 lowering 回去；而这也使得这些变换可以像其他 MLIR pass 一样接受测试。\n此类 dialect 已有大量例子，其中包括把 LLVM IR 映射进 MLIR 的 LLVM dialect。 这种做法对我们来说效果良好，而 MLIR 工具链也被证明对为这些外部文件格式编写测试很有帮助。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-unopinionated-design",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-unopinionated-design",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "无预设立场的设计带来了新的挑战",
-    "text": "无预设立场的设计带来了新的挑战\n尽管 MLIR 允许人们定义几乎任意的抽象，但它对究竟应当怎么做提供的指导却很少：什么样的做法实践中更好，什么样的做法更差？ 我们已经积累了一些经验，看到不少工程师和研究者把这些技术与方法应用到新的问题域上，并认识到编译器与语言领域对于编译器 IR 设计和抽象设计这门“艺术”的理解并不充分；很多人都是在既有系统的约束内工作，但真正有机会亲自定义这些抽象的人相对较少。\n这既是挑战，也是又一组未来研究机会。 更广泛的 MLIR 社区正在围绕这些抽象设计权衡建立经验，而我们预计，这会在未来成为一个富有成果的研究方向。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-looking-forward",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-looking-forward",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "展望未来",
-    "text": "展望未来\nMLIR 的设计与其他编译器基础设施差异足够大，以至于即便我们已经把它构建并应用于许多不同系统，我们仍在学习之中。 我们相信，仍然有大量内容有待发现，而且还需要若干年的研究，才能更好理解这些设计点并建立最佳实践。 例如，out-of-tree dialect 的兴起、越来越多使用 MLIR 的源语言前端、MLIR 在 Abstract Syntax Tree 上的潜在应用，以及其在结构化数据，例如 JSON 和 protocol buffer 上的应用，目前都还很早期，而它们很可能会揭示出新的有趣挑战与机会。 更好的 just-in-time 编译支持与精确垃圾回收支持，也会是有趣方向，因为它们都能利用 IR 的模块化与可编程性。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-appendix-abstract",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-appendix-abstract",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "工件摘要",
-    "text": "工件摘要\n本文对应的工件包括 MLIR 系统、如何下载和构建它的说明，以及指向 TensorFlow 中与 MLIR 相关源代码的链接。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-artifact-checklist",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-artifact-checklist",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "工件核对清单（元信息）",
-    "text": "工件核对清单（元信息）\n\nProgram: MLIR\nCompilation: LLVM C++ toolchain\nRun-time environment: Recommended Linux\nPublicly available?: Yes\nArchived: DOI 10.5281/zenodo.4283090"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-description",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-description",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "说明",
-    "text": "说明\n1) 交付方式： 若要下载 MLIR，请执行：\ngit clone \\\nhttps://github.com/llvm/llvm-project.git\n关于下载和构建 MLIR 的说明，也可见于 https://mlir.llvm.org/getting_started。 更多信息可见 https://mlir.llvm.org。\n2) 软件依赖： 下载 MLIR 需要 git。 构建 MLIR 需要 Ninja（https://ninja-build.org/）以及一个可用的 C++ 工具链，其中包括 clang 和 lld。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-installation",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-installation",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "安装",
-    "text": "安装\n要在 Linux 上构建并测试 MLIR，请执行以下命令：\nmkdir llvm-project/build\ncd llvm-project/build\ncmake -G Ninja ../llvm \\\n  -DLLVM_ENABLE_PROJECTS=mlir \\\n  -DLLVM_BUILD_EXAMPLES=ON \\\n  -DLLVM_TARGETS_TO_BUILD=\"X86;NVPTX;AMDGPU\" \\\n  -DCMAKE_BUILD_TYPE=Release \\\n  -DLLVM_ENABLE_ASSERTIONS=ON \\\n  -DCMAKE_C_COMPILER=clang \\\n  -DCMAKE_CXX_COMPILER=clang++ \\\n  -DLLVM_ENABLE_LLD=ON\ncmake --build . --target check-mlir"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-applications",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#sec-applications",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "应用",
-    "text": "应用\nTensorFlow 中对 MLIR 的使用可在代码位置 https://github.com/tensorflow/tensorflow/tree/master/tensorflow/compiler/mlir/ 中看到。 位于 tensorflow/tests 子目录中的测试包含 MLIR 片段，它们展示了 TensorFlow 图表示与相关变换。 关于从源码构建 TensorFlow 的说明，可见 https://www.tensorflow.org/install/source。"
-  },
-  {
-    "objectID": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#footnotes",
-    "href": "posts/2026-04-16-mlir-scaling-compiler-infrastructure-for-domain-specific-computation.html#footnotes",
-    "title": "MLIR: Scaling Compiler Infrastructure for Domain Specific Computation",
-    "section": "脚注",
-    "text": "脚注\n\n\nhttps://mlir.llvm.org↩︎\n文中原注：已经有人提出替代方案，试图获得更高生产力、更强健全性保证，以及与高层语言更好的互操作性；这仍是积极设计讨论中的主题。↩︎\nhttps://www.c4ml.org/↩︎\nhttp://www.cs.utah.edu/~mhall/mlir4hpc↩︎\nhttps://www.tensorflow.org/guide/graph_optimization↩︎\nhttps://mlir.llvm.org/docs/Dialects/Linalg/↩︎\nhttps://rise-lang.org/mlir/↩︎\nhttps://google.github.io/iree/↩︎"
-  },
-  {
-    "objectID": "posts/2020-12-06-RISCW-3.html",
-    "href": "posts/2020-12-06-RISCW-3.html",
-    "title": "为LLVM添加简易RISCV后端(三)：配置构建系统",
-    "section": "",
-    "text": "为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程12。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。"
-  },
-  {
-    "objectID": "posts/2020-12-06-RISCW-3.html#配置构建系统",
-    "href": "posts/2020-12-06-RISCW-3.html#配置构建系统",
-    "title": "为LLVM添加简易RISCV后端(三)：配置构建系统",
-    "section": "配置构建系统",
-    "text": "配置构建系统\n在前面，我们提到每个LLVM后端都有一个单独的目录LLVM/lib/Target，后端的大部分代码都在其中。 此外，LLVM依赖CMake为实际的构建系统(如Make、Ninja等)生成构建文件。 在这篇文章中，我们将仔细研究其中的一些CMake配置文件。\n注意:RISCW后端代码可以在这里找到。\n\nCMake配置文件\n回想一下，RISCW后端存放在llvm/lib/Target/RISCW目录下。 该目录及其子目录都有两个构建文件(CMakeLists.txt和LLVMBuild.txt)，描述后端模块的结构，提供链接信息等。 RISCW后端目前非常简单，目录结构是这样的:\nllvm/lib/Target/RISCW\n|- CMakeLists.txt\n|- LLVMBuild.txt\n|- Other C++, TableGen, etc files\n|- TargetInfo/\n|  |- CMakeLists.txt\n|  |- LLVMBuild.txt\n|  |- Other C++, TableGen, etc files\n|- MCTargetDesc/\n   |- CMakeLists.txt\n   |- LLVMBuild.txt\n   |- Other C++, TableGen, etc files\n每个使用CMake的项目都会包含CMakeLists.txt文件3，RISCW也不例外。 这些文件包含一系列CMake指令，这些指令用于驱动构建文件的生成。 在LLVM后端中，CMake会根据这些指令执行一些操作，例如指示要编译的C++源文件或生成TableGen指令。 LLVMBuild.txt文件对当前目录中包含的组件提供了描述。\n\n\nLLVMBuild.txt文件\n让我们看一下llvm/lib/Target/RISCW/LLVMBuild.txt的内容。\n[common]\nsubdirectories = MCTargetDesc TargetInfo\n\n[component_0]\ntype = TargetGroup\nname = RISCW\nparent = Target\nhas_asmprinter = 1\n\n[component_1]\ntype = Library\nname = RISCWCodeGen\nparent = RISCW\nrequired_libraries = AsmPrinter CodeGen Core MC RISCWDesc RISCWInfo\n  SelectionDAG Support Target\n\nadd_to_library_groups = RISCW\n该文件告诉构建系统RISCW后端具有两个组件。 其中一个是顶级组件RISCW，其类型为TargetGroup，该类型表明RISCW是一个后端，构建系统对该类型有一些特殊处理。 Target是RISCW的父组件。 请注意，此命名与LLVM后端的目录结构匹配，即llvm/lib/Target/RISCW。 RISCW的名称也不是任意的，它必须与后端的TableGen文件中的定义匹配。\nLLVM后端提供了一系列可选功能， 例如assembly printing，assembly parsing等， LLVMBuild.txt文件表明了后端支持哪些可选功能。 比如，最后一行告诉构建系统RISCW后端实现了assembly printing功能。\n注意：查看现有后端（如ARM或RISCV）中的代码，以了解它们除了has_asmprinter之外还启用了哪些功能。\nLLVMBuild.txt文件还定义了第二个名为RISCWCodeGen的组件，其类型为Library，其父级为RISCW。 另外，文件还指明了RISCWCodeGen需要的依赖库，例如AsmPrinter，CodeGen等，构建LLVM时，缺少库会导致链接错误。\nllvm/lib/Target/RISCW的每个子目录也会包含一个LLVMBuild.txt文件，该文件使用RISCW作为父级来定义自己的组件。\n\n\nCMakeLists.txt文件\n让我们看一下llvm/lib/Target/RISCW/CMakeLists.txt文件的内容。\nset(LLVM_TARGET_DEFINITIONS RISCW.td)\n\ntablegen(LLVM RISCWGenRegisterInfo.inc -gen-register-info)\ntablegen(LLVM RISCWGenInstrInfo.inc -gen-instr-info)\n# Other TableGen commands\n\nadd_public_tablegen_target(RISCWCommonTableGen)\n\n# RISCWCodeGen should match with LLVMBuild.txt RISCWCodeGen\nadd_llvm_target(RISCWCodeGen\n  RISCWAsmPrinter.cpp\n  # Other files\n)\n\n# Should match with \"subdirectories =  MCTargetDesc TargetInfo\" in LLVMBuild.txt\nadd_subdirectory(TargetInfo)\nadd_subdirectory(MCTargetDesc)\n文件顶部的set命令将LLVM_TARGET_DEFINITION定义为`RISCW.td**。 这个文件通常包含一些顶级定义， 并通过包含其他文件的方式来引入其他TableGen定义——我们将在后面的文章中更仔细地研究TableGen， 但是请随时查看代码库中的RISCW.td。\n然后我们在CMake文件中看到一些TableGen命令。 它们命令构建系统使TableGen工具根据*.td文件生成RISCWGen*.inc。 这些*.inc文件实际上就是传统的C++代码，在编译完LLVM之后，你可以在build/lib/Target/RISCW的构建目录中找到它们；它们可以用于调试，但是不容易阅读。\n接下来的命令，也就是add_llvm_target， 指定了当前目录中要构建的C++文件，被指定的文件不能位于子目录中。 add_llvm_target命令的第一个参数是目标的名称，并且应该与LLVMBuild.txt中定义名称匹配。\n最后，CMakeLists.txt指定了CMake应该查看的子目录，在后端RISCW中，只有两个:TargetInfo和MCTargetDesc。 子目录中的CMakeLists.txt与此类似，但要简单得多!\n注意:后端文件的命名约定通常很重要，显然应该与构建文件的内容相匹配。 例如，set(LLVM_TARGET_DEFINITIONS RISCW.td)命令要求RISCW.td存在! 一定要仔细检查这些错误，因为构建错误可能有点含糊不清。"
-  },
-  {
-    "objectID": "posts/2020-12-06-RISCW-3.html#注释",
-    "href": "posts/2020-12-06-RISCW-3.html#注释",
-    "title": "为LLVM添加简易RISCV后端(三)：配置构建系统",
-    "section": "注释",
-    "text": "注释"
-  },
-  {
-    "objectID": "posts/2020-12-06-RISCW-3.html#footnotes",
-    "href": "posts/2020-12-06-RISCW-3.html#footnotes",
-    "title": "为LLVM添加简易RISCV后端(三)：配置构建系统",
-    "section": "脚注",
-    "text": "脚注\n\n\n公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。↩︎\n这个教程描述了如何开发LLVM后端，但我发现很难理解。↩︎\n您可以在此处找到有关CMake的更多信息。↩︎"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "",
-    "text": "近年来，GPU 已不仅用于图形渲染，也被广泛用于通用计算负载[1]。GPU 架构提供的大规模并行性可被许多现代应用充分利用，例如生物信息学[2], [3]、物理模拟[4], [5]、化学计算[6], [7]等。如今，GPU 是加速现代机器学习工作负载的核心平台，这些工作负载对内存带宽与计算能力的需求极高[8]。近年来 GPU 微架构、互连技术（如 NVLink[9]）与通信框架（如 NCCL[10]）持续演进，这些进步使得需要数千块 GPU 的大语言模型训练与推理成为可能[11]。\n然而，现代商业 GPU 的微架构细节信息十分稀缺，学术研究中常用的模型仍以 2006 年发布的 Tesla 架构为基线[12], [13], [14]。现代 GPU 相比 Tesla 已发生了显著变化，基于旧架构的模型可能导致结论偏差。本文旨在揭示现代 NVIDIA GPU 架构中的关键特性与组件细节，以提升学术界 GPU 微架构模型的准确性，从而帮助研究者更好地识别未来 GPU 的挑战与机会。本文的主要贡献如下：\n\n描述发射阶段的运行机制，包括依赖处理、warp 就绪条件以及发射调度策略。\n描述一种可信的取指阶段与其调度器，并说明其与发射阶段的协调方式。\n给出寄存器文件的重要细节并解释寄存器文件缓存的行为，表明现代 NVIDIA GPU 不使用 operand collection 阶段或 collector units。\n揭示内存流水线的多项细节。\n重新设计 Accel-Sim 模拟器中的 SM/Core 模型，并整合本文揭示的全部细节。\n将新模型与真实硬件进行验证并与 Accel-Sim 对比。对 NVIDIA RTX A6000（Ampere）而言，我们的新模型在执行周期上的 MAPE 为 13.98%，比旧模型提升 18.24%。\n证明基于流缓冲的朴素指令预取在性能精度上优于预期，效果接近“完美指令缓存”。\n分析寄存器文件缓存和寄存器文件读端口数量对仿真精度与性能的影响。\n比较本文揭示的依赖管理机制与传统记分牌方法在性能、面积与仿真精度上的差异，表明这种软硬协同设计更高效。\n证明模型对 NVIDIA 其他架构（如 Turing）的可移植性。\n\n本文其余部分结构如下：第 小节 2 节介绍背景与动机；第 小节 3 节说明逆向方法；第 小节 4 节描述现代 NVIDIA GPU 的控制位（control bits）及其行为；第 小节 5 节呈现 GPU 核心微架构；第 小节 6 节描述仿真模型；第 小节 7 节评估模型准确性并分析指令预取、寄存器文件缓存与依赖管理机制等因素；第 小节 8 节回顾相关工作；最后第 小节 9 节总结全文。"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-warpscheduler",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-warpscheduler",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "发射调度器",
-    "text": "发射调度器\n本小节解析现代 NVIDIA GPU 的发射调度器。我们先在 小节 5.1.1 中描述每周期哪些 warp 会被视为“可发射”，再在 小节 5.1.2 中说明选择策略。\n\n\n\n\n\n\n图 4: 四个 warp 发射时间线示例。\n\n\n\n\nWarp 就绪条件\n若一个 warp 在某周期要被视为其最老指令的候选发射者，需要满足若干条件。这些条件既依赖该 warp 的历史指令状态，也依赖核心的全局状态。\n显然，需要指令缓冲区中存在有效指令。另一个条件是该 warp 的最老指令不能与同一 warp 中尚未完成的更老指令存在数据依赖。依赖由控制位进行软件处理，如 小节 4 所述。\n此外，对于固定延迟指令，只有在能够保证其发射后执行所需资源可用时，该 warp 才能在该周期发射最老指令。\n其中一类资源是执行单元。执行单元存在输入锁存器，指令到达执行阶段时该锁存器必须为空。当执行单元宽度为半个 warp 时，锁存器会被占用两个周期；宽度为一个 warp 时则占用一个周期。\n对于源操作数位于常量缓存（Constant Cache）的指令，标签查找在发射阶段进行。若所选 warp 的最老指令需要常量缓存而发生 miss，则调度器不会发射任何指令直到 miss 被服务；如果 4 个周期后 miss 仍未完成，则调度器切换到另一条指令就绪的 warp（选择最年轻的）。\n关于寄存器文件读端口的可用性，我们观察到发射调度器并不会考虑“未来若干周期是否会发生端口冲突”。我们的实验表明，即使移除最后一个 FFMA 与 CLOCK 之间的 NOP，寄存器读冲突也不会阻止第二个 CLOCK 的发射。我们进行了大量实验以推断从发射到执行之间的流水线结构，虽然无法完全拟合所有案例，但以下模型对绝大多数实验有效，因此采用该模型：固定延迟指令在发射阶段与读操作数阶段之间有两个中间阶段。第一个阶段称为 Control，适用于固定和可变延迟指令，用于递增依赖计数器或读取时钟计数器等。由此可以解释：如果一条指令递增依赖计数器，紧随其后的指令又需要等待该计数器归零，则两者之间至少需要插入一个周期，否则递增在下一周期才生效，因此连续指令无法依赖计数器直接避免冒险，除非前一条指令设置了 Yield 或设置了大于 1 的停顿计数器。\n第二个阶段仅用于固定延迟指令，我们称之为 Allocate。在该阶段检查寄存器文件读端口是否可用，若无法保证在后续周期无冲突读取操作数，则在该阶段停顿，直到可以保证读取。寄存器文件读写流水线及其缓存细节见 小节 5.3。\n可变延迟指令（如内存指令）在通过 Control 阶段后直接进入队列，不经过 Allocate。队列中的指令只有在确认不会发生读端口冲突时才进入寄存器文件读流水线。固定延迟指令优先于可变延迟指令获得读端口分配，因为固定延迟指令必须在固定周期内完成以保证依赖正确性。\n\n\n调度策略\n为揭示发射调度策略，我们设计了多种涉及多个 warp 的测试，记录每周期调度器选择哪个 warp 发射。该信息通过保存 GPU CLOCK 计数器的指令获取，但硬件不允许连续发射两条此类指令，因此我们在中间插入固定数量的其他指令（通常为 NOP），并变化 Yield 与停顿计数器控制位的取值。\n实验结果表明，warp 调度器采用贪心策略：若同一 warp 满足就绪条件，则继续从该 warp 发射；当需要切换 warp 时，选择满足就绪条件的“最年轻”warp。\n图 4 展示了四个 warp 在同一 sub-core 中执行时的发射时间线。每个 warp 执行相同的代码，包含 32 条彼此独立的指令，理论上每周期可发射 1 条。\n在情况 (a) 中，所有停顿计数器、依赖掩码与 Yield 均为 0。调度器从最年轻的 warp（W3）开始发射，直到其 ICache miss；此时 W3 没有有效指令，调度器切换到 W2。由于 W2 复用了 W3 带入的指令，因此其 ICache 命中；当 W2 执行到 W3 miss 的位置时，miss 已被服务，后续指令命中，于是调度器继续贪心地完成 W2。随后调度器继续从 W3（最年轻）发射至结束，再转到 W1、W0。\n情况 (b) 中，每个 warp 的第二条指令将停顿计数器设为 4。调度器在 W3 发射两条后切换至 W2，再两条后切换至 W1，然后回到 W3（其停顿计数器已归零）。当 W3、W2、W1 结束后，调度器开始发射 W0。W0 发射第二条指令后，由于没有其他 warp 可隐藏停顿，产生 4 个气泡。\n情况 (c) 中，每个 warp 的第二条指令设置 Yield。调度器在发射第二条指令后切换到其他 warp 中最年轻的一个，例如 W3 切换到 W2，W2 再切回 W3。我们还测试了“Yield 置位且无其他 warp 可选”的情况（图中未示），此时调度器产生 1 个周期的气泡。\n我们将该策略称为“编译器引导的贪心后选最年轻（CGGTY）”，因为调度器由控制位（停顿计数器、Yield 与依赖计数器）引导。\n需要说明的是，我们仅验证了同一 CTA 内 warp 的行为；尚未有可靠方法分析不同 CTA 之间 warp 的交互。"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-frontend",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-frontend",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "前端",
-    "text": "前端\n根据 NVIDIA 多份文档中的 SM 结构图[19], [20], [21], [22], [23], [24], [25]，SM 包含四个 sub-core，warp 以轮转方式分配到 sub-core（即 warp ID mod 4）[32], [33]。每个 sub-core 有私有 L0 指令缓存，并连接到全 SM 共享的 L1 指令缓存。我们假设存在仲裁器协调多个 sub-core 的请求。\n每个 L0 ICache 都有指令预取器[44]。我们的实验印证了 Cao 等人关于 GPU 指令预取有效性的结论[45]。尽管我们无法确认 NVIDIA 的具体实现，但推测为类似流缓冲的简单方案[46]，即在 miss 发生时预取后续连续的缓存行。基于分析，我们假设流缓冲大小为 16（见 小节 7.3）。\n我们无法通过实验确认精确的取指策略，但若其与发射策略差异过大，将频繁出现“指令缓冲区无有效指令”的情况，而我们并未观察到这一现象。因此，我们假设每个 sub-core 每周期可取指并译码 1 条指令。取指调度器优先从上次（或最近一次）发射指令的 warp 取指，除非该 warp 的指令缓冲区中已存在的指令数加上在途取指数达到缓冲区容量。此时调度器切换到指令缓冲区有空位的最年轻 warp。我们假设每个 warp 有 3 个指令缓冲区条目，足以支撑“贪心发射”策略，因为从取指到发射有 2 个流水阶段。如果缓冲区仅有 2 项，贪心策略将被破坏：例如在所有请求 ICache 命中、所有 warp 缓冲区均满的情况下，若第 1 周期发射 W1 同时取指 W0，第 2 周期将发射 W1 的第 2 条并取指第 3 条；第 3 周期 W1 的第 3 条仍在译码中，缓冲区无有效指令，贪心策略失败，被迫切换 warp。3 项缓冲区可避免该问题，这与我们的实验一致。多数文献假设取指/译码宽度为 2 且缓冲区为 2 项，并且只有当缓冲区为空才取指，这会导致每两个连续指令后就切换 warp，与我们的观察不符。"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-regfile",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-regfile",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "寄存器文件",
-    "text": "寄存器文件\n我们通过大量实验（不同 SASS 指令组合、不同寄存器文件端口压力、是否使用寄存器文件缓存）来揭示寄存器文件组织。\n现代 NVIDIA GPU 具有多种寄存器文件：\n\n常规寄存器（Regular）：最近架构每个 SM 有 65536 个 32 位寄存器[19], [20], [21], [22], [23]，用于保存线程计算值。寄存器按 32 个为一组，对应 warp 中 32 个线程，形成 2048 个“warp 寄存器”。寄存器在 sub-core 间均匀分布，每个 sub-core 的寄存器文件分成两个 bank[32], [33]。每个 warp 可使用 1 至 256 个寄存器，编译时确定。每 warp 使用寄存器越多，SM 并行 warp 数越少。\n统一寄存器（Uniform）：每个 warp 有 64 个私有 32 位寄存器，用于保存该 warp 所有线程共享的值[33]。\n谓词寄存器（Predicate）：每个 warp 有 8 个 32 位寄存器，每个 bit 对应 warp 中一个线程，用于指示是否执行指令及分支走向。\n统一谓词寄存器（Uniform Predicate）：每个 warp 有 8 个 1-bit 寄存器，用于全 warp 共享的谓词。\nSB 寄存器：每个 warp 有 6 个“依赖计数器”寄存器，用于追踪可变延迟依赖（见 小节 4）。\nB 寄存器：每个 warp 至少有 16 个 B 寄存器用于控制流重汇合（re-convergence）[47]。\n特殊寄存器：用于存放线程 ID、block ID 等特殊值。\n\n与以往假设存在 operand collector 以处理寄存器端口冲突的工作不同[13], [15], [48]，现代 NVIDIA GPU 并未使用 operand collector。若使用 collector，会引入发射到写回的可变延迟，使得 NVIDIA ISA 的固定延迟无法在编译期确定，无法正确依赖管理（见 小节 4）。我们通过多组生产者—消费者指令序列的实验验证了 collector 的不存在：无论寄存器端口冲突数量如何，停顿计数器所需值与指令执行时间均保持不变。\n实验显示，每个寄存器文件 bank 有一个 1024-bit 专用写端口。此外，当一条 load 指令与一条固定延迟指令在同周期完成时，被延迟的是 load 指令；而当两个固定延迟指令（如 IADD3 与 IMAD）写同一 bank 时，两者都不延迟。这表明固定延迟指令使用了类似 Fermi 中引入的结果队列[49]。其消费者不被延迟，说明存在旁路（bypass）以在写回前转发结果。\n在读方面，我们观察到每 bank 1024-bit 带宽。通过连续 FADD、FMUL、FFMA 指令测得这一结果。1\n例如，当 FMUL 的两个源操作数来自同一 bank 时会产生 1 个周期气泡；若来自不同 bank 则无气泡。FFMA 的三个源操作数都在同一 bank 时会产生 2 个周期气泡。\n我们未能找到一个完全匹配所有案例的读端口仲裁策略，因为气泡生成还依赖指令类型与操作数角色。最接近实验结果的模型为：固定延迟指令在发射与读操作数之间有两个中间阶段 Control 与 Allocate（见 小节 5.1.1）。Allocate 负责保留寄存器文件读端口；每 bank 有一个 1024-bit 读端口，并通过寄存器文件缓存缓解读冲突。实验显示所有固定延迟指令读取操作数会持续 3 个周期，即便某些周期空闲（例如仅有两个源操作数），因为 FADD 与 FMUL 的延迟与 FFMA 相同，而 FFMA 不论三操作数是否在同一 bank 延迟都相同。若指令在 Allocate 阶段发现无法在后续三周期内读取完所有操作数，则其被阻塞在该阶段并向上游施加气泡，直到能够预留所需端口。\n\n寄存器文件缓存\n寄存器文件缓存（RFC）可缓解寄存器文件端口争用并节能，这一思路已被多项研究探讨[50], [51], [52], [53], [54]。\n我们的实验表明 NVIDIA 的设计与 Gebhart 等人的方案类似[51]。RFC 由编译器控制，仅用于常规寄存器操作数。关于 Last Result File 结构，我们称之为结果队列，其行为类似，但并未采用两级发射调度器（见 小节 5.1.2）。\nRFC 组织结构如下：每个 sub-core 的两个寄存器 bank 各有一个入口，每个入口存放三个 1024-bit 值，对应三类常规寄存器源操作数。总容量为 6 个 1024-bit 操作数值（子条目）。某些指令的一个操作数可能需要连续两个寄存器（如张量核心指令），此时两个寄存器分别来自不同 bank，并缓存到对应入口。\n编译器控制分配策略。当指令发射并读取操作数时，若该操作数设置了 reuse，其值将被写入 RFC。若后续指令来自同一 warp，且寄存器 ID 与 RFC 中一致、并且该操作数在指令中的位置一致，则可从 RFC 命中。若有新的读请求到达同一 bank 和同一操作数位置，则该缓存值将失效（无论命中与否）。这一行为在下面示例 2 中展示：为了让第三条指令命中 R2，第二条指令必须再次为 R2 设置 reuse，即便 R2 已经缓存。\n# 寄存器文件缓存行为示例\n# Example 1\nIADD3 R1, R2.reuse, R3, R4 # Allocates R2\nFFMA R5, R2, R7, R8 # R2 hits and becomes unavailable\nIADD3 R10, R2, R12, R13 # R2 misses\n\n# Example 2\nIADD3 R1, R2.reuse, R3, R4 # Allocates R2\nFFMA R5, R2.reuse, R7, R8 # R2 hits and is retained\nIADD3 R10, R2, R12, R13 # R2 hits\n\n# Example 3. R2 misses in the second instruction since it is\n# cached in another slot. R2 remains available in the first\n# slot since R7 uses a different bank\nIADD3 R1, R2.reuse, R3, R4 # Allocates R2\nFFMA R5, R7, R2, R8 # R2 misses\nIADD3 R10, R2, R12, R13 # R2 hits\n\n# Example 4. R2 misses in the third instruction since the\n# second instruction uses a different register that goes to\n# the same bank in the same operand slot\nIADD3 R1, R2.reuse, R3, R4 # Allocates R2\nFFMA R5, R4, R7, R8 # R4 misses and R2 becomes unavailable\nIADD3 R10, R2, R12, R13 # R2 misses"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-memory-pipeline",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-memory-pipeline",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "内存流水线",
-    "text": "内存流水线\n现代 NVIDIA GPU 的内存流水线包含每个 sub-core 本地的初始阶段，而实际访存的后续阶段由四个 sub-core 共享，因为数据缓存与共享内存为 SM 共享结构[24], [25]。本节揭示每个 sub-core 的 load/store 队列大小、sub-core 向共享结构发送请求的速率，以及不同内存指令的延迟。\n注意内存访问分为两大类：共享内存访问（SM 内部、线程块共享）与全局内存访问（GPU 主存）。\n为了确定队列大小与内存带宽，我们进行了一系列实验，每个 sub-core 要么执行一个 warp，要么空闲。每个 warp 执行一串相互独立的 load/store 指令，这些指令始终命中数据缓存或共享内存，并使用常规寄存器。表 1 展示实验结果。第一列为指令序号，其余四列为不同活跃 sub-core 数量下该指令的发射周期（每格按周期升序列出所有活跃 sub-core）。\n\n\n\n表 1: 每条内存指令的发射周期（每格为所有活跃 sub-core 按周期升序的列表）。\n\n\n\n\n\n\n\n\n\n\n\n\n指令编号\n活跃 sub-core 数 = 1\n活跃 sub-core 数 = 2\n活跃 sub-core 数 = 3\n活跃 sub-core 数 = 4\n\n\n\n\n1\n2\n2/2\n2/2/2\n2/2/2/2\n\n\n2\n3\n3/3\n3/3/3\n3/3/3/3\n\n\n3\n4\n4/4\n4/4/4\n4/4/4/4\n\n\n4\n5\n5/5\n5/5/5\n5/5/5/5\n\n\n5\n6\n6/6\n6/6/6\n6/6/6/6\n\n\n6\n13\n13/15\n13/15/17\n13/15/17/19\n\n\n7\n17\n17/19\n19/21/23\n21/23/25/27\n\n\n8\n21\n21/23\n25/27/29\n29/31/33/35\n\n\n\\(i&gt;8\\)\n\\((i-1)+4\\)\n\\((i-1)+4\\)\n\\((i-1)+6\\)\n\\((i-1)+8\\)\n\n\n\n\n\n\n可以看到，在 Ampere 中每个 sub-core 可连续 5 条内存指令按每周期一条发射，第 6 条指令的发射会产生停顿，且停顿周期取决于活跃 sub-core 数量。这表明每个 sub-core 可无阻塞地缓冲 5 条指令，而全局共享结构可每两周期从任一 sub-core 接收一个内存请求。观察多 sub-core 情形可知：第 6 条及之后的指令在每个 sub-core 上以两周期间隔发射。\n我们还可推断 sub-core 中的地址计算吞吐率为每 4 周期一条指令：当只有一个 sub-core 活跃时，第 6 条指令之后出现 4 周期间隔。两 sub-core 活跃时，由于共享结构吞吐率为每 2 周期一条，故每个 sub-core 可每 4 周期发射一条；更多 sub-core 活跃时共享结构成为瓶颈。例如四 sub-core 活跃时，每个 sub-core 只能每 8 周期发射一条，因为共享结构最大吞吐为每 2 周期一条。\n关于每个 sub-core 内存队列大小，我们估计为 4，尽管每个 sub-core 可缓冲 5 条连续指令。指令进入单元时占用槽位，离开单元时释放槽位。\n我们测量了不同内存指令在缓存命中且单线程执行时的两类延迟。第一类是从 load 发射到消费者或覆盖同一目的寄存器的指令可以发射的最早时间（RAW/WAW 延迟；store 不产生寄存器 RAW/WAW）。第二类是从 load/store 发射到能够写入其源寄存器的指令可发射的最早时间（WAR 延迟）。结果见 表 2。\n\n\n\n表 2: 内存指令延迟（周期）。带 * 的值为近似值。\n\n\n\n\n\n指令\n地址寄存器类型\nWAR\nRAW/WAW\n\n\n\n\nLoad Global 32 bit\nUniform\n9\n29\n\n\nLoad Global 64 bit\nUniform\n9\n31\n\n\nLoad Global 128 bit\nUniform\n9\n35\n\n\nLoad Global 32 bit\nRegular\n11\n32\n\n\nLoad Global 64 bit\nRegular\n11\n34\n\n\nLoad Global 128 bit\nRegular\n11\n38\n\n\nStore Global 32 bit\nUniform\n10\n-\n\n\nStore Global 64 bit\nUniform\n12*\n-\n\n\nStore Global 128 bit\nUniform\n16*\n-\n\n\nStore Global 32 bit\nRegular\n14\n-\n\n\nStore Global 64 bit\nRegular\n16\n-\n\n\nStore Global 128 bit\nRegular\n20\n-\n\n\nLoad Shared 32 bit\nUniform\n9\n23\n\n\nLoad Shared 64 bit\nUniform\n9\n23\n\n\nLoad Shared 128 bit\nUniform\n9\n25\n\n\nLoad Shared 32 bit\nRegular\n9\n24\n\n\nLoad Shared 64 bit\nRegular\n9\n24\n\n\nLoad Shared 128 bit\nRegular\n9\n26\n\n\nStore Shared 32 bit\nUniform\n10\n-\n\n\nStore Shared 64 bit\nUniform\n12\n-\n\n\nStore Shared 128 bit\nUniform\n16\n-\n\n\nStore Shared 32 bit\nRegular\n12\n-\n\n\nStore Shared 64 bit\nRegular\n14\n-\n\n\nStore Shared 128 bit\nRegular\n18\n-\n\n\nLoad Constant 32 bit\nImmediate\n10\n26\n\n\nLoad Constant 32 bit\nRegular\n29\n29\n\n\nLoad Constant 64 bit\nRegular\n29\n29\n\n\nLDGSTS 32 bit\nRegular\n13\n39\n\n\nLDGSTS 64 bit\nRegular\n13\n39\n\n\nLDGSTS 128 bit\nRegular\n13\n39\n\n\n\n\n\n\n我们观察到：使用统一寄存器计算地址的全局内存访问比使用常规寄存器更快，因为前者所有线程共享同一地址，仅需计算一个地址，而后者每线程可能不同。\n共享内存 load 的延迟低于全局内存。其 WAR 延迟对常规与统一寄存器相同，而 RAW/WAW 延迟在统一寄存器时少 1 个周期。这表明共享内存的地址计算在共享结构中完成，WAR 依赖在源寄存器读取后即可解除。\n如预期，延迟也受访问粒度影响。对于 WAR 依赖，load 延迟不随数据大小变化，因为源操作数仅用于地址计算且大小固定；对于 store，写入数据也是源操作数，数据越大 WAR 延迟越高。RAW/WAW 依赖（仅适用于 load）随数据大小增大而增大，因为需要更多数据传输到寄存器文件。我们测得该传输带宽为每周期 512 bit。\n此外，常量缓存的 WAR 延迟显著高于全局内存 load，而 RAW/WAW 延迟略低。我们尚无法给出合理解释。但我们发现，固定延迟指令访问常量空间使用不同的缓存层级：通过 LDC 预加载常量地址并等待完成后，再发射使用同一常量地址的固定延迟指令，会出现约 79 周期的 miss 延迟，而非命中。这表明固定延迟指令访问常量空间使用 L0 FL（固定延迟）常量缓存，而 LDC 指令使用 L0 VL（可变延迟）常量缓存。\n最后，我们分析 LDGSTS 指令，该指令用于减少寄存器文件压力并提升数据传输效率[55]。它从全局内存加载数据并直接写入共享内存，绕过寄存器文件，节省指令与寄存器。其延迟与指令粒度无关。WAR 依赖在地址计算完成后解除；RAW/WAW 依赖在读阶段完成后解除。"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-methodoloy",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-methodoloy",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "方法",
-    "text": "方法\n我们通过将模拟器结果与真实 GPU 的硬件计数器指标进行对比来验证准确性。使用了四种 Ampere GPU[21]（规格见 表 4），CUDA 版本为 11.4，NVBit 为 1.5.5。我们也将模型与原始 Accel-Sim 进行对比，因为新模型基于其构建。\n我们选取了来自 12 个基准套件的广泛基准。各套件、应用数量与输入集数量见 表 3。总计 143 个基准，其中 83 个为不同应用，其余为同应用不同输入。\n\n\n\n表 3: 基准套件。\n\n\n\n\n\n套件\n应用数\n输入集\n\n\n\n\nCutlass[60]\n1\n17\n\n\nDeepbench[61]\n3\n27\n\n\nDragon[62]\n4\n6\n\n\nGPU Microbenchmark[13]\n15\n15\n\n\nISPASS 2009[12]\n8\n8\n\n\nLonestargpu[63]\n3\n6\n\n\nPannotia[64]\n7\n11\n\n\nParboil[65]\n6\n6\n\n\nPolybench[66]\n8\n8\n\n\nProxy Apps DOE[67]\n3\n4\n\n\nRodinia 2[68]\n10\n10\n\n\nRodinia 3[68]\n15\n25\n\n\n合计\n83\n143"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-cycle-accuracy",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-cycle-accuracy",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "性能准确性",
-    "text": "性能准确性\n\n\n\n表 4: GPU 规格与性能准确性。\n\n\n\n\n\n\nRTX 3080\nRTX 3080 Ti\nRTX 3090\nRTX A6000\nRTX 2080 Ti\n\n\n\n\n规格\n\n\n\n\n\n\n\n核心频率\n1710 MHz\n1365 MHz\n1395 MHz\n1800 MHz\n1350 MHz\n\n\n显存频率\n9500 MHz\n9500 MHz\n9750 MHz\n8000 MHz\n7000 MHz\n\n\nSM 数量\n68\n80\n82\n84\n68\n\n\n每 SM warp 数\n48\n48\n48\n48\n32\n\n\n每 SM 共享内存/L1D\n128 KB\n128 KB\n128 KB\n128 KB\n96 KB\n\n\n内存分区数\n20\n24\n24\n24\n22\n\n\nL2 总容量\n5 MB\n6 MB\n6 MB\n6 MB\n5.5 MB\n\n\n验证\n\n\n\n\n\n\n\n我们模型 MAPE\n17.15%\n18%\n17.93%\n13.98%\n19.73%\n\n\nAccel-Sim MAPE\n27.95%\n28.19%\n28.5%\n32.22%\n26.67%\n\n\n我们模型相关系数\n0.99\n0.99\n0.98\n0.98\n0.98\n\n\nAccel-Sim 相关系数\n0.98\n0.98\n0.98\n0.97\n0.95\n\n\n\n\n\n\n表 4 展示了我们模型与 Accel-Sim 相对于真实硬件的 MAPE。可以看到，我们模型在所有 GPU 上都更准确，且对最大规模的 NVIDIA RTX A6000，MAPE 不到 Accel-Sim 的一半。相关系数方面，两者接近，但我们略优。\n\n\n\n\n\n\n图 5: NVIDIA RTX A6000 在各基准下的绝对百分比误差。基准按误差从小到大排序。\n\n\n\n图 5 展示了 RTX A6000 上两种模型的 APE 分布（基准按误差排序）。我们模型在所有应用上 APE 更低，并且对约半数应用差距显著。Accel-Sim 在 10 个应用上 APE 大于等于 100%，最坏达到 543%，而我们的模型 APE 从未超过 62%。以 90 分位为衡量尾部准确性，Accel-Sim 为 82.64%，而我们为 31.47%。这表明我们的模型明显更准确且更稳健。"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-results-instruction-prefetching",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-results-instruction-prefetching",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "指令预取的敏感性分析",
-    "text": "指令预取的敏感性分析\n流缓冲指令预取器的参数对模型准确性影响很大。我们评估了多种配置：关闭预取、完美指令缓存，以及流缓冲大小为 1、2、4、8、16、32 的配置，均基于 RTX A6000。结果见 表 5，可见最佳准确性对应流缓冲大小为 16。\n\n\n\n表 5: 不同预取配置的 MAPE 与相对性能提升。\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n配置\n关闭\n1\n2\n4\n8\n16\n32\n完美 ICache\n\n\n\n\nMAPE\n56.61%\n43.94%\n28.59%\n18.55%\n14.67%\n13.98%\n14.35%\n15.2%\n\n\n加速比\n1\n1.08x\n1.2x\n1.33x\n1.42x\n1.47x\n1.46x\n1.58x\n\n\n\n\n\n\n从 表 5 的加速结果还可得出一条结论：简单的流缓冲预取器在 GPU 上的行为接近完美指令缓存。这是因为 sub-core 中的不同 warp 往往执行同一代码区域，而典型 GPGPU 应用控制流较简单，预取连续 \\(N\\) 行通常有效。由于 GPU 不进行分支预测，采用 Fetch-Directed 预取[69] 不划算。\n就仿真准确性而言，当不研究指令缓存增强时，完美指令缓存通常能以更高速度提供近似准确性。但对控制流较复杂的基准（如 Rodinia 的 dwt2d、lud、nw），完美指令缓存或不使用流缓冲会导致显著不准确（相对完美 ICache 误差超过 20%，相对无预取甚至超过 200%）。这是因为完美 ICache 无法体现频繁跳转带来的性能惩罚，而无预取则过度惩罚程序的其他部分，这也表明这些基准仍有改进空间。"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-eval-rf",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-eval-rf",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "寄存器文件架构的敏感性分析",
-    "text": "寄存器文件架构的敏感性分析\n表 6 展示了寄存器文件缓存（RFC）与每 bank 读端口数量对准确性与性能的影响，并给出了理想配置（所有操作数可在一个周期取回）。总体平均性能与准确性在各配置间相近，但特定基准表现更微妙：例如计算密集型的 MaxFlops（Accel-Sim GPU Microbenchmark）与使用 sgemm 参数的 Cutlass[13], [60]。这两者高度依赖固定延迟算术指令，而这类指令通常有 3 个操作数，易受寄存器文件访问限制影响。\n\n\n\n表 6: 不同寄存器文件配置的 MAPE 与相对性能。\n\n\n\n\n\n配置\n1R + RFC 开\n1R + RFC 关\n2R + RFC 关\n理想\n\n\n\n\nMAPE\n13.98%\n16.05%\n13.38%\n13.57%\n\n\n加速比\n1x\n0.984x\n1.012x\n1.013x\n\n\nMaxFlops APE\n2.82%\n2.82%\n28.97%\n28.97%\n\n\nMaxFlops 加速比\n1x\n1x\n1.44x\n1.44x\n\n\nCutlass APE\n9.72%\n39.35%\n0.97%\n2.3%\n\n\nCutlass 加速比\n1x\n0.79x\n1.11x\n1.12x\n\n\n\n\n\n\n对 MaxFlops 而言，RFC 是否存在对性能影响不大，因为仅有一条静态指令使用 RFC。但当每 bank 读端口数增至 2（总共 4 个读端口）时，性能提升约 44%，因为每条指令常有 3 个操作数。相对地，从仿真准确性角度看，2 端口配置偏差明显。\n对 Cutlass（sgemm）而言，单端口且无 RFC 会导致性能显著下降（0.78x），与程序中约 35.9% 的静态指令至少有一个操作数使用 RFC 的观察一致。引入每 bank 2 个读端口则提升约 12% 性能，说明寄存器文件与缓存结构仍有优化空间。\n总之，寄存器文件架构及其缓存对个别基准影响显著，准确建模十分关键。平均而言，单端口 + 简单缓存已接近“无限端口”效果，但对某些基准差距仍很大，值得进一步研究。"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-deps-analysis",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-deps-analysis",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "依赖管理机制分析",
-    "text": "依赖管理机制分析\n本小节比较本文揭示的软硬协同依赖管理机制与传统记分牌方法在性能与面积上的影响。表 7 给出结果。面积开销相对于一个 SM 的常规寄存器文件（256 KB）。\n\n\n\n表 7: 不同依赖管理机制的速度、面积与 MAPE。\n\n\n\n\n\n指标\n控制位方案\n记分牌（最大消费者 63）\n记分牌（无限制）\n\n\n\n\n加速比\n1\n0.97x\n0.97x\n\n\n面积开销\n0.09%\n5.32%\n-\n\n\nMAPE\n13.98%\n14.87%\n14.87%\n\n\n\n\n\n\n传统记分牌机制需要为所有可写寄存器提供条目，即每 warp 332 个条目（255 常规寄存器、63 统一寄存器、7 谓词寄存器、7 统一谓词寄存器）。此外需两个记分牌：一个处理 RAW/WAW，另一个处理 WAR[17]，因为虽然发射顺序严格，但可变延迟指令的读写可能乱序，导致 WAR。WAR 记分牌需要记录每条目消费者数量。若支持最多 63 个消费者，则单 warp 需要 2324 bit（\\(332 + 332\\times log2(63+1)\\)）。按 48 个 warp 的 SM 计算，总计 111,552 bit，占寄存器文件面积的 5.32%。\n相比之下，本文的软硬协同机制仅需每 warp 6 个 6-bit 依赖计数器、4-bit 停顿计数器与 1-bit Yield，共 41 bit。每个 SM 仅 1968 bit，占寄存器文件面积的 0.09%，远小于记分牌方案。\n综上，基于控制位的软硬协同机制在性能与面积上优于其他方案，且面积开销极小。在支持 64 个 warp/SM 的架构（如 Hopper[22]）中，对比更显著：控制位方案开销为 0.13%，而记分牌方案（63 消费者）为 7.09%。此外，在无法获取控制位的应用场景（如部分 Deepbench 内核）中，使用双记分牌（RAW/WAW 与 WAR）且最大消费者 63 的方案在仿真准确性上与控制位接近，因此是有效替代方案。"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-use-other-archs",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#sec-use-other-archs",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "向其他 NVIDIA 架构的可移植性",
-    "text": "向其他 NVIDIA 架构的可移植性\n本文主要聚焦 Ampere，但结论同样适用于 Turing 等架构。除四种 Ampere GPU 的结果外，表 4 还给出 Turing GPU 结果，显示对 NVIDIA RTX 2080 Ti 的 MAPE 相比 Accel-Sim 提升 6.94%。\n虽然我们仅在 Turing 与 Ampere 上验证了模型，但认为其结论可适用于更广泛的 NVIDIA 架构。公开资料与 SM 结构图显示，近期架构的重大变化主要集中在张量核心、光线追踪单元，以及如 TPC 内 SM 之间共享内存的分布式特性等小幅改动[22]。不过，为适配其他架构仍需重新估计部分指令（如内存指令）的延迟。"
-  },
-  {
-    "objectID": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#footnotes",
-    "href": "posts/2026-03-03-modern-nvidia-gpu-core-analysis.html#footnotes",
-    "title": "Analyzing Modern NVIDIA GPU cores",
-    "section": "脚注",
-    "text": "脚注\n\n\nAmpere 允许 FP32 操作在 FP32 与 INT32 执行单元上执行[21]，因此两个连续 FP32 指令之间不会因执行单元冲突产生气泡。↩︎"
+    "objectID": "posts/2020-11-01-TableGen-Overview.html#基本概念",
+    "href": "posts/2020-11-01-TableGen-Overview.html#基本概念",
+    "title": "TableGen 简介",
+    "section": "基本概念",
+    "text": "基本概念\nTableGen文件由两个关键部分组成:“类”和“定义”，这两个部分都被认为是“记录”。\n记录 有一个唯一的名称、一个值列表和一个父类列表。 值列表是TableGen为每条记录构建的主要数据；正是该列表保存了应用程序的特定信息。 此数据的解释留给特定的后端，但结构和格式规则由TableGen负责。\n定义 是“记录”的具体形式。它通常不包含任何未定义的值，并用“ def”关键字进行标记。\ndef FeatureFPARMv8 : SubtargetFeature&lt;\"fp-armv8\", \"HasFPARMv8\", \"true\",\n                                      \"Enable ARMv8 FP\"&gt;;\n在此示例中，FeatureFPARMv8是使用某些值初始化的SubtargetFeature记录。 这些类通过关键字class定义在同一文件或其他文件中的。 对大多数平台来说，包含通用类的TableGen文件保存在include/llvm/Target中。\nclass 是用于构建和描述其他记录的抽象记录。这些类使最终用户可以为他们所针对的领域（例如LLVM代码生成器中的“ Register”，“ RegisterClass”和“ Instruction”）构建抽象，提取改领域的公共属性（例如“ FPInst”，用于表示X86后端中的浮点指令）。TableGen会跟踪用于建立定义的所有类，因此后端可以找到特定类的所有定义，例如“instruction”。\nclass ProcNoItin&lt;string Name, list&lt;SubtargetFeature&gt; Features&gt;\n      : Processor&lt;Name, NoItineraries, Features&gt;;\n在这里，类ProcNoItin通过类型为string的参数名、目标特性列表和硬编码的NoItineraries来特化Processor类。\nmulticlass 一次实例化一组抽象记录。每个实例化都会产生多个TableGen定义。如果一个multiclass继承了另一个multiclass，那么子multiclass中的定义将成为当前multiclass的一部分，就像它们是在当前multiclass中声明的一样。\nmulticlass ro_signed_pats&lt;string T, string Rm, dag Base, dag Offset, dag Extend,\n                        dag address, ValueType sty&gt; {\ndef : Pat&lt;(i32 (!cast&lt;SDNode&gt;(\"sextload\" # sty) address)),\n          (!cast&lt;Instruction&gt;(\"LDRS\" # T # \"w_\" # Rm # \"_RegOffset\")\n            Base, Offset, Extend)&gt;;\n\ndef : Pat&lt;(i64 (!cast&lt;SDNode&gt;(\"sextload\" # sty) address)),\n          (!cast&lt;Instruction&gt;(\"LDRS\" # T # \"x_\" # Rm # \"_RegOffset\")\n            Base, Offset, Extend)&gt;;\n}\n\ndefm : ro_signed_pats&lt;\"B\", Rm, Base, Offset, Extend,\n                      !foreach(decls.pattern, address,\n                               !subst(SHIFT, imm_eq0, decls.pattern)),\n                      i8&gt;;\n有关TableGen的深入描述，请参阅TableGen的TableGen Programmer’s Reference。"
   },
   {
     "objectID": "posts/2026-03-17-70-percent-size-100-percent-accuracy-lossless-llm-compression-dfloat11.html",

@@ -10,7 +10,859 @@
 <atom:link href="https://sadsock.github.io/index.xml" rel="self" type="application/rss+xml"/>
 <description></description>
 <generator>quarto-1.9.37</generator>
-<lastBuildDate>Fri, 24 Apr 2026 00:00:00 GMT</lastBuildDate>
+<lastBuildDate>Tue, 28 Apr 2026 00:00:00 GMT</lastBuildDate>
+<item>
+  <title>AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning</title>
+  <link>https://sadsock.github.io/posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<p>原文版权声明：本文依据公开来源论文 <em>AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning</em> 进行中文翻译整理，仅供学习与研究使用。 我仅提供翻译与网页整理，不拥有原文版权；原文版权归作者及发布方所有。 转载、分发或用于商业用途时，请遵守原论文及原始发布平台的版权规定。</p>
+<p>原文信息：Chongxiao Li, Pengwei Jin, Di Huang, Guangrun Sun, Husheng Han, Jianan Mu, Xinyao Zheng, Jiaguo Zhu, Shuyi Xing, Hanjun Wei, Tianyun Ma, Shuyao Cheng, Rui Zhang, Ying Wang, Zidong Du, Qi Guo, Xing Hu. <em>AutoPPA: Automated Circuit PPA Optimization via Contrastive Code-based Rule Library Learning</em>. <a href="https://arxiv.org/abs/2604.18445">arXiv:2604.18445v1</a>。</p>
+<p>说明：以下内容按原文句序逐句对应翻译整理。 图注、表注、表格说明与参考文献信息尽量保留原貌；参考文献通过 Quarto 的 BibTeX 与 CSL 机制生成，作者名、标题和期刊会议信息不翻译。 原文中的 LaTeX 自定义宏已展开为普通可移植写法，例如 <code>AutoPPA</code>、<code>RTLRewriter</code>、<code>SymRTLO</code> 与 <code>E²I</code>。</p>
+<p>作者：Chongxiao Li；Pengwei Jin；Di Huang；Guangrun Sun；Husheng Han；Jianan Mu；Xinyao Zheng；Jiaguo Zhu；Shuyi Xing；Hanjun Wei；Tianyun Ma；Shuyao Cheng；Rui Zhang；Ying Wang；Zidong Du；Qi Guo；Xing Hu。</p>
+<p>单位：State Key Lab of Processors, Institute of Computing Technology, Chinese Academy of Sciences, Beijing, China；University of Chinese Academy of Sciences, Beijing, China；University of Science and Technology of China, Hefei, China；Institute of AI for Industries, Chinese Academy of Sciences, Nanjing, China。</p>
+<section id="sec-abstract" class="level1">
+<h1>摘要</h1>
+<p>性能、功耗和面积（PPA）优化是 RTL 设计中的一项基础任务，它需要精确理解电路功能，以及电路结构与 PPA 指标之间的关系。 近期研究尝试用 LLM 自动化这一过程，但无论是基于反馈的方法，还是基于知识的方法，都还不够高效，因为它们要么在没有任何先验知识的情况下进行设计，要么严重依赖人工总结的优化规则。</p>
+<p>本文提出 AutoPPA，这是一个全自动的 PPA 优化框架。 其关键思想是自动生成优化规则，以增强对最优解的搜索。 为此，AutoPPA 采用一种 <em>Explore-Evaluate-Induce</em>（<code>E²I</code>）工作流，它不是依赖人工定义的先验知识，而是从多样化生成代码对中进行对比和抽象，以得到更好的优化模式。 为使抽象出的规则更具泛化性，AutoPPA 采用一个自适应多步搜索框架，为给定电路选择最有效的规则。 实验表明，AutoPPA 同时优于人工优化，以及最先进的方法 SymRTLO 和 RTLRewriter。</p>
+</section>
+<section id="sec-introduction" class="level1">
+<h1>引言</h1>
+<p>性能、功耗和面积（PPA）构成了评估集成电路设计质量的基础指标。 作为一项关键设计挑战，PPA 优化需要大量硬件实现专业知识，尤其是在 RTL 设计中，因为它要求精确理解电路功能，以及电路结构如何影响综合后的 PPA 结果。</p>
+<p>近期，一些基于大型语言模型（LLM）的工作尝试自动化这一过程。 这些研究分为两类：1）直接反馈方法，它们把综合后的 PPA 指标作为 LLM 输入 <span class="citation" data-cites="chipgpt thorat2024advancedlargelanguagemodel">[1], [2]</span>。 这种方法虽然直接，但效果有限，因为 LLM 缺乏对电路结构与 PPA 指标之间相关性的理解。 2）基于知识的方法，它们使用人工整理或人工总结的 PPA 优化规则 <span class="citation" data-cites="yao2024rtlrewriter wang2025symrtlo">[3], [4]</span>。 这类方案虽然可能更有针对性，但面临可扩展性挑战，因为劳动密集型的知识库构建天然限制了电路模式覆盖范围和优化技术多样性，从而限制了其实用价值。 即便在一些商业工具指南中，也只提供了几十条例子 <span class="citation" data-cites="synopsys2012datapath">[5]</span>。</p>
+<p>为解决基于知识的优化中的可扩展性问题，本文研究一个根本问题：<em>能否仅从原始 RTL 代码中，在没有任何人工干预的情况下，自动合成可复用的 PPA 优化知识？</em> 我们观察到，借助 LLM 强大的代码生成能力，可以用多样化结构重写功能等价的 RTL 代码。 如图 图&nbsp;1 所示，这些对比式代码对可用于归纳优化规则库，而无需依赖人工规则。</p>
+<p>然而，由于以下原因，自动合成 PPA 优化知识仍然极具挑战。 <strong>挑战 1：优化规则的评估。</strong> 评估重写后的 RTL 本质上是多方面的。 首先，任何功能不等价的候选都无法使用，因此必须对任意原始 RTL 与其重写版本进行稳健的等价性检查。 其次，除了功能正确性之外，评估还必须在 PPA 与 RTL 样本多样性之间取得平衡。 <strong>挑战 2：高质量规则归纳。</strong> 即使有了优化后的代码对，直接提取高质量规则也很困难。 朴素总结会产生充满底层、实现特定细节的规则，不同代码对还可能产生冗余或相互矛盾的规则。 这种噪声规则集难以应用，并会在实践中导致次优优化。 <strong>挑战 3：规则与设计之间的抽象鸿沟。</strong> 过于具体的规则会引入检索噪声，而过度抽象的规则缺乏优化价值，在实际使用中几乎无法改善 PPA 结果。 面对一个大规模、自动生成的规则库，高效地把规则纳入 PPA 优化具有挑战性，因为抽象规则与具体设计之间存在鸿沟。 规则提供的是一般性的电路描述，这使 LLM 难以定位相关 RTL 代码片段并实现符合规则的修改，进而导致功能不等价或次优结果。</p>
+<div id="fig-insight" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-insight-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning/insight-v2.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-insight-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;1: 构建用于 PPA 优化的规则库。
+</figcaption>
+</figure>
+</div>
+<div id="fig-method-overview" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-method-overview-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning/overview-v3.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-method-overview-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;2: AutoPPA 概览。AutoPPA 包含规则库学习工作流，以及自适应规则驱动的 PPA 优化。
+</figcaption>
+</figure>
+</div>
+<p>为此，我们提出一个全自动 PPA 优化框架 AutoPPA，它包含一个 <em>Explore-Evaluate-Induce</em>（<code>E²I</code>）工作流和一个自适应多步搜索方法。 如图 图&nbsp;1 的 (b) 所示，<code>E²I</code> 工作流（1）通过多轮随机 LLM 重写采样来<strong>探索</strong> Verilog 代码对；（2）<strong>评估</strong>并验证原始代码与重写代码之间的功能等价性，并借助验证工具构建功能等价的 Verilog 代码对，以应对<strong>挑战 1</strong>；（3）通过分析成对代码片段及其 PPA 标签，以（<em>snippet</em>, <em>condition</em>, <em>action</em>）三元组形式<strong>归纳</strong>优化规则，以应对<strong>挑战 2</strong>。 自适应多步搜索框架是一种规则增强的 beam search 方法，它利用规则更好地引导 LLM 探索更高质量的 Verilog 代码样本，提高获得 PPA 优化实现的概率，以应对<strong>挑战 3</strong>。</p>
+<p>实验表明，在 60 个综合性 benchmark 电路上，AutoPPA 最多实现了 15.31% 的面积改进和 11.28% 的延迟改进；在 11 个代表性电路上，它相较人工优化和最先进方法分别带来了 19.25% 和 7.56% 的面积优化提升。</p>
+</section>
+<section id="sec-overview" class="level1">
+<h1>概述</h1>
+<section id="sec-background-rtl-ppa" class="level2">
+<h2 class="anchored" data-anchor-id="sec-background-rtl-ppa">背景：RTL PPA 优化</h2>
+<p>从电路质量角度看，集成电路（IC）设计会经过三个主要阶段 <span class="citation" data-cites="huang2021ml4edasurvey pan2025surveyllm4eda">[6], [7]</span>：在寄存器传输级（RTL），工程师用 Verilog 或 VHDL 描述功能；随后，自动逻辑综合把 RTL 描述转换为门级网表；最后，物理设计阶段的布局布线工具在优化时序、功耗和面积的同时生成最终版图。 虽然每个阶段都会影响 PPA（性能、功耗和面积），但 RTL 位于设计层次的顶部，因此影响最大：冗余或次优的 RTL 会限制下游综合和物理工具能够弥补的空间。 因此，生成高质量 RTL 对满足严格 PPA 目标至关重要。 尽管自动化已经取得进展，RTL PPA 优化仍然严重依赖专业知识和人工调优，因为它耗时很长，而且结果会随着设计者经验而显著变化。</p>
+</section>
+<section id="sec-autoppa" class="level2">
+<h2 class="anchored" data-anchor-id="sec-autoppa">AutoPPA</h2>
+<p>如图 图&nbsp;2 所示，AutoPPA 包含两个阶段：1. 对比式代码规则库学习（小节&nbsp;4），以及 2. 自适应规则驱动的 PPA 优化（小节&nbsp;5）。</p>
+<p>提出对比式代码规则库学习，是为了在没有任何人工干预的情况下自动构建一个全面的规则库。 它由一个 <em>Explore-Evaluate-Induce</em> 工作流组成，其中我们先通过代码对采样探索优化机会，再基于等价性和 PPA 评估代码对，最后从代码对中归纳自然语言优化规则。</p>
+<p>自适应规则驱动的 PPA 优化是一种新的检索增强优化方法，用于利用学到的规则库。 它把单步自适应检索与多步规则增强搜索结合起来，使系统能够自动选择并组合对电路 PPA 优化最有效的规则。</p>
+</section>
+</section>
+<section id="sec-rule-library-learning" class="level1">
+<h1>对比式代码规则库学习</h1>
+<p>提出对比式代码规则库学习，是为了在没有任何人工干预的情况下从原始 RTL 代码构建规则库。 它包含三个阶段，即 <em>Explore-Evaluate-Induce</em>，其细节如下。</p>
+<section id="sec-explore-code-sampling" class="level2">
+<h2 class="anchored" data-anchor-id="sec-explore-code-sampling">探索：代码采样</h2>
+<p>在这一阶段，我们的目标是创建一个足够大且足够多样的、功能有效的 RTL 代码语料库，使其中能够涌现有意义的优化规则。 我们从公开 GitHub 仓库中抓取了约 130K 份 Verilog RTL 代码。 这些代码经历了一个两阶段综合过程：</p>
+<ul>
+<li><strong>轻量级过滤：</strong> 我们先使用轻量级 <code>Yosys</code> 工具 <span class="citation" data-cites="yosys">[8]</span> 综合所有收集到的设计，以丢弃任何非自包含或不可综合的设计。</li>
+<li><strong>精确综合与 PPA 指标：</strong> 随后，剩余的过滤后代码会用 <code>SiliconCompiler</code> <span class="citation" data-cites="siliconcompiler">[9]</span> 综合，该工具结合 <code>Yosys</code> 和 <code>OpenSTA</code> <span class="citation" data-cites="ajayi2019openroad">[10]</span>，以更长综合时间为代价提供更精确的 PPA 测量。 RTL 代码及其关联的 PPA 性能指标都会被保存，用于后续规则库学习。</li>
+</ul>
+<p>有了大规模原始电路代码语料后，我们探索初始设计的多样化重写形式。 通用语言模型缺乏用于电路优化的准确且专业的知识，但展现出大规模采样多样化代码的强能力。 我们利用这种能力为初始电路生成多个重写版本，以发现潜在优化洞见。 我们先从过滤后的语料中选取 100K 个面积值处于中等范围的 RTL 代码。 每个代码由 LLM Qwen2.5-Coder-7B-Instruct <span class="citation" data-cites="hui2024qwen25codertechnicalreport">[11]</span> 重写 <img src="https://latex.codecogs.com/png.latex?N"> 次（默认 <img src="https://latex.codecogs.com/png.latex?N=50">），生成超过 5M 对电路代码。 这些经过广泛探索的代码对随后被传递到评估阶段，以识别并保留其中可能包含有价值优化洞见的样本。</p>
+</section>
+<section id="sec-evaluate-contrastive-pairs" class="level2">
+<h2 class="anchored" data-anchor-id="sec-evaluate-contrastive-pairs">评估：使用 EDA 工具评估对比式代码对</h2>
+<p>在这一阶段，我们的目标是评估海量代码对，通过评估识别出功能等价且 PPA 存在显著差异的代码对，为提取稳健优化规则奠定基础。 在获得大量具有多样化重写模式的代码对之后，我们先评估它们的 PPA 指标和功能等价性。</p>
+<p>对于 PPA 评估，我们采用与 小节&nbsp;4.1 相同的设置。 功能等价性评估更具挑战性，因为很难为具有多样触发模式、时序行为和功能的电路构造 testbench。 为解决这一问题，我们开发了一个自动 testbench 生成器。 使用 <code>Yosys</code>，我们自动提取每个电路的顶层模块、端口、时钟和复位信息。 随后，我们为所有代码对构造 testbench。 该 testbench 会完整验证时钟和复位行为，施加多条长随机激励序列，并比较原始电路与重写电路的输出，以验证等价性。 在我们的测试电路上，生成的 testbench 达到了 100% 行覆盖率和高可靠性。</p>
+<p>在验证并综合每个 RTL 设计的所有重写版本之后，我们计算功能等价版本之间 PPA 分布的 Shannon entropy，以度量多样性。 更高的 entropy 值表明可以提取出更丰富的潜在优化模式。 非等价代码被赋予零 PPA 改进，并从计算中排除。 我们按 entropy 对设计排序，并选择前 <img src="https://latex.codecogs.com/png.latex?K%5C%25">（<img src="https://latex.codecogs.com/png.latex?K=25">）作为候选。 对于每个被选中的设计，我们只保留相对 PPA 差异超过 5% 的等价代码对，并将其记为 <img src="https://latex.codecogs.com/png.latex?(C_%7Bnon%7D,%20C_%7Bopt%7D)">，分别表示非优化版本和优化版本。</p>
+</section>
+<section id="sec-induce" class="level2">
+<h2 class="anchored" data-anchor-id="sec-induce">归纳：基于对比式代码的规则归纳</h2>
+<p>在这一阶段，我们把关键优化洞见总结为更高层规则。 为了提取可执行的电路优化策略，我们把每条规则定义为一个三元组（<em>snippet</em>, <em>condition</em>, <em>action</em>）：</p>
+<ul>
+<li><strong><em>snippet</em></strong>：具有代表性的低效率 RTL 代码片段，它们作为优化目标。</li>
+<li><strong><em>condition</em></strong>：描述优化规则何时适用的泛化上下文条件。</li>
+<li><strong><em>action</em></strong>：说明如何修改原始 RTL 代码以获得优化后 PPA 的变换动作。</li>
+</ul>
+<p>对于每一对 <img src="https://latex.codecogs.com/png.latex?(C_%7Bnon%7D,%20C_%7Bopt%7D)">，我们首先通过 LLM 生成一组候选规则，从而得到 <img src="https://latex.codecogs.com/png.latex?n"> 条（默认 <img src="https://latex.codecogs.com/png.latex?n=2">）可能解释 <img src="https://latex.codecogs.com/png.latex?C_%7Bopt%7D"> 中所观察到改进的不同规则。</p>
+<p>随后，我们通过系统性评估识别高质量规则。 每条规则会被重新应用到原始电路上，并由 LLM 进行多次优化尝试，然后与该代码对中的原始非优化电路和优化电路的 PPA 进行比较。 我们使用公式 式&nbsp;1 对结果进行归一化：</p>
+<p><span id="eq-rewr-score"><img src="https://latex.codecogs.com/png.latex?%0As_i=%5Cmathbf%7B1%7D_%7B%5Ctext%7Beq%7D%7D(i)%5C;%5Ccdot%5C;%5Cmathrm%7Bclip%7D_%7B%5B0,1%5D%7D%5C!%5Cleft(%5Calpha+%5Cbeta%5C,%5Cfrac%7B%5Cmathrm%7BPPA%7D_n%20-%20%5Cmathrm%7BPPA%7D_i%7D%7B%5Cmathrm%7BPPA%7D_n%20-%20%5Cmathrm%7BPPA%7D_o%7D%5Cright)%0A%5Ctag%7B1%7D"></span></p>
+<p>其中，<img src="https://latex.codecogs.com/png.latex?s_i"> 表示第 <img src="https://latex.codecogs.com/png.latex?i"> 个重写电路的得分。 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BPPA%7D_n">、<img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BPPA%7D_o"> 和 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BPPA%7D_i"> 分别是非优化电路 <img src="https://latex.codecogs.com/png.latex?C_%7Bnon%7D">、优化电路 <img src="https://latex.codecogs.com/png.latex?C_%7Bopt%7D"> 和第 <img src="https://latex.codecogs.com/png.latex?i"> 个重写版本的 PPA 值。 <img src="https://latex.codecogs.com/png.latex?%5Cmathbf%7B1%7D_%7B%5Ctext%7Beq%7D%7D(i)"> 确保只有功能等价的重写版本才能得到非零分数。 参数 <img src="https://latex.codecogs.com/png.latex?%5Calpha">（默认 0.25）和 <img src="https://latex.codecogs.com/png.latex?%5Cbeta">（默认 0.5）用于归一化改进：功能等价但没有 PPA 收益的重写版本得分为 0.25，而达到优化电路同等改进的重写版本得分为 0.75。</p>
+<p>随后，对每条规则的所有尝试得分取平均。 平均分高于 0.7 的规则被归类为高质量规则，并被加入规则库，表示它们具有很强的电路改进潜力。</p>
+</section>
+</section>
+<section id="sec-rule-based-opt" class="level1">
+<h1>自适应规则驱动的 PPA 优化</h1>
+<p>为了在实际场景中充分利用优化规则库，我们提出一个集成框架，称为 <em>Adaptive Rule-based PPA Optimization</em>。 该框架把单步 Adaptive Retrieval Augmented Optimization（ARAO）与多步 Rule-based Enhanced Searching 结合起来。 单步优化从输入 RTL 代码中提取结构条件，并基于规则把最自适应的动作应用到电路上；多步搜索则通过 beam search 迭代细化候选，同时平衡 PPA 收益与电路多样性。</p>
+<section id="sec-mthd-arao" class="level2">
+<h2 class="anchored" data-anchor-id="sec-mthd-arao">Adaptive Retrieval Augmented Optimization</h2>
+<p>为了利用优化规则库进行 RTL 代码 PPA 优化，我们通过匹配 RTL 代码中的结构条件和潜在动作来检索规则，并使用检索到的规则指导 LLM 优化 RTL 代码。 我们观察到，有些规则包含面向其源代码对的描述，这可能污染当前电路的优化上下文。 我们还观察到，直接按语义 embedding 相似度检索可能会引入噪声。 因此，我们设计了一个 Adaptive Retrieval Augmented Optimization（ARAO）流程，以降低这些问题的影响。 该流程包含四个步骤：</p>
+<ul>
+<li><strong>Speculate：</strong> 提示 LLM 为目标代码总结一条优化规则 <img src="https://latex.codecogs.com/png.latex?(%5Ctextit%7Bsnippet%7D_t,%20%5Ctextit%7Bcondition%7D_t,%20%5Ctextit%7Baction%7D_t)">。</li>
+<li><strong>Retrieve：</strong> 使用 <img src="https://latex.codecogs.com/png.latex?%5Ctextit%7Bcondition%7D_t"> 和 <img src="https://latex.codecogs.com/png.latex?%5Ctextit%7Baction%7D_t">，我们基于规则 embedding 之间的 cosine similarity，从规则库中检索三条最相似的规则。</li>
+<li><strong>Adapt：</strong> 为缓解检索规则中源特定信息带来的干扰，我们利用 LLM 结合目标代码调整这些规则，确保它们的适用性和相关性。</li>
+<li><strong>Optimize：</strong> 目标代码和自适应规则被输入 LLM，后者生成优化代码变体。 随后，这些变体会被验证功能等价性，并进行综合以评估 PPA 改进。</li>
+</ul>
+</section>
+<section id="sec-mthd-kes" class="level2">
+<h2 class="anchored" data-anchor-id="sec-mthd-kes">Rule-based Enhanced Searching</h2>
+<p>虽然 ARAO 对单步优化有效，但全面的 PPA 改进往往需要在复杂代码优化的大搜索空间中进行高效搜索。 因此，我们提出一个基于 beam search 的多步搜索框架。 在每次迭代中，会选择得分最高的前 <img src="https://latex.codecogs.com/png.latex?k"> 个候选代码（beam width 为 <img src="https://latex.codecogs.com/png.latex?k">）。 对于每个候选，ARAO 流程会扩展出 <img src="https://latex.codecogs.com/png.latex?m"> 个优化变体。 下一轮迭代的候选池由所有新变体和当前最优候选组成，最多迭代 <img src="https://latex.codecogs.com/png.latex?s"> 次。</p>
+<p>候选评分函数定义如下：</p>
+<p><span id="eq-search-score"><img src="https://latex.codecogs.com/png.latex?%0A%5Ctext%7BScore%7D%20=%20%5Comega%20%5Ccdot%20%5Ctext%7BScore%7D_%7Bdiversity%7D%20+%20(1-%5Comega)%20%5Ccdot%20%5Ctext%7BScore%7D_%7Bppa%7D%0A%5Ctag%7B2%7D"></span></p>
+<p>其中，<img src="https://latex.codecogs.com/png.latex?%5Ctext%7BScore%7D_%7Bdiversity%7D"> 使用相对于父代码的 TF-IDF 相似度 <span class="citation" data-cites="aizawa2003information">[12]</span> 量化多样性，<img src="https://latex.codecogs.com/png.latex?%5Ctext%7BScore%7D_%7Bppa%7D"> 纳入功能等价性和相对 PPA 表现，且 <img src="https://latex.codecogs.com/png.latex?%5Comega=0.25">。 这会同时鼓励 PPA 改进和对多样化优化策略的探索。</p>
+</section>
+</section>
+<section id="sec-experiments" class="level1">
+<h1>实验</h1>
+<p>我们首先在 小节&nbsp;6.1 中介绍实验设置。 随后，我们在 小节&nbsp;6.2 中进行全面实验和细致的消融研究，以验证方法的有效性。</p>
+<section id="sec-exp-setting" class="level2">
+<h2 class="anchored" data-anchor-id="sec-exp-setting">实验设置</h2>
+<p><strong>Benchmarks.</strong> 我们使用 RTLRewriter <span class="citation" data-cites="yao2024rtlrewriter">[3]</span> benchmark，该 benchmark 专门为 RTL 代码优化设计。 它包含 54 个具有全面优化模式的设计，以及 3 个可综合的实用大型设计。 遵循 RTLRewriter，我们把这 3 个实用设计划分为 6 个不同模块，最终得到总计 60 个设计。 对于每个设计，我们生成严格的 testbench（在非冗余代码上达到 100% 行覆盖率和分支覆盖率），以验证优化代码与原始实现之间的等价性。</p>
+<p><strong>Baselines.</strong> <strong><em>(1) SOTA RTL 代码优化方法。</em></strong> 为与 RTLRewriter 比较，我们使用对齐后的综合流程，综合其公开仓库中的全部 11 个优化电路。 对于 SymRTLO <span class="citation" data-cites="wang2025symrtlo">[4]</span>，我们在 5 个实现复杂算法的电路上，把结果与其自报告结果进行比较。 <strong><em>(2) 熟练 Verilog 工程师。</em></strong> 我们把本方法与一位拥有两年以上经验的 Verilog 工程师在完整 benchmark 上手工优化得到的结果进行比较。 该工程师获得了标准验证与综合环境，并被允许使用 16 个工作小时进行充分优化，同时在这一过程中总结优化规则。 <strong><em>(3) 代表性 LLM。</em></strong> 我们把结果与表 表&nbsp;1 中列出的代表性 LLM 进行比较。 为公平比较，我们在相同采样 RTL 代码数量下，评估每个 LLM 生成的最优代码。 在所有实验中，我们统一使用 0.6 的生成温度，并提供与本方法一致的 prompts。</p>
+<p><strong>Metrics.</strong> 我们报告综合后的总 cell area（单位为 <img src="https://latex.codecogs.com/png.latex?%5Cmu%20m%5E2">）、cycle delay（单位为 <img src="https://latex.codecogs.com/png.latex?ns">）和 dynamic power（单位为 <img src="https://latex.codecogs.com/png.latex?mW">），用于评估电路面积、性能和功耗。 除非另有说明，所有综合都使用 <code>SiliconCompiler</code> 和 FreePDK 45nm 工艺 <span class="citation" data-cites="Stine2007freepdk">[13]</span>。 对于等价且优化后的电路，我们按 <img src="https://latex.codecogs.com/png.latex?Impr=1-%20%7B%20PPA_%7Bopt%7D%7D/%7B%20PPA_%7Boriginal%7D%7D"> 报告其 PPA 改进。 如果生成电路不等价，或者目标 PPA 更差，则标记为 0 改进。 对于 vanilla LLM baseline，遵循代码生成任务中被广泛采用的 <img src="https://latex.codecogs.com/png.latex?Pass@k"> 指标 <span class="citation" data-cites="chen2021evaluatinglargelanguagemodels">[14]</span>，我们提出 <strong>Impr@k</strong> 指标，用于基于总计 <img src="https://latex.codecogs.com/png.latex?n%20%3E%20k"> 个样本的结果估计从 <img src="https://latex.codecogs.com/png.latex?k"> 个样本中获得的期望最优 PPA 优化，如公式 式&nbsp;3 所示：</p>
+<p><span id="eq-impr-at-k"><img src="https://latex.codecogs.com/png.latex?%0A%5Coperatorname%7BImpr@k%7D%20:=%20%5Cmathbb%7BE%7D_%7B%5Ctext%7Bcircuits%7D%7D%5Cleft%5B%0A%5Csum_%7Bj=1%7D%5En%20%5Cleft(%0A%20%20%20Impr_j%5E%7B%5Cdownarrow%7D%20%5Ccdot%20%5Cfrac%7B%5Cbinom%7Bn-j%7D%7Bk-1%7D%7D%7B%5Cbinom%7Bn%7D%7Bk%7D%7D%0A%5Cright)%0A%5Cright%5D%0A%5Ctag%7B3%7D"></span></p>
+<p>其中，<img src="https://latex.codecogs.com/png.latex?%7BImpr%7D%5E%7B%5Cdownarrow%7D_j"> 表示 <img src="https://latex.codecogs.com/png.latex?n"> 个样本中的第 <img src="https://latex.codecogs.com/png.latex?j"> 大 PPA 改进，也就是 <img src="https://latex.codecogs.com/png.latex?%7BImpr%7D%5E%7B%5Cdownarrow%7D_1%20%5Cge%20%7BImpr%7D%5E%7B%5Cdownarrow%7D_2%20%5Cge%20%5Ccdots%20%5Cge%20%7BImpr%7D%5E%7B%5Cdownarrow%7D_n">。</p>
+<p><strong>AutoPPA 设置。</strong> 我们根据表 表&nbsp;2 配置不同搜索规模，为每种配置分别生成 15、50、104 和 210 个 RTL 代码样本。 我们使用 gte_Qwen2-7B-instruct <span class="citation" data-cites="li2023towards">[15]</span> 作为 embedding model，对规则库和检索查询进行 embedding。 在搜索中，我们为 AutoPPA 配置了较小的 Qwen2.5-7B-Instruct 和 Qwen2.5-Coder-7B-Instruct 模型，以及较大的 DeepSeek-V3-0324 模型，以展示框架的通用性。 我们把所有模型的 LLM 生成温度都设为 0.6。</p>
+<div id="tbl-baseline-llms" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-baseline-llms-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;1: 实验中的 baseline language models。
+</figcaption>
+<div aria-describedby="tbl-baseline-llms-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>类型</th>
+<th>模型</th>
+<th>缩写</th>
+<th style="text-align: right;">参数量</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>RTL Specific</td>
+<td>CodeV-All-QC</td>
+<td>CodeV</td>
+<td style="text-align: right;">7.62B</td>
+</tr>
+<tr class="even">
+<td>RTL Specific</td>
+<td>HaVen-DeepSeek</td>
+<td>HaVen</td>
+<td style="text-align: right;">6.74B</td>
+</tr>
+<tr class="odd">
+<td>Coding Specific</td>
+<td>Qwen2.5-Coder-7B-Instruct</td>
+<td>Qwen Coder</td>
+<td style="text-align: right;">7.62B</td>
+</tr>
+<tr class="even">
+<td>Reasoning</td>
+<td>DeepSeek-R1-Distill-Qwen-7B</td>
+<td>DS-R1-Dist</td>
+<td style="text-align: right;">7.62B</td>
+</tr>
+<tr class="odd">
+<td>General Purpose</td>
+<td>DeepSeek-V3-0324</td>
+<td>DeepSeek-V3</td>
+<td style="text-align: right;">685B</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div id="tbl-search-setting" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-search-setting-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;2: AutoPPA 搜索规模配置，其中 <img src="https://latex.codecogs.com/png.latex?n%20=%20(1%20+%20k%20%5Ccdot%20(s-1))%20%5Ccdot%20m">。
+</figcaption>
+<div aria-describedby="tbl-search-setting-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 15%">
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 21%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>配置缩写</th>
+<th style="text-align: right;">Beam Width (<img src="https://latex.codecogs.com/png.latex?k">)</th>
+<th style="text-align: right;">Num Expand (<img src="https://latex.codecogs.com/png.latex?m">)</th>
+<th style="text-align: right;">Max Steps (<img src="https://latex.codecogs.com/png.latex?s">)</th>
+<th style="text-align: right;">Total RTL Searched (<img src="https://latex.codecogs.com/png.latex?n">)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>2-3-3</td>
+<td style="text-align: right;">2</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">15</td>
+</tr>
+<tr class="even">
+<td>3-5-4</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">50</td>
+</tr>
+<tr class="odd">
+<td>3-8-5</td>
+<td style="text-align: right;">3</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">104</td>
+</tr>
+<tr class="even">
+<td>5-10-5</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">10</td>
+<td style="text-align: right;">5</td>
+<td style="text-align: right;">210</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="sec-exp-result" class="level2">
+<h2 class="anchored" data-anchor-id="sec-exp-result">实验结果</h2>
+<p><strong>AutoPPA 超过人工努力和 SOTA 方法。</strong> <em>(1) AutoPPA 在面向面积的电路优化上优于 RTLRewriter 和人工优化。</em> 我们对 RTLRewriter 开源的优化 RTL 代码和人工优化结果进行了逐电路比较。 我们使用 DeepSeek-V3 作为 AutoPPA 的 backbone model，采用 5-10-5 搜索设置，并将优化目标与 RTLRewriter 对齐为面向面积的优化。 结果如表 表&nbsp;3 所示，最佳结果以粗体高亮，相较原始设计未能实现优化的结果以浅色显示。 我们的方法取得了更优性能，在 11 个电路中的 10 个上获得了最小面积。 平均来看，与 RTLRewriter 相比，本方法带来了显著改进：面积提升 7.56%，功耗提升 9.00%。 人工优化表现相对较差，这表明即使对有熟练经验的人类工程师而言，优化这些电路也具有相当大的挑战性。</p>
+<div style="overflow-x:auto;">
+<div id="tbl-comp-rtlrewriter" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-comp-rtlrewriter-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;3: AutoPPA 与人工努力和 RTLRewriter 的<strong>面积导向</strong>优化比较。AutoPPA 分别比人工努力和 RTLRewriter 高出 19.25% 和 7.56%。
+</figcaption>
+<div aria-describedby="tbl-comp-rtlrewriter-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 15%">
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 21%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Design</th>
+<th style="text-align: right;">Original Area / Delay / Power</th>
+<th style="text-align: right;">Manual Area / Delay / Power</th>
+<th style="text-align: right;">RTLRewriter Area / Delay / Power</th>
+<th style="text-align: right;">AutoPPA-DS Area / Delay / Power</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>add3</code></td>
+<td style="text-align: right;">65.17 / 0.26 / 0.85</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">65.17 / 0.26 / 0.85</span></td>
+<td style="text-align: right;"><strong>42.83</strong> / 0.21 / 0.62</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">65.17 / 0.26 / 0.85</span></td>
+</tr>
+<tr class="even">
+<td><code>mux_type1</code></td>
+<td style="text-align: right;">2.39 / 0.04 / 0.00010</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">2.39 / 0.04 / 0.00010</span></td>
+<td style="text-align: right;"><strong>2.13</strong> / 0.04 / 0.00010</td>
+<td style="text-align: right;"><strong>2.13</strong> / 0.04 / 0.00010</td>
+</tr>
+<tr class="odd">
+<td><code>mux_type3</code></td>
+<td style="text-align: right;">2.39 / 0.05 / 0.00010</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">2.39 / 0.05 / 0.00010</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">2.39 / 0.05 / 0.00010</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">2.39 / 0.05 / 0.00010</span></td>
+</tr>
+<tr class="even">
+<td><code>mux_type5</code></td>
+<td style="text-align: right;">6.12 / 0.13 / 0.00010</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">6.12 / 0.13 / 0.00010</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">6.12 / 0.13 / 0.00010</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">6.12 / 0.13 / 0.00010</span></td>
+</tr>
+<tr class="odd">
+<td><code>example1</code></td>
+<td style="text-align: right;">61.71 / 0.22 / 0.78</td>
+<td style="text-align: right;">60.116 / 0.21 / 0.87</td>
+<td style="text-align: right;">48.15 / 0.24 / 0.84</td>
+<td style="text-align: right;"><strong>29.26</strong> / 0.23 / 0.68</td>
+</tr>
+<tr class="even">
+<td><code>example3</code></td>
+<td style="text-align: right;">52.40 / 0.27 / 2.33</td>
+<td style="text-align: right;">49.476 / 0.31 / 2.07</td>
+<td style="text-align: right;">37.51 / 0.21 / 1.54</td>
+<td style="text-align: right;"><strong>36.44</strong> / 0.21 / 1.25</td>
+</tr>
+<tr class="odd">
+<td><code>com_subexp</code></td>
+<td style="text-align: right;">11967.34 / 2.98 / 0.26</td>
+<td style="text-align: right;">11370.17 / 3.00 / 0.24</td>
+<td style="text-align: right;">11389.58 / 3.12 / 0.24</td>
+<td style="text-align: right;"><strong>11310.85</strong> / 3.06 / 0.24</td>
+</tr>
+<tr class="even">
+<td><code>add_bit_wid</code></td>
+<td style="text-align: right;">63.57 / 0.32 / 0.0016</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">63.57 / 0.32 / 0.0016</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">63.57 / 0.32 / 0.0016</span></td>
+<td style="text-align: right;"><strong>36.44</strong> / 0.59 / 0.00070</td>
+</tr>
+<tr class="odd">
+<td><code>add_subexp</code></td>
+<td style="text-align: right;">132.73 / 0.57 / 0.0029</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">132.73 / 0.57 / 0.0029</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">132.74 / 0.57 / 0.0029</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">132.73 / 0.57 / 0.0029</span></td>
+</tr>
+<tr class="even">
+<td><code>m_con_mul</code></td>
+<td style="text-align: right;">1374.16 / 1.17 / 0.031</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">1374.16 / 1.17 / 0.031</span></td>
+<td style="text-align: right;">1026.76 / 1.13 / 0.023</td>
+<td style="text-align: right;"><strong>876.47</strong> / 1.04 / 0.02</td>
+</tr>
+<tr class="odd">
+<td><code>m_con_mul2</code></td>
+<td style="text-align: right;">1628.72 / 1.22 / 0.038</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">1628.72 / 1.22 / 0.038</span></td>
+<td style="text-align: right;">1370.17 / 1.22 / 0.031</td>
+<td style="text-align: right;"><strong>873.01</strong> / 1.16 / 0.021</td>
+</tr>
+<tr class="even">
+<td>Avg. Impr.</td>
+<td style="text-align: right;">-</td>
+<td style="text-align: right;">1.20% / -0.99% / 0.60%</td>
+<td style="text-align: right;">12.89% / 2.83% / 9.35%</td>
+<td style="text-align: right;"><strong>20.45%</strong> / -4.85% / 18.35%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<p><em>(2) AutoPPA 在更具挑战性的复杂和大型电路优化任务上优于 SymRTLO。</em> 由于 SymRTLO 没有开源其优化 RTL 代码或综合脚本，我们无法在完全相同的标准下进行比较。 在表 表&nbsp;4 中，我们展示了 SymRTLO 对复杂功能电路的自报告面积优化结果、人工优化结果、vanilla LLM 结果，以及以 DeepSeek-V3 <span class="citation" data-cites="deepseekai2025deepseekv3technicalreport">[16]</span> 作为 backbone model 并采用 5-10-5 搜索设置的 AutoPPA 结果。 为了尽可能与 SymRTLO 的综合设置对齐，我们使用 <code>Design Compiler</code> 2018，分别把电路综合到 SMIC 12nm 和 TSMC 65nm 工艺。 实验结果表明，在两个工艺上，AutoPPA 的电路面积改进都高于 SymRTLO（18.12% / 18.93% 对 17.58%）。 然而，我们再次强调，工艺节点和综合脚本的差异可能导致 PPA 结果出现显著变化。 由于我们无法访问 SymRTLO 使用的具体工艺节点和脚本，实现完全公平的比较仍然是一项挑战。</p>
+<div style="overflow-x:auto;">
+<div id="tbl-comp-symrtlo" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-comp-symrtlo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;4: AutoPPA、人工优化、vanilla DeepSeek-V3 sampling 和 SymRTLO 的<strong>面积导向</strong>优化结果比较，使用 <code>Design Compiler</code> 综合。SymRTLO 的结果复制自其原始论文。每个数值单元为 Area / Delay / Power。
+</figcaption>
+<div aria-describedby="tbl-comp-symrtlo-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 13%">
+<col style="width: 13%">
+<col style="width: 13%">
+<col style="width: 13%">
+<col style="width: 13%">
+<col style="width: 13%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>工艺/设置</th>
+<th>方法</th>
+<th style="text-align: right;"><code>spmv</code></th>
+<th style="text-align: right;"><code>subexp_elim</code></th>
+<th style="text-align: right;"><code>adder_architecture</code></th>
+<th style="text-align: right;"><code>vending_machine</code></th>
+<th style="text-align: right;"><code>fft</code></th>
+<th style="text-align: right;">Avg. Impr.</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>SSC</td>
+<td>Original</td>
+<td style="text-align: right;">22908.69 / 7.95 / 1.46</td>
+<td style="text-align: right;">9484.15 / 11.78 / 4.61</td>
+<td style="text-align: right;">541.92 / 2.29 / 0.17</td>
+<td style="text-align: right;">240079.30 / 7.90 / 11.46</td>
+<td style="text-align: right;">1857805.00 / 7.90 / 51.12</td>
+<td style="text-align: right;">-</td>
+</tr>
+<tr class="even">
+<td>SSC</td>
+<td>SymRTLO</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">22908.69 / 7.95 / 1.46</span></td>
+<td style="text-align: right;">6791.88 / 11.78 / 3.53</td>
+<td style="text-align: right;">531.88 / 2.48 / 0.17</td>
+<td style="text-align: right;">151593.90 / 7.90 / 8.18</td>
+<td style="text-align: right;">1471378.00 / 8.98 / 26.32</td>
+<td style="text-align: right;">17.58% / -4.39% / 20.12%</td>
+</tr>
+<tr class="odd">
+<td>SMIC 12nm</td>
+<td>Original</td>
+<td style="text-align: right;">423.94 / 0.16 / 6.71</td>
+<td style="text-align: right;">162.75 / 1.27 / 0.22</td>
+<td style="text-align: right;">8.48 / 0.15 / 0.01</td>
+<td style="text-align: right;">3747.36 / 0.23 / 17.59</td>
+<td style="text-align: right;">31271.32 / 0.75 / 46.68</td>
+<td style="text-align: right;">-</td>
+</tr>
+<tr class="even">
+<td>SMIC 12nm</td>
+<td>Manual</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">423.94 / 0.16 / 6.71</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">162.75 / 1.27 / 0.22</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">8.48 / 0.15 / 0.01</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">3747.36 / 0.23 / 17.59</span></td>
+<td style="text-align: right;">29346.88 / 0.81 / 37.23</td>
+<td style="text-align: right;">1.23% / -0.27% / 5.27%</td>
+</tr>
+<tr class="odd">
+<td>SMIC 12nm</td>
+<td>DeepSeek-V3</td>
+<td style="text-align: right;"><strong>295.28</strong> / 0.19 / 4.36</td>
+<td style="text-align: right;">123.54 / 1.27 / 0.18</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">8.48 / 0.15 / 0.01</span></td>
+<td style="text-align: right;">3608.39 / 0.23 / 17.59</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">31271.32 / 0.75 / 46.68</span></td>
+<td style="text-align: right;">11.63% / -2.42% / 12.30%</td>
+</tr>
+<tr class="even">
+<td>SMIC 12nm</td>
+<td>AutoPPA-DS</td>
+<td style="text-align: right;"><strong>295.28</strong> / 0.19 / 4.36</td>
+<td style="text-align: right;"><strong>116.81</strong> / 1.27 / 0.17</td>
+<td style="text-align: right;"><strong>8.48</strong> / 0.14 / 0.01</td>
+<td style="text-align: right;"><strong>2966.91</strong> / 0.36 / 9.70</td>
+<td style="text-align: right;"><strong>27769.19</strong> / 0.79 / 42.85</td>
+<td style="text-align: right;"><strong>18.12%</strong> / -14.79% / 23.57%</td>
+</tr>
+<tr class="odd">
+<td>TSMC 65nm</td>
+<td>Original</td>
+<td style="text-align: right;">4021.20 / 0.60 / 4.61</td>
+<td style="text-align: right;">1588.68 / 4.03 / 0.97</td>
+<td style="text-align: right;">80.64 / 0.69 / 0.04</td>
+<td style="text-align: right;">38829.96 / 0.72 / 26.75</td>
+<td style="text-align: right;">304913.90 / 2.63 / 39.05</td>
+<td style="text-align: right;">-</td>
+</tr>
+<tr class="even">
+<td>TSMC 65nm</td>
+<td>Manual</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">4021.20 / 0.60 / 4.61</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">1588.68 / 4.03 / 0.97</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">80.64 / 0.69 / 0.04</span></td>
+<td style="text-align: right;"><span style="color:#9B9B9B">38829.96 / 0.72 / 26.75</span></td>
+<td style="text-align: right;">295164.72 / 2.51 / 35.67</td>
+<td style="text-align: right;">0.64% / 0.91% / 1.73%</td>
+</tr>
+<tr class="odd">
+<td>TSMC 65nm</td>
+<td>DeepSeek-V3</td>
+<td style="text-align: right;"><strong>2904.12</strong> / 0.59 / 3.54</td>
+<td style="text-align: right;">1195.92 / 4.03 / 0.78</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">80.64 / 0.69 / 0.04</span></td>
+<td style="text-align: right;">37383.12 / 0.75 / 24.96</td>
+<td style="text-align: right;"><span style="color:#9B9B9B">304913.88 / 2.63 / 39.05</span></td>
+<td style="text-align: right;">11.25% / -0.50% / 10.00%</td>
+</tr>
+<tr class="even">
+<td>TSMC 65nm</td>
+<td>AutoPPA-DS</td>
+<td style="text-align: right;"><strong>2904.12</strong> / 0.59 / 3.54</td>
+<td style="text-align: right;"><strong>1130.04</strong> / 4.03 / 0.75</td>
+<td style="text-align: right;"><strong>79.92</strong> / 0.71 / 0.04</td>
+<td style="text-align: right;"><strong>29798.64</strong> / 1.12 / 13.51</td>
+<td style="text-align: right;"><strong>262633.70</strong> / 2.73 / 35.47</td>
+<td style="text-align: right;"><strong>18.93%</strong> / -12.12% / 21.85%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<p><em>(3) AutoPPA 在面积导向和延迟导向优化上都优于所有 baseline LLM 方法。</em> 我们把评估扩展到完整 benchmark 中的全部 <em>60 个电路</em>，将本方法与 baseline LLM 比较，并应用从 2-3-3 到 5-10-5 的设置。 在搜索中使用 Qwen2.5-7B 系列模型和 DeepSeek-V3 作为 backbone model，我们把结果与表 表&nbsp;1 中列出的语言模型进行比较，目标分别是面积优化和延迟优化。 结果见表 表&nbsp;5，并在图 图&nbsp;3 中展示。</p>
+<div style="overflow-x:auto;">
+<div id="tbl-main-area-delay" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-main-area-delay-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;5: 在 <strong>60</strong> 个电路上，AutoPPA 与 vanilla LLM 的<strong>面积导向</strong>和<strong>延迟导向</strong>优化比较。Area-oriented 行中的数值为 Area / Delay / Power；Delay-oriented 行中的数值为 Delay / Area / Power。
+</figcaption>
+<div aria-describedby="tbl-main-area-delay-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 12%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>优化目标</th>
+<th>类型</th>
+<th>方法</th>
+<th style="text-align: right;">Impr@15 (%)</th>
+<th style="text-align: right;">Impr@50 (%)</th>
+<th style="text-align: right;">Impr@104 (%)</th>
+<th style="text-align: right;">Impr@210 (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Area-oriented</td>
+<td>RTL-Specific Models</td>
+<td>HaVen</td>
+<td style="text-align: right;">1.33% / 0.12% / 1.48%</td>
+<td style="text-align: right;">3.02% / 0.33% / 3.46%</td>
+<td style="text-align: right;">4.14% / 0.51% / 4.82%</td>
+<td style="text-align: right;">4.77% / 0.60% / 5.57%</td>
+</tr>
+<tr class="even">
+<td>Area-oriented</td>
+<td>RTL-Specific Models</td>
+<td>CodeV</td>
+<td style="text-align: right;">1.35% / 0.47% / 1.61%</td>
+<td style="text-align: right;">3.10% / 1.06% / 3.53%</td>
+<td style="text-align: right;">4.36% / 1.63% / 4.75%</td>
+<td style="text-align: right;">5.32% / 2.27% / 5.45%</td>
+</tr>
+<tr class="odd">
+<td>Area-oriented</td>
+<td>Reasoning</td>
+<td>DS-R1-Dist</td>
+<td style="text-align: right;">3.74% / 0.55% / 3.86%</td>
+<td style="text-align: right;">6.01% / 1.21% / 6.27%</td>
+<td style="text-align: right;">7.78% / 1.90% / 8.11%</td>
+<td style="text-align: right;">9.22% / 2.76% / 9.55%</td>
+</tr>
+<tr class="even">
+<td>Area-oriented</td>
+<td>General Models</td>
+<td>Qwen-Coder</td>
+<td style="text-align: right;">4.79% / 1.29% / 5.52%</td>
+<td style="text-align: right;">6.90% / 1.97% / 8.00%</td>
+<td style="text-align: right;">8.74% / 2.87% / 10.10%</td>
+<td style="text-align: right;">10.60% / 3.97% / 12.37%</td>
+</tr>
+<tr class="odd">
+<td>Area-oriented</td>
+<td>General Models</td>
+<td>DeepSeek-V3</td>
+<td style="text-align: right;">8.98% / 1.63% / 9.95%</td>
+<td style="text-align: right;">10.55% / 1.85% / 11.40%</td>
+<td style="text-align: right;">11.04% / 2.09% / 11.97%</td>
+<td style="text-align: right;">11.20% / 2.36% / 12.29%</td>
+</tr>
+<tr class="even">
+<td>Area-oriented</td>
+<td>Ours</td>
+<td>AutoPPA-Qw</td>
+<td style="text-align: right;">4.98% / 2.12% / 5.41%</td>
+<td style="text-align: right;">8.83% / 3.25% / 9.97%</td>
+<td style="text-align: right;">9.50% / 2.94% / 11.13%</td>
+<td style="text-align: right;">11.05% / 4.87% / 14.31%</td>
+</tr>
+<tr class="odd">
+<td>Area-oriented</td>
+<td>Ours</td>
+<td>AutoPPA-DS</td>
+<td style="text-align: right;"><strong>9.56%</strong> / 1.66% / 10.84%</td>
+<td style="text-align: right;"><strong>11.91%</strong> / 2.57% / 13.44%</td>
+<td style="text-align: right;"><strong>12.45%</strong> / 2.05% / 13.58%</td>
+<td style="text-align: right;"><strong>15.31%</strong> / 0.43% / 15.97%</td>
+</tr>
+<tr class="even">
+<td>Delay-oriented</td>
+<td>RTL-Specific Models</td>
+<td>HaVen</td>
+<td style="text-align: right;">1.00% / 0.46% / 0.93%</td>
+<td style="text-align: right;">1.88% / 1.38% / 1.89%</td>
+<td style="text-align: right;">2.33% / 2.11% / 2.60%</td>
+<td style="text-align: right;">2.49% / 2.97% / 3.30%</td>
+</tr>
+<tr class="odd">
+<td>Delay-oriented</td>
+<td>RTL-Specific Models</td>
+<td>CodeV</td>
+<td style="text-align: right;">1.92% / 1.98% / 2.50%</td>
+<td style="text-align: right;">2.49% / 2.49% / 3.36%</td>
+<td style="text-align: right;">2.80% / 2.39% / 3.34%</td>
+<td style="text-align: right;">3.15% / 1.69% / 2.61%</td>
+</tr>
+<tr class="even">
+<td>Delay-oriented</td>
+<td>Reasoning</td>
+<td>DS-R1-Dist</td>
+<td style="text-align: right;">1.51% / 1.87% / 2.32%</td>
+<td style="text-align: right;">2.52% / 2.47% / 3.00%</td>
+<td style="text-align: right;">3.02% / 2.48% / 3.06%</td>
+<td style="text-align: right;">3.33% / 2.00% / 2.56%</td>
+</tr>
+<tr class="odd">
+<td>Delay-oriented</td>
+<td>General Models</td>
+<td>Qwen-Coder</td>
+<td style="text-align: right;">2.76% / 3.61% / 4.51%</td>
+<td style="text-align: right;">4.61% / 4.02% / 5.11%</td>
+<td style="text-align: right;">6.11% / 4.56% / 5.89%</td>
+<td style="text-align: right;">7.74% / 5.83% / 7.49%</td>
+</tr>
+<tr class="even">
+<td>Delay-oriented</td>
+<td>General Models</td>
+<td>DeepSeek-V3</td>
+<td style="text-align: right;">4.20% / 1.65% / 2.90%</td>
+<td style="text-align: right;">5.15% / 2.11% / 3.44%</td>
+<td style="text-align: right;">5.67% / 2.48% / 3.96%</td>
+<td style="text-align: right;">6.37% / 2.90% / 4.49%</td>
+</tr>
+<tr class="odd">
+<td>Delay-oriented</td>
+<td>Ours</td>
+<td>AutoPPA-Qw</td>
+<td style="text-align: right;">4.65% / 3.10% / 4.62%</td>
+<td style="text-align: right;"><strong>6.15%</strong> / 4.82% / 5.52%</td>
+<td style="text-align: right;"><strong>9.80%</strong> / 9.75% / 11.79%</td>
+<td style="text-align: right;"><strong>11.28%</strong> / 8.00% / 10.87%</td>
+</tr>
+<tr class="even">
+<td>Delay-oriented</td>
+<td>Ours</td>
+<td>AutoPPA-DS</td>
+<td style="text-align: right;"><strong>5.36%</strong> / 1.09% / 1.54%</td>
+<td style="text-align: right;">5.87% / 0.73% / 1.74%</td>
+<td style="text-align: right;">7.14% / 2.10% / 2.44%</td>
+<td style="text-align: right;">9.95% / 6.37% / 7.78%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<div id="fig-opt-vs-sample" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-opt-vs-sample-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning/optimization-scaling-law-area-delay.svg" class="img-fluid figure-img" style="width:80.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-opt-vs-sample-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;3: AutoPPA 与 vanilla LLM sampling 的面积和延迟改进比较。AutoPPA 得到持续更高的 impr@k，并且增长率优于 DeepSeek-V3。
+</figcaption>
+</figure>
+</div>
+<p>表 表&nbsp;5 的结果表明，在面积和延迟优化目标上，本方法在相近规模模型中都取得了最佳优化结果。 重要的是，随着搜索预算增加，本方法表现出持续改进。 图 图&nbsp;3 进一步展示了 AutoPPA 与 vanilla DeepSeek-V3 在优化上的比较：随着样本数量增长，AutoPPA 得到持续更高的 impr@k，并且增长率优于 DeepSeek-V3。 在最大搜索预算下，本方法在面积导向优化上比 vanilla LLM 高出 4.11%，在延迟导向优化上高出 3.58%。</p>
+<p>值得注意的是，在以延迟优化为目标时，使用较小的 Qwen2.5-7B 系列模型作为搜索 backbone，效果优于使用 DeepSeek-V3。 我们把这一点归因于 Qwen2.5-7B 在延迟优化任务上的 baseline 表现优于 DeepSeek-V3。 尽管 DS-R1-Distill 从 DeepSeek-R1 蒸馏而来，并在 Qwen2.5-Math-7B 上微调，其优化能力仍弱于具有相同架构和参数规模的 Qwen2.5-Coder-Instruct 模型，这表明 reasoning model 的蒸馏会导致其在特定任务上的性能退化。 尽管 HaVen 和 CodeV 是面向 RTL 生成的专用模型，它们在 RTL 优化任务上的优化效果最低。 这凸显了多任务微调对于提升领域专用能力的重要性。</p>
+<p><strong>AutoPPA 对多种综合设置有效。</strong> 结合表 表&nbsp;3 和表 表&nbsp;4 的结果，AutoPPA 在开源和商业 EDA 工具链上都展现了显著 PPA 改进。 这一结果凸显了 AutoPPA 的广泛适用性。 值得注意的是，AutoPPA 在 RTLRewriter Benchmark 中的 2 个大型实用电路（<em>fft</em> 和 <em>vending_machine</em>）上，跨 12nm 到 65nm 工艺节点都取得了显著面积优化，在 12nm 工艺下分别达到 11.20% 和 20.83%，在 65nm 工艺下分别达到 13.87% 和 23.26%。 我们观察到，虽然同一个电路在不同工艺节点上表现出相似的优化趋势，但具体优化比例存在明显差异。 这突出了采用统一综合工具链和工艺节点来确保不同工作之间公平评估的重要性。 据我们所知，我们是首个在多个 EDA 工具（<code>SiliconCompiler</code> 和 <code>Design Compiler</code>）与多个工艺（从 12nm、45nm 到 65nm）上评估基于 LLM 的 RTL 代码 PPA 优化的工作。</p>
+<p><strong>AutoPPA 的规则库超过人工构造的规则库。</strong> 我们进行了一项实验，用以比较通过我们的 <em>explore-evaluate-induce</em>（<code>E²I</code>）流程自动导出的优化规则，与由 Verilog 工程师人工总结的优化规则之间的有效性。 该比较使用相同的 3-5-4 搜索设置，以 Qwen2.5 系列模型作为搜索 backbone，在全部 60 个电路上进行面积导向优化。 唯一差异是优化过程中使用的规则库。 表 表&nbsp;6 给出了实验结果。 我们 <code>E²I</code> 流程的可扩展性生成了显著更多规则（101,987 条规则），相比之下，16 小时人工努力只得到 12 条规则，因此也带来了更好的优化结果。</p>
+<div id="tbl-comp-manual-lib" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-comp-manual-lib-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;6: AutoPPA 学到的规则库与人工构造规则库之间的<strong>面积导向</strong>优化比较，测试使用 AutoPPA-Qw。
+</figcaption>
+<div aria-describedby="tbl-comp-manual-lib-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 42%">
+<col style="width: 57%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>设置</th>
+<th style="text-align: right;">Impr@50（Area / Delay / Power）</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>AutoPPA-Qw with <code>E²I</code> rules (ours)</td>
+<td style="text-align: right;"><strong>8.83%</strong> / 3.25% / 9.97%</td>
+</tr>
+<tr class="even">
+<td>with manual rules</td>
+<td style="text-align: right;">6.56% / 0.80% / 5.46%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p><strong>Ablation Study.</strong> 为验证所提出方法中每个组件的有效性，我们进行了一系列消融研究。 完整设计包含 LLM 生成规则 <strong>speculation</strong>、使用这些 speculative 结果进行规则库 <strong>retrieval</strong>、对检索规则进行 <strong>adaptation</strong>，以及 <strong>search</strong> 框架。 我们在相同 RTL 代码采样开销下进行消融实验。 表 表&nbsp;7 给出了实验结果，展示了设计中每个组件的有效性。 每个消融设置下观察到的性能下降，都验证了我们集成方法对最佳性能的重要性。</p>
+<div id="tbl-ablation" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-ablation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;7: AutoPPA 自适应规则驱动 PPA 优化框架在<strong>面积导向</strong>优化上的消融。
+</figcaption>
+<div aria-describedby="tbl-ablation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>设置</th>
+<th style="text-align: right;">Impr@50（Area / Delay / Power）</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>AutoPPA-Qw (ours)</td>
+<td style="text-align: right;"><strong>8.83%</strong> / 3.25% / 9.97%</td>
+</tr>
+<tr class="even">
+<td>w/o Search</td>
+<td style="text-align: right;">7.83% / 3.14% / 7.94%</td>
+</tr>
+<tr class="odd">
+<td>w/o Adapt</td>
+<td style="text-align: right;">6.96% / 2.58% / 7.62%</td>
+</tr>
+<tr class="even">
+<td>w/o Retrieve, Adapt</td>
+<td style="text-align: right;">5.34% / 2.41% / 5.67%</td>
+</tr>
+<tr class="odd">
+<td>w/o Speculate, Retrieve, Adapt</td>
+<td style="text-align: right;">6.39% / 1.95% / 5.84%</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+</section>
+<section id="sec-related-work" class="level1">
+<h1>相关工作</h1>
+<p><strong>基于 LLM 的 RTL 生成。</strong> 近期工作利用 Large Language Models（LLMs）辅助电路设计流程。 Chip-Chat <span class="citation" data-cites="chipchat">[17]</span>、OriGen <span class="citation" data-cites="cui2024origen">[18]</span>、RTLFixer <span class="citation" data-cites="tsai2024rtlfixer">[19]</span> 和 VerilogCoder <span class="citation" data-cites="verilogcoder">[20]</span> 等框架使用 self-reflection <span class="citation" data-cites="reflexion">[21]</span> 或 multi-agent systems 进行 RTL 生成。 其他工作，包括 VeriGen <span class="citation" data-cites="thakur2024verigen">[22]</span>、RTLCoder <span class="citation" data-cites="liu2024rtlcoder">[23]</span>、BetterV <span class="citation" data-cites="pei2024betterv">[24]</span>、CodeV <span class="citation" data-cites="zhao2025codev zhu2025codevr1">[25], [26]</span> 和 HaVen <span class="citation" data-cites="yang2025haven">[27]</span>，构建领域专用数据集并微调 LLM，以提高生成质量。 然而，这些工作主要解决电路生成问题 <span class="citation" data-cites="liu2025openllm Pinckney2025revisitingverilogeval">[28], [29]</span>，而不是电路优化挑战。</p>
+<p><strong>基于 LLM 的 RTL 优化。</strong> 电路优化不同于生成任务，因为它需要在保持功能等价的同时，理解硬件代码、电路结构和综合后 QoR 指标之间的复杂关系。 一些方法尝试直接处理电路优化。 ChipGPT <span class="citation" data-cites="chipgpt">[1]</span> 和 VeriPPA <span class="citation" data-cites="thorat2024advancedlargelanguagemodel">[2]</span> 把综合后的 PPA 指标反馈给 LLM，并直接请求优化。 RTLRewriter <span class="citation" data-cites="yao2024rtlrewriter">[3]</span> 构建人工知识库，从代码和图表中检索信息，并应用 Monte Carlo Tree Search（MCTS）进行重写。 SymRTLO <span class="citation" data-cites="wang2025symrtlo">[4]</span> 把人工收集的优化材料 <span class="citation" data-cites="Knoop1994deadcode Pasko1999subexpelim">[30], [31]</span> 格式化，用于迭代细化过程中的检索。 这些方法依赖人工构建的知识库，其条目数量和任务特定优化能力都有限。</p>
+</section>
+<section id="sec-conclusion" class="level1">
+<h1>结论</h1>
+<p>本文提出 AutoPPA，这是一个全自动 PPA 优化框架，由自动生成的优化规则库和增强优化搜索方法组成。 为缓解优化规则稀缺和规则归纳中的挑战，我们开发了一个基于 <em>Explore-Evaluate-Induce</em> 工作流的规则库学习框架。 为解决把抽象优化规则应用到具体设计时的低效问题，我们提出一种 Adaptive Retrieval Augmented Optimization（ARAO）机制，并将其与多步搜索策略集成。 实验结果表明，AutoPPA 超过 baseline LLM 方法，相较人工方法实现了 19.25% 的面积优化提升，相较 RTLRewriter 实现了 7.56% 的面积优化提升。</p>
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">参考文献</h2><div id="refs" class="references csl-bib-body" data-entry-spacing="0">
+<div id="ref-chipgpt" class="csl-entry">
+<div class="csl-left-margin">[1] </div><div class="csl-right-inline">K. Chang <em>et al.</em>, <span>“ChipGPT: How Far Are We from Natural Language Hardware Design”</span>. 2025. Available: <a href="https://arxiv.org/abs/2305.14019">https://arxiv.org/abs/2305.14019</a></div>
+</div>
+<div id="ref-thorat2024advancedlargelanguagemodel" class="csl-entry">
+<div class="csl-left-margin">[2] </div><div class="csl-right-inline">K. Thorat <em>et al.</em>, <span>“Advanced Large Language Model (LLM)-Driven Verilog Development: Enhancing Power, Performance, and Area Optimization in Code Synthesis”</span>. 2024. Available: <a href="https://arxiv.org/abs/2312.01022">https://arxiv.org/abs/2312.01022</a></div>
+</div>
+<div id="ref-yao2024rtlrewriter" class="csl-entry">
+<div class="csl-left-margin">[3] </div><div class="csl-right-inline">X. Yao <em>et al.</em>, <span>“RTLRewriter: Methodologies for Large-Model-Aided RTL Code Optimization”</span>, in <em>Proceedings of the 43rd IEEE/ACM International Conference on Computer-Aided Design</em>, 2024, pp. 1～7.</div>
+</div>
+<div id="ref-wang2025symrtlo" class="csl-entry">
+<div class="csl-left-margin">[4] </div><div class="csl-right-inline"><span class="nocase">Y. Wang <em>et al.</em></span>, <span>“SymRTLO: Enhancing RTL Code Optimization with LLMs and Neuron-Inspired Symbolic Reasoning”</span>, in <em>The Thirty-ninth Annual Conference on Neural Information Processing Systems</em>, 2025.</div>
+</div>
+<div id="ref-synopsys2012datapath" class="csl-entry">
+<div class="csl-left-margin">[5] </div><div class="csl-right-inline">Inc. Synopsys, <span>“Coding Guidelines for Datapath Synthesis”</span>, Synopsys, Inc., 2012. Available: <a href="https://solvnet.synopsys.com/retrieve/print/015771.html">https://solvnet.synopsys.com/retrieve/print/015771.html</a></div>
+</div>
+<div id="ref-huang2021ml4edasurvey" class="csl-entry">
+<div class="csl-left-margin">[6] </div><div class="csl-right-inline"><span class="nocase">G. Huang <em>et al.</em></span>, <span>“Machine Learning for Electronic Design Automation: A Survey”</span>, <em>ACM Transactions on Design Automation of Electronic Systems (TODAES)</em>, vol. 26, no. 5, pp. 1～46, 2021.</div>
+</div>
+<div id="ref-pan2025surveyllm4eda" class="csl-entry">
+<div class="csl-left-margin">[7] </div><div class="csl-right-inline">J. Pan, G. Zhou, C.-C. Chang, I. Jacobson, J. Hu, and Y. Chen, <span>“A Survey of Research in Large Language Models for Electronic Design Automation”</span>, <em>ACM Trans. Des. Autom. Electron. Syst.</em>, vol. 30, no. 3, Feb. 2025, doi: <a href="https://doi.org/10.1145/3715324">10.1145/3715324</a>.</div>
+</div>
+<div id="ref-yosys" class="csl-entry">
+<div class="csl-left-margin">[8] </div><div class="csl-right-inline">C. Wolf, <span>“Yosys Open SYnthesis Suite”</span>. https://yosyshq.net/yosys/, 2013.</div>
+</div>
+<div id="ref-siliconcompiler" class="csl-entry">
+<div class="csl-left-margin">[9] </div><div class="csl-right-inline">A. Olofsson, W. Ransohoff, and N. Moroze, <span>“A Distributed Approach to Silicon Compilation: Invited”</span>, in <em>Proceedings of the 59th ACM/IEEE Design Automation Conference</em>, San Francisco, California, 2022, pp. 1343～1346.</div>
+</div>
+<div id="ref-ajayi2019openroad" class="csl-entry">
+<div class="csl-left-margin">[10] </div><div class="csl-right-inline">T. Ajayi and D. Blaauw, <span>“OpenROAD: Toward a Self-Driving, Open-Source Digital Layout Implementation Tool Chain”</span>, in <em>Proceedings of Government Microcircuit Applications and Critical Technology Conference</em>, 2019.</div>
+</div>
+<div id="ref-hui2024qwen25codertechnicalreport" class="csl-entry">
+<div class="csl-left-margin">[11] </div><div class="csl-right-inline">B. Hui <em>et al.</em>, <span>“Qwen2.5-Coder Technical Report”</span>. 2024. Available: <a href="https://arxiv.org/abs/2409.12186">https://arxiv.org/abs/2409.12186</a></div>
+</div>
+<div id="ref-aizawa2003information" class="csl-entry">
+<div class="csl-left-margin">[12] </div><div class="csl-right-inline">A. Aizawa, <span>“An information-theoretic perspective of tf–idf measures”</span>, <em>Information Processing &amp; Management</em>, vol. 39, no. 1, pp. 45～65, 2003.</div>
+</div>
+<div id="ref-Stine2007freepdk" class="csl-entry">
+<div class="csl-left-margin">[13] </div><div class="csl-right-inline"><span class="nocase">J. E. Stine <em>et al.</em></span>, <span>“FreePDK: An Open-Source Variation-Aware Design Kit”</span>, in <em>2007 IEEE international conference on Microelectronic Systems Education (MSE’07)</em>, IEEE, 2007, pp. 173～174.</div>
+</div>
+<div id="ref-chen2021evaluatinglargelanguagemodels" class="csl-entry">
+<div class="csl-left-margin">[14] </div><div class="csl-right-inline"><span class="nocase">M. Chen <em>et al.</em></span>, <span>“Evaluating Large Language Models Trained on Code”</span>. 2021. Available: <a href="https://arxiv.org/abs/2107.03374">https://arxiv.org/abs/2107.03374</a></div>
+</div>
+<div id="ref-li2023towards" class="csl-entry">
+<div class="csl-left-margin">[15] </div><div class="csl-right-inline">Z. Li, X. Zhang, Y. Zhang, D. Long, P. Xie, and M. Zhang, <span>“Towards General Text Embeddings with Multi-stage Contrastive Learning”</span>. 2023. Available: <a href="https://arxiv.org/abs/2308.03281">https://arxiv.org/abs/2308.03281</a></div>
+</div>
+<div id="ref-deepseekai2025deepseekv3technicalreport" class="csl-entry">
+<div class="csl-left-margin">[16] </div><div class="csl-right-inline"><span class="nocase">DeepSeek-AI <em>et al.</em></span>, <span>“DeepSeek-V3 Technical Report”</span>. 2025. Available: <a href="https://arxiv.org/abs/2412.19437">https://arxiv.org/abs/2412.19437</a></div>
+</div>
+<div id="ref-chipchat" class="csl-entry">
+<div class="csl-left-margin">[17] </div><div class="csl-right-inline">J. Blocklove, S. Garg, R. Karri, and H. Pearce, <span>“Chip-Chat: Challenges and Opportunities in Conversational Hardware Design”</span>, in <em>2023 ACM/IEEE 5th Workshop on Machine Learning for CAD (MLCAD)</em>, IEEE, 2023, pp. 1～6.</div>
+</div>
+<div id="ref-cui2024origen" class="csl-entry">
+<div class="csl-left-margin">[18] </div><div class="csl-right-inline"><span class="nocase">F. Cui <em>et al.</em></span>, <span>“OriGen: Enhancing RTL Code Generation with Code-to-Code Augmentation and Self-Reflection”</span>, in <em>Proceedings of the 43rd IEEE/ACM International Conference on Computer-Aided Design</em>, 2024, pp. 1～9.</div>
+</div>
+<div id="ref-tsai2024rtlfixer" class="csl-entry">
+<div class="csl-left-margin">[19] </div><div class="csl-right-inline">Y. Tsai, M. Liu, and H. Ren, <span>“RTLFixer: Automatically Fixing RTL Syntax Errors with Large Language Models”</span>, in <em>Proceedings of the 61st ACM/IEEE Design Automation Conference</em>, 2024, pp. 1～6.</div>
+</div>
+<div id="ref-verilogcoder" class="csl-entry">
+<div class="csl-left-margin">[20] </div><div class="csl-right-inline">C.-T. Ho, H. Ren, and B. Khailany, <span>“VerilogCoder: Autonomous Verilog Coding Agents with Graph-Based Planning and AST-Based Waveform Tracing Tool”</span>, in <em>Proceedings of the AAAI Conference on Artificial Intelligence</em>, 2025, pp. 300～307.</div>
+</div>
+<div id="ref-reflexion" class="csl-entry">
+<div class="csl-left-margin">[21] </div><div class="csl-right-inline">N. Shinn, F. Cassano, A. Gopinath, K. Narasimhan, and S. Yao, <span>“Reflexion: Language Agents with Verbal Reinforcement Learning”</span>, <em>Advances in Neural Information Processing Systems</em>, vol. 36, 2024.</div>
+</div>
+<div id="ref-thakur2024verigen" class="csl-entry">
+<div class="csl-left-margin">[22] </div><div class="csl-right-inline">S. Thakur <em>et al.</em>, <span>“VeriGen: A Large Language Model for Verilog Code Generation”</span>, <em>ACM Transactions on Design Automation of Electronic Systems</em>, vol. 29, no. 3, pp. 1～31, 2024.</div>
+</div>
+<div id="ref-liu2024rtlcoder" class="csl-entry">
+<div class="csl-left-margin">[23] </div><div class="csl-right-inline">S. Liu, W. Fang, Y. Lu, Q. Zhang, H. Zhang, and Z. Xie, <span>“RTLCoder: Outperforming GPT-3.5 in Design RTL Generation with Our Open-Source Dataset and Lightweight Solution”</span>, in <em>2024 IEEE LLM Aided Design Workshop (LAD)</em>, IEEE, 2024, pp. 1～5.</div>
+</div>
+<div id="ref-pei2024betterv" class="csl-entry">
+<div class="csl-left-margin">[24] </div><div class="csl-right-inline">Z. Pei, H.-L. Zhen, M. Yuan, Y. Huang, and B. Yu, <span>“BetterV: Controlled Verilog Generation with Discriminative Guidance”</span>, <em>arXiv preprint arXiv:2402.03375</em>, 2024.</div>
+</div>
+<div id="ref-zhao2025codev" class="csl-entry">
+<div class="csl-left-margin">[25] </div><div class="csl-right-inline">Y. Zhao <em>et al.</em>, <span>“CodeV: Empowering LLMs with HDL Generation through Multi-Level Summarization”</span>, <em>IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems</em>, pp. 1～1, 2025, doi: <a href="https://doi.org/10.1109/TCAD.2025.3604320">10.1109/TCAD.2025.3604320</a>.</div>
+</div>
+<div id="ref-zhu2025codevr1" class="csl-entry">
+<div class="csl-left-margin">[26] </div><div class="csl-right-inline"><span class="nocase">Y. Zhu <em>et al.</em></span>, <span>“QiMeng-CodeV-R1: Reasoning-Enhanced Verilog Generation”</span>, in <em>The Thirty-ninth Annual Conference on Neural Information Processing Systems</em>, 2025. Available: <a href="https://openreview.net/forum?id=ly5DnRIgCZ">https://openreview.net/forum?id=ly5DnRIgCZ</a></div>
+</div>
+<div id="ref-yang2025haven" class="csl-entry">
+<div class="csl-left-margin">[27] </div><div class="csl-right-inline">Y. Yang <em>et al.</em>, <span>“HaVen: Hallucination-Mitigated LLM for Verilog Code Generation Aligned with HDL Engineers”</span>. 2025. Available: <a href="https://arxiv.org/abs/2501.04908">https://arxiv.org/abs/2501.04908</a></div>
+</div>
+<div id="ref-liu2025openllm" class="csl-entry">
+<div class="csl-left-margin">[28] </div><div class="csl-right-inline">S. Liu, Y. Lu, W. Fang, M. Li, and Z. Xie, <span>“OpenLLM-RTL: Open Dataset and Benchmark for LLM-Aided Design RTL Generation”</span>, in <em>Proceedings of the 43rd IEEE/ACM International Conference on Computer-Aided Design</em>, in ICCAD ’24. New York, NY, USA: Association for Computing Machinery, 2025. doi: <a href="https://doi.org/10.1145/3676536.3697118">10.1145/3676536.3697118</a>.</div>
+</div>
+<div id="ref-Pinckney2025revisitingverilogeval" class="csl-entry">
+<div class="csl-left-margin">[29] </div><div class="csl-right-inline">N. Pinckney, C. Batten, M. Liu, H. Ren, and B. Khailany, <span>“Revisiting VerilogEval: A Year of Improvements in Large-Language Models for Hardware Code Generation”</span>, <em>ACM Trans. Des. Autom. Electron. Syst.</em>, vol. 30, no. 6, Oct. 2025, doi: <a href="https://doi.org/10.1145/3718088">10.1145/3718088</a>.</div>
+</div>
+<div id="ref-Knoop1994deadcode" class="csl-entry">
+<div class="csl-left-margin">[30] </div><div class="csl-right-inline">J. Knoop, O. Rüthing, and B. Steffen, <span>“Partial Dead Code Elimination”</span>, in <em>Proceedings of the ACM SIGPLAN 1994 Conference on Programming Language Design and Implementation</em>, in PLDI ’94. New York, NY, USA: Association for Computing Machinery, 1994, pp. 147～158. doi: <a href="https://doi.org/10.1145/178243.178256">10.1145/178243.178256</a>.</div>
+</div>
+<div id="ref-Pasko1999subexpelim" class="csl-entry">
+<div class="csl-left-margin">[31] </div><div class="csl-right-inline">R. Pasko, P. Schaumont, V. Derudder, S. Vernalde, and D. Durackova, <span>“A New Algorithm for Elimination of Common Subexpressions”</span>, <em>IEEE Transactions on Computer-Aided Design of Integrated Circuits and Systems</em>, vol. 18, no. 1, pp. 58～68, 1999, doi: <a href="https://doi.org/10.1109/43.739059">10.1109/43.739059</a>.</div>
+</div>
+</div></section></div> ]]></description>
+  <category>编译原理</category>
+  <category>人工智能</category>
+  <guid>https://sadsock.github.io/posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html</guid>
+  <pubDate>Tue, 28 Apr 2026 00:00:00 GMT</pubDate>
+</item>
 <item>
   <title>DeepSeek-V4: Towards Highly Efficient Million-Token Context Intelligence</title>
   <link>https://sadsock.github.io/posts/2026-04-24-deepseek-v4-towards-highly-efficient-million-token-context-intelligence.html</link>
