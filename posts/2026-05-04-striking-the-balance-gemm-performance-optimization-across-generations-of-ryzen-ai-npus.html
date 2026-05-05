@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-Hans" xml:lang="zh-Hans"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="keywords" content="编译原理, 人工智能">
+<meta name="description" content="原文：Striking the Balance: GEMM Performance Optimization Across Generations of Ryzen™ AI NPUs">
+
+<title>Striking the Balance: GEMM Performance Optimization Across Generations of Ryzen™ AI NPUs – 悲催的袜子</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for citations */
+div.csl-bib-body { }
+div.csl-entry {
+  clear: both;
+  margin-bottom: 0em;
+}
+.hanging-indent div.csl-entry {
+  margin-left:2em;
+  text-indent:-2em;
+}
+div.csl-left-margin {
+  min-width:2em;
+  float:left;
+}
+div.csl-right-inline {
+  margin-left:2em;
+  padding-left:1em;
+}
+div.csl-indent {
+  margin-left: 2em;
+}</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-5f76abc51a3b8a6b2b402b570b626d9b.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "没有结果",
+    "search-matching-documents-text": "匹配的文档",
+    "search-copy-link-title": "复制搜索链接",
+    "search-hide-matches-text": "隐藏其它匹配结果",
+    "search-more-match-text": "更多匹配结果",
+    "search-more-matches-text": "更多匹配结果",
+    "search-clear-button-title": "清除",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "取消",
+    "search-submit-button-title": "提交",
+    "search-label": "搜索"
+  }
+}</script>
+
+  <script src="https://cdnjs.cloudflare.com/polyfill/v3/polyfill.min.js?features=es6"></script>
+  <script defer="" src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-chtml-full.js" type="text/javascript"></script>
+
+<script type="text/javascript">
+const typesetMath = (el) => {
+  if (window.MathJax) {
+    // MathJax Typeset
+    window.MathJax.typeset([el]);
+  } else if (window.katex) {
+    // KaTeX Render
+    var mathElements = el.getElementsByClassName("math");
+    var macros = [];
+    for (var i = 0; i < mathElements.length; i++) {
+      var texText = mathElements[i].firstChild;
+      if (mathElements[i].tagName == "SPAN" && texText && texText.data) {
+        window.katex.render(texText.data, mathElements[i], {
+          displayMode: mathElements[i].classList.contains('display'),
+          throwOnError: false,
+          macros: macros,
+          fleqn: false
+        });
+      }
+    }
+  }
+}
+window.Quarto = {
+  typesetMath
+};
+</script>
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">悲催的袜子</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="搜索"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="展开或折叠导航栏" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../index.html"> 
+<span class="menu-text">主页</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html"> 
+<span class="menu-text">关于</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">该页面内容</h2>
+   
+  <ul>
+  <li><a href="#sec-abstract" id="toc-sec-abstract" class="nav-link active" data-scroll-target="#sec-abstract">摘要</a></li>
+  <li><a href="#sec-introduction" id="toc-sec-introduction" class="nav-link" data-scroll-target="#sec-introduction">引言</a></li>
+  <li><a href="#sec-related-work" id="toc-sec-related-work" class="nav-link" data-scroll-target="#sec-related-work">相关工作</a></li>
+  <li><a href="#sec-npu-architecture" id="toc-sec-npu-architecture" class="nav-link" data-scroll-target="#sec-npu-architecture">NPU 架构、特性与编程</a>
+  <ul class="collapse">
+  <li><a href="#sec-npu-architecture-overview" id="toc-sec-npu-architecture-overview" class="nav-link" data-scroll-target="#sec-npu-architecture-overview">NPU 架构概览</a></li>
+  <li><a href="#sec-data-movement-architecture" id="toc-sec-data-movement-architecture" class="nav-link" data-scroll-target="#sec-data-movement-architecture">数据移动架构</a></li>
+  <li><a href="#sec-programming-tools" id="toc-sec-programming-tools" class="nav-link" data-scroll-target="#sec-programming-tools">编程工具</a></li>
+  </ul></li>
+  <li><a href="#sec-gemm-design" id="toc-sec-gemm-design" class="nav-link" data-scroll-target="#sec-gemm-design">GEMM 设计与优化</a>
+  <ul class="collapse">
+  <li><a href="#sec-gemm-tiling-mapping" id="toc-sec-gemm-tiling-mapping" class="nav-link" data-scroll-target="#sec-gemm-tiling-mapping">GEMM 多级分块与映射</a></li>
+  <li><a href="#sec-gemm-mapping-strategy" id="toc-sec-gemm-mapping-strategy" class="nav-link" data-scroll-target="#sec-gemm-mapping-strategy">NPU 上的 GEMM 映射策略</a></li>
+  <li><a href="#sec-memtile-design" id="toc-sec-memtile-design" class="nav-link" data-scroll-target="#sec-memtile-design">MemTile 设计</a></li>
+  <li><a href="#sec-dma-transformations" id="toc-sec-dma-transformations" class="nav-link" data-scroll-target="#sec-dma-transformations">按需张量变换</a></li>
+  <li><a href="#sec-npu-dram-data-movement" id="toc-sec-npu-dram-data-movement" class="nav-link" data-scroll-target="#sec-npu-dram-data-movement">NPU 与 DRAM 之间的数据移动</a></li>
+  <li><a href="#sec-analytical-modeling-optimization" id="toc-sec-analytical-modeling-optimization" class="nav-link" data-scroll-target="#sec-analytical-modeling-optimization">解析建模优化</a>
+  <ul class="collapse">
+  <li><a href="#sec-single-core-optimization" id="toc-sec-single-core-optimization" class="nav-link" data-scroll-target="#sec-single-core-optimization">单核 GEMM 优化</a></li>
+  <li><a href="#sec-system-level-optimization" id="toc-sec-system-level-optimization" class="nav-link" data-scroll-target="#sec-system-level-optimization">系统级 NPU 阵列优化</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-evaluation" id="toc-sec-evaluation" class="nav-link" data-scroll-target="#sec-evaluation">评估</a>
+  <ul class="collapse">
+  <li><a href="#sec-experimental-setup" id="toc-sec-experimental-setup" class="nav-link" data-scroll-target="#sec-experimental-setup">实验设置</a></li>
+  <li><a href="#sec-single-core-gemm-performance" id="toc-sec-single-core-gemm-performance" class="nav-link" data-scroll-target="#sec-single-core-gemm-performance">单核 GEMM 性能</a></li>
+  <li><a href="#sec-npu-array-gemm-performance" id="toc-sec-npu-array-gemm-performance" class="nav-link" data-scroll-target="#sec-npu-array-gemm-performance">NPU 阵列上的 GEMM 性能</a>
+  <ul class="collapse">
+  <li><a href="#sec-optimal-balanced-gemm-kernel" id="toc-sec-optimal-balanced-gemm-kernel" class="nav-link" data-scroll-target="#sec-optimal-balanced-gemm-kernel">最优平衡 GEMM 内核</a></li>
+  <li><a href="#sec-contiguous-k-mt-parameter" id="toc-sec-contiguous-k-mt-parameter" class="nav-link" data-scroll-target="#sec-contiguous-k-mt-parameter">连续 <span class="math inline">\(k_\text{mt}\)</span> 参数</a></li>
+  <li><a href="#sec-gemm-performance-sweeps" id="toc-sec-gemm-performance-sweeps" class="nav-link" data-scroll-target="#sec-gemm-performance-sweeps">GEMM 性能扫描</a></li>
+  <li><a href="#sec-insights-and-discussion" id="toc-sec-insights-and-discussion" class="nav-link" data-scroll-target="#sec-insights-and-discussion">洞见与讨论</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-conclusion" id="toc-sec-conclusion" class="nav-link" data-scroll-target="#sec-conclusion">结论</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Striking the Balance: GEMM Performance Optimization Across Generations of Ryzen™ AI NPUs</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">编译原理</div>
+    <div class="quarto-category">人工智能</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    原文：Striking the Balance: GEMM Performance Optimization Across Generations of Ryzen™ AI NPUs
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">发布于</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2026年5月4日</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">关键词</div>
+    <p>编译原理, 人工智能</p>
+  </div>
+</div>
+
+</header>
+
+
+<p>原文版权声明：本文依据公开来源论文 <em>Striking the Balance: GEMM Performance Optimization Across Generations of Ryzen™ AI NPUs</em> 进行中文翻译整理，仅供学习与研究使用。 我仅提供翻译与网页整理，不拥有原文版权；原文版权归作者及发布方所有。 转载、分发或用于商业用途时，请遵守原论文及原始发布平台的版权规定。</p>
+<p>原文信息：Endri Taka，Andre Roesti，Joseph Melber，Pranathi Vasireddy，Kristof Denolf，Diana Marculescu。<em>Striking the Balance: GEMM Performance Optimization Across Generations of Ryzen™ AI NPUs</em>。arXiv:2512.13282v1。</p>
+<p>说明：以下内容按原文句序逐句对应翻译整理。 图注、表注、表格说明与参考文献信息尽量保留原貌；作者名、标题、期刊会议信息不翻译。 原文中的 LaTeX 自定义宏已尽量展开为普通可移植写法，数学表达式则保留为可渲染的公式形式。</p>
+<section id="sec-abstract" class="level1">
+<h1>摘要</h1>
+<p>现代深度学习（DL）工作负载对计算和内存的需求不断增长，这推动了从云到边缘的专用硬件设备发展，例如 AMD 的 Ryzen™ AI XDNA™ NPU。 为了提升 DL 工作负载性能，为这些架构优化通用矩阵乘法（GEMM）算法至关重要。 为此，本文提出一种通用的系统化方法，用于跨两代当前 NPU，即 XDNA 和 XDNA2，优化 GEMM 工作负载。 我们的实现利用了 AMD NPU 独特的体系结构特性，并在系统层面解决了关键性能瓶颈。 对不同 GEMM 尺寸的端到端性能评估表明，8 位整数（int8）精度下，XDNA 的吞吐量最高可达 6.76 TOPS，XDNA2 可达 38.05 TOPS。 类似地，对于脑浮点（bf16）精度，我们的 GEMM 实现在 XDNA 上最高可达 3.14 TOPS，在 XDNA2 上最高可达 14.71 TOPS。 这项工作为优化 Ryzen AI NPU 上 GEMM 工作负载的关键性能因素提供了重要洞见。</p>
+</section>
+<section id="sec-introduction" class="level1">
+<h1>引言</h1>
+<p>深度学习（DL）应用的广泛采用，以及其密集的计算需求，推动了专用硬件平台的出现。 虽然云数据中心仍在提供大规模加速能力 <span class="citation" data-cites="NVIDIA_H100 AMD_CDNA_4 TPUv42021 MAIA_microsoft_2024 Meta_second_gen_chip Amazon_Inferentia2"><a href="#ref-NVIDIA_H100" role="doc-biblioref">[1]</a>, <a href="#ref-AMD_CDNA_4" role="doc-biblioref">[2]</a>, <a href="#ref-TPUv42021" role="doc-biblioref">[3]</a>, <a href="#ref-MAIA_microsoft_2024" role="doc-biblioref">[4]</a>, <a href="#ref-Meta_second_gen_chip" role="doc-biblioref">[5]</a>, <a href="#ref-Amazon_Inferentia2" role="doc-biblioref">[6]</a></span>，但能源效率、低延迟以及更强的隐私与安全需求不断上升，这也促使 DL 加速器向边缘侧集成 <span class="citation" data-cites="NPU_arch_MICRO_2024 Versal_AI_Edge_gen_2 Intel_NPU Qualcomm_Hexagon_NPU Nvidia_Jetson_nano"><a href="#ref-NPU_arch_MICRO_2024" role="doc-biblioref">[7]</a>, <a href="#ref-Versal_AI_Edge_gen_2" role="doc-biblioref">[8]</a>, <a href="#ref-Intel_NPU" role="doc-biblioref">[9]</a>, <a href="#ref-Qualcomm_Hexagon_NPU" role="doc-biblioref">[10]</a>, <a href="#ref-Nvidia_Jetson_nano" role="doc-biblioref">[11]</a></span>。 为此，AMD 发布了 Ryzen™ AI 处理器 <span class="citation" data-cites="NPU_arch_MICRO_2024"><a href="#ref-NPU_arch_MICRO_2024" role="doc-biblioref">[7]</a></span>，其中包含多核 CPU、集成 GPU 和一颗新的神经处理单元（NPU）。 这颗 NPU 采用 XDNA™ 架构，是与 x86 处理器集成的专用 DL 加速器。 AMD NPU 是 AI Engine（AIE）架构的演进版本，该架构已用于 Versal™ 自适应 SoC 平台 <span class="citation" data-cites="Versal_Hot_chips_2019 Versal_Hot_chips_2021"><a href="#ref-Versal_Hot_chips_2019" role="doc-biblioref">[12]</a>, <a href="#ref-Versal_Hot_chips_2021" role="doc-biblioref">[13]</a></span> 和 Alveo™ V70 加速卡 <span class="citation" data-cites="AMD_CES_2023"><a href="#ref-AMD_CES_2023" role="doc-biblioref">[14]</a></span>。 NPU 架构利用了现代 DL 工作负载的特性，即编译器可以静态确定大部分控制流。 尤其是，AMD NPU 提供了显式的数据移动架构，这既降低了硬件复杂度，又能实现高性能，同时相比 CPU 和 GPU 等动态调度架构具有更高的能效 <span class="citation" data-cites="NPU_arch_MICRO_2024"><a href="#ref-NPU_arch_MICRO_2024" role="doc-biblioref">[7]</a></span>。</p>
+<p>由于现代 DL 工作负载主要由通用矩阵乘法（GEMM）操作构成，先前已有多项工作尝试在 Versal 平台上设计和优化 GEMM 工作负载 <span class="citation" data-cites="MaxEVA_2023 CHARM_FPGA_2023 AutoMM_DAC_2023 Versal_vs_Stratix_FCCM_2024 Charm_v2_2024 AMA_FPL_2024 ARIES_FPGA_2025 RSN_ISCA_2025 GAMA_FPL_2025"><a href="#ref-MaxEVA_2023" role="doc-biblioref">[15]</a>, <a href="#ref-CHARM_FPGA_2023" role="doc-biblioref">[16]</a>, <a href="#ref-AutoMM_DAC_2023" role="doc-biblioref">[17]</a>, <a href="#ref-Versal_vs_Stratix_FCCM_2024" role="doc-biblioref">[18]</a>, <a href="#ref-Charm_v2_2024" role="doc-biblioref">[19]</a>, <a href="#ref-AMA_FPL_2024" role="doc-biblioref">[20]</a>, <a href="#ref-ARIES_FPGA_2025" role="doc-biblioref">[21]</a>, <a href="#ref-RSN_ISCA_2025" role="doc-biblioref">[22]</a>, <a href="#ref-GAMA_FPL_2025" role="doc-biblioref">[23]</a></span>。 Versal SoC 器件集成了 FPGA 逻辑阵列，它相当于又增加了一层存储层次，并被用于高效利用 GEMM 中的数据复用机会。 此外，FPGA 的灵活性还允许设计自定义分块方案 <span class="citation" data-cites="Versal_vs_Stratix_FCCM_2024 CHARM_FPGA_2023"><a href="#ref-CHARM_FPGA_2023" role="doc-biblioref">[16]</a>, <a href="#ref-Versal_vs_Stratix_FCCM_2024" role="doc-biblioref">[18]</a></span> 和定制的数据布局变换 <span class="citation" data-cites="RSN_ISCA_2025"><a href="#ref-RSN_ISCA_2025" role="doc-biblioref">[22]</a></span>。</p>
+<p>在本文中，我们对 Ryzen AI NPU 上的 GEMM 工作负载进行了全面研究。 由于没有 FPGA 逻辑阵列，与 Versal 器件相比，在 AMD NPU 上进行 GEMM 映射和优化是一个本质不同的问题。 这表明，针对 NPU 需要一套单独的方法，以应对其带来的若干新设计挑战。 在识别到这一重要研究空白后，我们提出一个统一的系统化框架，以在当前两代 NPU，即 XDNA 和 XDNA2 上最大化 GEMM 性能。 我们重点关注端到端 GEMM 性能，并提出一种新的流程来实现系统级优化。 在该框架中，矩阵在主存（DRAM）中保持为常规顺序（<em>行主序</em>和<em>列主序</em>）。 这既便于与 GGML 等 DL 张量库集成 <span class="citation" data-cites="GGML_github"><a href="#ref-GGML_github" role="doc-biblioref">[24]</a></span>，也使得实现高性能 GEMM 库成为可能，类似于 GPU 上的做法 <span class="citation" data-cites="cublas_doc cutlass_doc hipBLAS_doc rocBLAS_doc"><a href="#ref-cublas_doc" role="doc-biblioref">[25]</a>, <a href="#ref-cutlass_doc" role="doc-biblioref">[26]</a>, <a href="#ref-hipBLAS_doc" role="doc-biblioref">[27]</a>, <a href="#ref-rocBLAS_doc" role="doc-biblioref">[28]</a></span>。 此外，我们的 GEMM 设计能够高效利用 NPU 的若干体系结构特性（例如按需张量变换），同时也通过精细设计 NPU 与 DRAM 之间的数据移动来解决关键性能瓶颈。 本文的主要贡献如下。</p>
+<ul>
+<li><p>一种通过解析建模与硬件剖析相结合的方法，在 Ryzen AI NPU 上系统优化 GEMM 工作负载。 该方法在适用范围上是通用的；本文将其应用于当前两代 NPU。 观察到计算与片外内存之间存在<em>反比</em>关系后，我们的方法以寻找<em>平衡</em>点作为提升性能的核心。</p></li>
+<li><p>一种精细的 GEMM 实现，它能够提供足够的连续 DRAM 访问，从而最大化性能。 该设计利用了整个 NPU 层级上的多维张量寻址特性，将矩阵转换为 NPU 核心所期望的分块布局，使矩阵能够在 DRAM 中保持标准布局（即<em>行主序</em>和<em>列主序</em>），而无需显式预分块。</p></li>
+<li><p>一项在两台迷你主机上的完整实验评估，每台主机都集成了不同代的 NPU，结果显示 GEMM 性能在 int8 下最高可达 6.76 TOPS（XDNA）和 38.05 TOPS（XDNA2），在 brain floating-point（bf16）下最高可达 3.14 TOPS（XDNA）和 14.71 TOPS（XDNA2）。 此外，我们还给出了 roofline 扫描，以便从数百种 GEMM 尺寸出发，对每种数据类型形成整体性能视图。</p></li>
+<li><p>我们给出了关于 AMD NPU 架构上 GEMM 优化关键性能考量的核心洞见。</p></li>
+</ul>
+</section>
+<section id="sec-related-work" class="level1">
+<h1>相关工作</h1>
+<p>鉴于 GEMM 在 DL 中的重要性，已有多项工作提出了旨在优化 Versal 器件上 GEMM 工作负载的框架。 部分工作 <span class="citation" data-cites="CHARM_FPGA_2023 AutoMM_DAC_2023 Charm_v2_2024 ARIES_FPGA_2025 RSN_ISCA_2025"><a href="#ref-CHARM_FPGA_2023" role="doc-biblioref">[16]</a>, <a href="#ref-AutoMM_DAC_2023" role="doc-biblioref">[17]</a>, <a href="#ref-Charm_v2_2024" role="doc-biblioref">[19]</a>, <a href="#ref-ARIES_FPGA_2025" role="doc-biblioref">[21]</a>, <a href="#ref-RSN_ISCA_2025" role="doc-biblioref">[22]</a></span> 研究了包括 DRAM 在内的端到端 GEMM 性能，而另一些工作 <span class="citation" data-cites="MaxEVA_2023 Versal_vs_Stratix_FCCM_2024 AMA_FPL_2024 GAMA_FPL_2025"><a href="#ref-MaxEVA_2023" role="doc-biblioref">[15]</a>, <a href="#ref-Versal_vs_Stratix_FCCM_2024" role="doc-biblioref">[18]</a>, <a href="#ref-AMA_FPL_2024" role="doc-biblioref">[20]</a>, <a href="#ref-GAMA_FPL_2025" role="doc-biblioref">[23]</a></span> 则只关注 AIE 计算部分（即不考虑片外因素）。 这些工作有一个共同的设计选择，那就是沿着归约维度对 GEMM 进行分割，这一做法由 AIE-FPGA 接口中有限的端口数所驱动。 例如，MaxEVA <span class="citation" data-cites="MaxEVA_2023 Versal_vs_Stratix_FCCM_2024"><a href="#ref-MaxEVA_2023" role="doc-biblioref">[15]</a>, <a href="#ref-Versal_vs_Stratix_FCCM_2024" role="doc-biblioref">[18]</a></span> 使用 20% 的 AIE 核心执行加法树归约，这将 GEMM 的计算效率限制在 80%。 类似地，GAMA <span class="citation" data-cites="GAMA_FPL_2025"><a href="#ref-GAMA_FPL_2025" role="doc-biblioref">[23]</a></span> 利用 cascade 接口在 AIE 核心之间传递部分累加结果，并观察到由于 cascade 停顿导致平均性能下降 7%。 相比之下，正如我们在本文中展示的，AMD NPU 上的所有核心都可以<em>独立</em>执行 GEMM 计算，从而实现最高的计算效率。</p>
+<p>一些工作也探索了在 AMD NPU 上映射 GEMM。 在 <span class="citation" data-cites="roesti2025unlocking"><a href="#ref-roesti2025unlocking" role="doc-biblioref">[29]</a></span> 中，作者研究了在 Ryzen AI 处理器上微调 GPT-2 的场景。 具体而言，他们将耗时的 GEMM 计算卸载到 XDNA 上，相比仅使用 CPU 的实现获得了 2.8× 的加速。 此外，他们使用了一个与 <span class="citation" data-cites="GEMM_example_mlir_aie"><a href="#ref-GEMM_example_mlir_aie" role="doc-biblioref">[30]</a></span> 中未优化编程示例相似的 GEMM 实现。 在 <span class="citation" data-cites="fang2025dato_paper"><a href="#ref-fang2025dato_paper" role="doc-biblioref">[31]</a></span> 中，作者提出了一种面向数据流加速器的任务式编程模型，并展示了一个在 XDNA 上的 GEMM 实现。 特别地，他们在 int8 和 bf16 数据类型上分别达到最高 5.04 TOPS 和 1.95 TOPS，这与 <span class="citation" data-cites="GEMM_example_mlir_aie"><a href="#ref-GEMM_example_mlir_aie" role="doc-biblioref">[30]</a></span> 中的性能非常接近。 相比之下，我们优化后的 GEMM 设计在 XDNA 上分别实现了最高 6.76 TOPS（高 34%）和 3.14 TOPS（高 62%），适用于 int8 和 bf16。</p>
+<p>相关工作还包括其他负载。 <span class="citation" data-cites="ARIES_FPGA_2025"><a href="#ref-ARIES_FPGA_2025" role="doc-biblioref">[21]</a></span> 的作者将一个 ResNet 层映射到 XDNA 上，但只使用了 XDNA 核心的 20%。 在 <span class="citation" data-cites="Zen_attention_AMD_paper"><a href="#ref-Zen_attention_AMD_paper" role="doc-biblioref">[32]</a></span> 中，作者提出了一个用于 AMD NPU 上动态注意力折叠的编译器框架。 此外，<span class="citation" data-cites="karami2025exploringdynamicschedulingspace"><a href="#ref-karami2025exploringdynamicschedulingspace" role="doc-biblioref">[33]</a></span> 对 Ryzen AI 处理器上的生成式 AI 工作负载进行了特征分析。 最后，还有一些工作利用 NPU 执行 stencil 应用 <span class="citation" data-cites="Stensil_NPU_FPGA2025"><a href="#ref-Stensil_NPU_FPGA2025" role="doc-biblioref">[34]</a></span>、加速 Fortran 内建函数 <span class="citation" data-cites="Fortran_instrinsics_FPGA2025"><a href="#ref-Fortran_instrinsics_FPGA2025" role="doc-biblioref">[35]</a></span>，以及实现快速傅里叶变换（FFT）的一个变体 <span class="citation" data-cites="Variant_FFT_NPU_2024"><a href="#ref-Variant_FFT_NPU_2024" role="doc-biblioref">[36]</a></span>。</p>
+</section>
+<section id="sec-npu-architecture" class="level1">
+<h1>NPU 架构、特性与编程</h1>
+<section id="sec-npu-architecture-overview" class="level2">
+<h2 class="anchored" data-anchor-id="sec-npu-architecture-overview">NPU 架构概览</h2>
+<div id="fig-npu-architecture" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-npu-architecture-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/npu-architecture.svg" class="img-fluid figure-img" style="width:74.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-npu-architecture-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;1: Ryzen AI NPU 的体系结构。
+</figcaption>
+</figure>
+</div>
+<p>XDNA 和 XDNA2 的体系结构如图 <a href="#fig-npu-architecture" class="quarto-xref">图&nbsp;1</a> 所示。 NPU 是一种模块化且可扩展的架构，由一个由同质计算块（CompTile）组成的二维阵列构成 <span class="citation" data-cites="NPU_arch_MICRO_2024 AMD_AIE_ML_architecture_manual"><a href="#ref-NPU_arch_MICRO_2024" role="doc-biblioref">[7]</a>, <a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a></span>。 CompTile 包含在本地内存（L1）上运行的处理核心。 NPU 核心是一个超长指令字（VLIW）处理器，带有单指令多数据（SIMD）数据通路，同时支持定点与浮点运算。 NPU 还通过内存块（MemTile）引入了第二层片上存储（L2）。 这些 MemTile 以单行方式排列，位于 CompTile 阵列下方（见图 <a href="#fig-npu-architecture" class="quarto-xref">图&nbsp;1</a>）。 最后，NPU 还包含最下方一行接口块（ShimTile），用于与 DRAM 通信。</p>
+<p>存储层次之间的数据移动由直接内存访问（DMA）引擎完成，这些引擎集成在所有 NPU tile 中。 DMA 通过可配置互连（switch）在 NPU tile 之间移动数据，这些 switch 在图 <a href="#fig-npu-architecture" class="quarto-xref">图&nbsp;1</a> 中以黑色方块表示。 ShimTile 的 DMA 引擎通过 NPU 片上网络（NoC）和 Ryzen AI 芯片的 SoC 级互连，对 DRAM 进行读写 <span class="citation" data-cites="NPU_arch_MICRO_2024 NPU_HOT_CHIPS_2023"><a href="#ref-NPU_arch_MICRO_2024" role="doc-biblioref">[7]</a>, <a href="#ref-NPU_HOT_CHIPS_2023" role="doc-biblioref">[38]</a></span>。 任务调度和数据移动由片上命令处理器统一编排。 该处理器在运行时控制 ShimTile 与 DRAM 之间的数据移动，使 NPU 能够专注于主计算。 命令处理器还负责对 NPU 计算内核、switch 和 DMA 传输进行（重新）配置。</p>
+<p>XDNA 共有 20 个计算核心，组织为 4×5 的 CompTile 阵列（行×列）<span class="citation" data-cites="NPU_arch_MICRO_2024"><a href="#ref-NPU_arch_MICRO_2024" role="doc-biblioref">[7]</a></span>，而 XDNA2 则包含 32 个核心，组织为 4×8 阵列 <span class="citation" data-cites="IRON_MICRO_2024"><a href="#ref-IRON_MICRO_2024" role="doc-biblioref">[39]</a></span>。 两代 NPU 的每个 L1 tile 都有 64 KB 存储，每个 L2 tile 都有 512 KB 存储 <span class="citation" data-cites="NPU_arch_MICRO_2024 AMD_AIE_ML_architecture_manual Zen_attention_AMD_paper"><a href="#ref-NPU_arch_MICRO_2024" role="doc-biblioref">[7]</a>, <a href="#ref-Zen_attention_AMD_paper" role="doc-biblioref">[32]</a>, <a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a></span>。 XDNA 和 XDNA2 原生支持 int8、int16 和 bf16 精度。 此外，XDNA2 还在硬件上支持 block floating-point（bfp16）数据类型 <span class="citation" data-cites="AMD_AIE_API_user_guide_2025.1"><a href="#ref-AMD_AIE_API_user_guide_2025.1" role="doc-biblioref">[40]</a></span>，其中一组 8 个数值共享一个公共指数 <span class="citation" data-cites="AMD_quark_bfp16 Microsoft_block_floating_point_NEURIPS_2020"><a href="#ref-AMD_quark_bfp16" role="doc-biblioref">[41]</a>, <a href="#ref-Microsoft_block_floating_point_NEURIPS_2020" role="doc-biblioref">[42]</a></span>。 XDNA2 提供了更高的理论峰值计算能力，在最高频率下可达 50 TOPS <span class="citation" data-cites="AMD_CES IRON_MICRO_2024"><a href="#ref-IRON_MICRO_2024" role="doc-biblioref">[39]</a>, <a href="#ref-AMD_CES" role="doc-biblioref">[43]</a></span>，而 XDNA 的理论峰值为 10 TOPS <span class="citation" data-cites="NPU_arch_MICRO_2024"><a href="#ref-NPU_arch_MICRO_2024" role="doc-biblioref">[7]</a></span>。</p>
+</section>
+<section id="sec-data-movement-architecture" class="level2">
+<h2 class="anchored" data-anchor-id="sec-data-movement-architecture">数据移动架构</h2>
+<p>Ryzen AI NPU 具有专用的数据移动架构，它允许程序员显式配置存储层次各级之间的数据传输。 数据从源 DMA 通道移动到目标 DMA 通道时，会通过基于电路交换或分组交换的流，并使用其间一个或多个可配置 switch。 源通道是 memory-map to stream（MM2S）通道，它从内存读取数据并把数据推送到流式 switch。 相反，目标通道从流式 switch 接收数据，并把数据写回 memory-mapped 空间（S2MM）。 每个 CompTile 和 ShimTile 各包含两个 MM2S 和两个 S2MM DMA 通道，而 MemTile 则包含六个 MM2S 和六个 S2MM 通道 <span class="citation" data-cites="AMD_AIE_ML_architecture_manual"><a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a></span>。</p>
+<p>图 <a href="#fig-data-movement-matrix-a" class="quarto-xref">图&nbsp;2</a> 展示了输入缓冲区 A 从 DRAM 到 L2 MemTile，再到 L1 的数据移动过程，最终由对应核心使用。 类似地，图 <a href="#fig-data-movement-matrix-c" class="quarto-xref">图&nbsp;3</a> 展示了输出缓冲区从 L1 到 L2，再到 DRAM 的数据移动过程。 这些数据缓冲区与对应模块（例如 NPU 核心或 DRAM）之间的同步由硬件锁单元管理 <span class="citation" data-cites="AMD_AIE_ML_architecture_manual NPU_arch_MICRO_2024"><a href="#ref-NPU_arch_MICRO_2024" role="doc-biblioref">[7]</a>, <a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a></span>。</p>
+<p>DMA 独立运行，并且可与核心上的计算并行执行。 它们通过配置一系列 buffer descriptor（BD）进行编程。 BD 包含与特定 DMA 传输相关的全部必要信息，例如要读写的数据量、涉及的内存地址，以及在每次传输前后需要获取或释放的锁 <span class="citation" data-cites="AMD_AIE_ML_architecture_manual AMD_AIE_ML_kernel_guide"><a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a>, <a href="#ref-AMD_AIE_ML_kernel_guide" role="doc-biblioref">[44]</a></span>。 BD 同时支持线性内存寻址和多维地址生成，从而支持 DL 张量所需的按需数据布局变换。 CompTile 和 ShimTile 各支持 3D 张量寻址，而 MemTile 则支持 4D 寻址。 这一重要的 DMA 寻址特性被我们的 GEMM 实现广泛利用，并贯穿 NPU 架构中的所有 tile（参见第 <a href="#sec-dma-transformations" class="quarto-xref">小节&nbsp;5.4</a> 节），从而使张量能够以常规顺序存储在 DRAM 中。</p>
+<div class="columns">
+<div class="column" style="width:50%;">
+<div id="fig-data-movement-matrix-a" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-data-movement-matrix-a-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/data-movement-architecture-matrix-a.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-data-movement-matrix-a-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;2: 输入缓冲区 A 在存储层次中的数据移动。
+</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div id="fig-data-movement-matrix-c" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-data-movement-matrix-c-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/data-movement-architecture-matrix-c.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-data-movement-matrix-c-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;3: 输出缓冲区 C 在存储层次中的数据移动。
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>Ryzen AI NPU 中的存储层次数据移动如上两图所示：左图对应输入缓冲区 A，右图对应输出缓冲区 C。</p>
+</section>
+<section id="sec-programming-tools" class="level2">
+<h2 class="anchored" data-anchor-id="sec-programming-tools">编程工具</h2>
+<p>在本文中，我们使用 IRON，这是一个面向 Ryzen AI NPU 的开源近硬件编程工具链 <span class="citation" data-cites="mlir_aie_github_repo Erika_IRON_FCCM_2025"><a href="#ref-mlir_aie_github_repo" role="doc-biblioref">[45]</a>, <a href="#ref-Erika_IRON_FCCM_2025" role="doc-biblioref">[46]</a></span>。 作为一个低层工具包，IRON 允许对 NPU 的体系结构属性进行细粒度控制，例如显式数据移动和 DMA 所支持的复杂访问模式，同时又提供了便捷的编程抽象。 这些特性使 IRON 成为 GEMM 实现的理想选择，因为性能取决于对 NPU 架构特性的显式控制。</p>
+<p>IRON 基于一个名为 “AIE” 的多级中间表示（MLIR）方言 <span class="citation" data-cites="mlir_paper"><a href="#ref-mlir_paper" role="doc-biblioref">[47]</a></span>，并通过 Python 绑定 <span class="citation" data-cites="mlir_python_bindings"><a href="#ref-mlir_python_bindings" role="doc-biblioref">[48]</a></span> 为该方言提供了更易用的接口。 因此，可以使用 Python 脚本来生成描述 NPU 层次间数据移动以及运行于核心上的计算内核的代码。 单核计算内核可以用高级 C++ 编写 <span class="citation" data-cites="AMD_AIE_API_user_guide_2025.1"><a href="#ref-AMD_AIE_API_user_guide_2025.1" role="doc-biblioref">[40]</a></span>，也可以用低层 SIMD intrinsic 编写 <span class="citation" data-cites="AIE_intrinsics"><a href="#ref-AIE_intrinsics" role="doc-biblioref">[49]</a></span>。 最后，单核内核有两种可选编译方式：专有的 <code>xchesscc</code> 编译器 <span class="citation" data-cites="AMD_AIE_ML_kernel_guide mlir_aie_github_repo"><a href="#ref-AMD_AIE_ML_kernel_guide" role="doc-biblioref">[44]</a>, <a href="#ref-mlir_aie_github_repo" role="doc-biblioref">[45]</a></span>，以及开源的 <code>Peano</code> 工具 <span class="citation" data-cites="peano_github_repo"><a href="#ref-peano_github_repo" role="doc-biblioref">[50]</a></span>。</p>
+</section>
+</section>
+<section id="sec-gemm-design" class="level1">
+<h1>GEMM 设计与优化</h1>
+<section id="sec-gemm-tiling-mapping" class="level2">
+<h2 class="anchored" data-anchor-id="sec-gemm-tiling-mapping">GEMM 多级分块与映射</h2>
+<div id="fig-gemm-tiling-mapping" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-gemm-tiling-mapping-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/gemm-tiling-and-mapping.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gemm-tiling-mapping-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;4: 提出的 GEMM 多级分块方案（a），以及 XDNA（b）和 XDNA2（c）上的 GEMM 映射策略。
+</figcaption>
+</figure>
+</div>
+<p>图 <a href="#fig-gemm-tiling-mapping" class="quarto-xref">图&nbsp;4</a> 展示了我们用于划分输入矩阵和输出矩阵的多级分块方案。 最内层（第一层）分块由单核 GEMM 内核所支持的 AIE API 库形状决定 <span class="citation" data-cites="AMD_AIE_API_user_guide_2025.1"><a href="#ref-AMD_AIE_API_user_guide_2025.1" role="doc-biblioref">[40]</a></span>，并通过参数 <span class="math inline">\(r \times s \times t\)</span> 表示。 AIE API 为每种受支持的精度提供了多种优化模式，并支持跨 NPU 代际的可移植性。 第二层分块由驻留在本地 L1 内存中的 GEMM 内核决定，记作 <span class="math inline">\(m_\text{ct} \times k_\text{ct} \times n_\text{ct}\)</span>。 由于 NPU 是多核架构，我们把 GEMM 划分到多个核心上，以利用空间层面的并行性并最大化性能。 第三层分块实现了这种划分，它对应于整个 NPU 阵列上运行的 GEMM 尺寸（参数和映射在下一节中说明）。 最后，最外层（第四层）分块由输入矩阵 <span class="math inline">\(A\)</span>（通常是 <em>activations</em>）、矩阵 <span class="math inline">\(B\)</span>（通常是 <em>weights</em>）以及输出矩阵 <span class="math inline">\(C\)</span> 的最终 GEMM 尺寸决定，记作 <span class="math inline">\(M \times K \times N\)</span>。</p>
+</section>
+<section id="sec-gemm-mapping-strategy" class="level2">
+<h2 class="anchored" data-anchor-id="sec-gemm-mapping-strategy">NPU 上的 GEMM 映射策略</h2>
+<p>我们的映射策略是在 <span class="math inline">\(M\)</span> 和 <span class="math inline">\(N\)</span> 维度上以 <em>空间</em> 方式并行化 GEMM，而在 <span class="math inline">\(K\)</span> 维度上的归约则在 <em>时间</em> 维度完成。 通过这种方式，所有 NPU 核心都在不同数据上执行<em>相同</em>的 GEMM 计算，并且彼此<em>独立</em>运行。 这会带来最高性能，因为核心之间不会发生数据通信；这与 Versal 器件不同，后者通常会把归约维度分配给多个核心 <span class="citation" data-cites="MaxEVA_2023 GAMA_FPL_2025">例如 <a href="#ref-MaxEVA_2023" role="doc-biblioref">[15]</a>, <a href="#ref-GAMA_FPL_2025" role="doc-biblioref">[23]</a></span>。 借助 NPU 架构中的广播特性，我们能够获得空间并行化，并利用 GEMM 算法内在的数据复用。 这种并行化由 <span class="math inline">\(M\)</span> 和 <span class="math inline">\(N\)</span> 维度上的单核 tile 数来表示，分别由参数 <span class="math inline">\(m_\text{rows}\)</span> 和 <span class="math inline">\(n_\text{cols}\)</span> 定义（见图 <a href="#fig-gemm-tiling-mapping" class="quarto-xref">图&nbsp;4</a>）。 在本文中，我们把参数 <span class="math inline">\(m_\text{rows}\)</span> 和 <span class="math inline">\(n_\text{cols}\)</span> 直接映射为两种 NPU 架构中阵列的行数和列数。 具体而言，我们把每个输入 <span class="math inline">\(A\)</span> tile 广播到 NPU 阵列中的一整行上（例如，XDNA 和 XDNA2 分别对应图 <a href="#fig-gemm-tiling-mapping" class="quarto-xref">图&nbsp;4</a> 中的 <span class="math inline">\(A0\)</span>）。 类似地，每个 <span class="math inline">\(B\)</span> tile 会广播到一整列 NPU 核心上。 需要注意的是，由于 XDNA 的最后一列中没有 ShimTile，我们选择把该架构上的 GEMM 映射到 4 行 4 列，类似于 <span class="citation" data-cites="GEMM_example_mlir_aie roesti2025unlocking fang2025dato_paper"><a href="#ref-roesti2025unlocking" role="doc-biblioref">[29]</a>, <a href="#ref-GEMM_example_mlir_aie" role="doc-biblioref">[30]</a>, <a href="#ref-fang2025dato_paper" role="doc-biblioref">[31]</a></span>。 这使得我们可以实现一个对称的 4×4（<span class="math inline">\(m_\text{rows} \times n_\text{cols}\)</span>）GEMM，如图 <a href="#fig-gemm-tiling-mapping" class="quarto-xref">图&nbsp;4</a> 的 (b) 所示。 对于 XDNA2，我们利用了完整的 4×8 阵列，因此得到的是一个非对称映射（图 <a href="#fig-gemm-tiling-mapping" class="quarto-xref">图&nbsp;4</a> 的 (c)）。</p>
+<p>每个核心执行一个尺寸为 <span class="math inline">\(m_\text{ct} \times k_\text{ct} \times n_\text{ct}\)</span> 的 GEMM。 为了处理对 <span class="math inline">\(K\)</span> 的归约，单核内核还会加载之前的部分结果，尺寸为 <span class="math inline">\(m_\text{ct} \times n_\text{ct}\)</span>，执行累加，并将更新后的结果写回输出 tile。 例如，图 <a href="#fig-gemm-tiling-mapping" class="quarto-xref">图&nbsp;4</a> (b) 中左上角核心会按顺序加载 <span class="math inline">\(A0\)</span> 与 <span class="math inline">\(B0\)</span>、<span class="math inline">\(A0'\)</span> 与 <span class="math inline">\(B0'\)</span> 等 tile，以完成归约。 这样一来，输出 <span class="math inline">\(C\)</span> tile 就保持在每个核心的 L1 内存中不动，也就是输出驻留（output stationary）映射。 当所有 tile 完成累加（总共 <span class="math inline">\(K/k_\text{ct}\)</span> 个 tile）后，输出 tile 会被传送到 L2 MemTile，最终再传到 DRAM。 MemTile 的设计会在第 <a href="#sec-memtile-design" class="quarto-xref">小节&nbsp;5.3</a> 节中详细说明。 随后，一个快速的向量化内核会把输出 <span class="math inline">\(C\)</span> tile 初始化为零，为下一轮 GEMM 分块的累加做准备。</p>
+<p>为了让 GEMM 计算与矩阵 tile 的 DMA 传输重叠，我们在输入 tile <span class="math inline">\(A\)</span> 和 <span class="math inline">\(B\)</span> 上同时采用 L1 与 L2 的双缓冲。 然而，输出 <span class="math inline">\(C\)</span> tile 在每个核心上只保留单缓冲。 由于输出 tile 只会在完整归约完成后传输一次，当 <span class="math inline">\(K/k_\text{ct}\)</span> 足够大时，单缓冲输出传输带来的少量额外延迟就会变得可以忽略。 与此同时，这一设计选择释放了宝贵的 L1 内存，从而使分块参数优化具有更高的灵活性。 最终，这种额外内存所支持的更大 tile 尺寸，会在一般情况下带来更高的端到端 GEMM 性能（见第 <a href="#sec-single-output-buffer" class="quarto-xref">小节&nbsp;6.3.4.2</a> 节）。</p>
+</section>
+<section id="sec-memtile-design" class="level2">
+<h2 class="anchored" data-anchor-id="sec-memtile-design">MemTile 设计</h2>
+<p>输入 tile 会暂存在 L2 MemTile 中，然后再广播给每个 NPU 核心。 需要注意的是，我们会沿着归约维度 <span class="math inline">\(K\)</span> 在 MemTile 中加载多个输入 tile（例如，图 <a href="#fig-gemm-tiling-mapping" class="quarto-xref">图&nbsp;4</a> 的 (b) 和 (c) 中的 <span class="math inline">\(A0\)</span> 与 <span class="math inline">\(A0'\)</span>）。 这是映射中的一个重要方面。 加载多个 tile 让我们能够从 DRAM 中访问更大范围的<em>连续</em>数据，而 DRAM 中的矩阵是按常规顺序（<em>行主序</em>和<em>列主序</em>）存放的。 这种长连续读取会提高 DRAM 带宽（BW）利用率，而这对于在系统层面最大化 GEMM 性能至关重要。 在本文中，我们让矩阵 <span class="math inline">\(A\)</span> 和 <span class="math inline">\(C\)</span> 保持 <em>行主序</em>，而矩阵 <span class="math inline">\(B\)</span> 则可以是 <em>行主序</em> 或 <em>列主序</em>。 为此，我们引入另一个参数 <span class="math inline">\(k_\text{mt}\)</span>，用于指定加载到 L2 中的 tile 大小。 具体而言，对于矩阵 <span class="math inline">\(A\)</span>，每个 L2 MemTile 会加载一个尺寸为 <span class="math inline">\(m_\text{ct} \times k_\text{mt}\)</span> 的 tile。 类似地，当矩阵 <span class="math inline">\(B\)</span> 为 <em>列主序</em> 时，每个 L2 MemTile 会加载一个尺寸为 <span class="math inline">\(k_\text{mt} \times n_\text{ct}\)</span> 的 tile。 把矩阵 <span class="math inline">\(A\)</span> 存为 <em>行主序</em>、矩阵 <span class="math inline">\(B\)</span> 存为 <em>列主序</em>，可以为这两个矩阵提供足够的连续 DRAM 访问，从而带来更高的 GEMM 性能（见第 <a href="#sec-gemm-performance-sweeps" class="quarto-xref">小节&nbsp;6.3.3</a> 节）。 不过，当 <span class="math inline">\(B\)</span> 为 <em>行主序</em> 时，MemTile 会加载与 CompTile 相同的 tile（即 <span class="math inline">\(k_\text{ct} \times n_\text{ct}\)</span>），因为连续数据可以沿着 <span class="math inline">\(n_\text{ct}\)</span> 维度访问。</p>
+<p>由于 XDNA 的 4×4 对称设计，每个 MemTile 会持有相同数量的输入 tile，如图 <a href="#fig-gemm-tiling-mapping" class="quarto-xref">图&nbsp;4</a> 的 (b) 所示。 具体而言，每个 MemTile 会在其所在列内广播 <span class="math inline">\(B\)</span> tile。 <span class="math inline">\(A\)</span> tile 则跨四行广播；我们把它们按常规方式映射到四个 MemTile：第 0 列中的 MemTile 持有 <span class="math inline">\(A0\)</span>（它会广播到第 0 行），第 1 列中的 MemTile 持有 <span class="math inline">\(A1\)</span>（它会广播到第 1 行），依此类推。 相比之下，对于 XDNA2，我们由于其 4×8 的非对称设计，把四个 <span class="math inline">\(A\)</span> tile 交错地映射到偶数列上的八个 MemTile 中。 <span class="math inline">\(B\)</span> 的映射方式保持不变。 在这种设计下，偶数列上的 MemTile 比奇数列持有更多 tile，如图 <a href="#fig-gemm-tiling-mapping" class="quarto-xref">图&nbsp;4</a> 的 <em>逻辑</em> 视图所示。 这种特殊映射有助于 IRON 利用 NPU 架构中直接访问相邻 MemTile 内存的特性 <span class="citation" data-cites="AMD_AIE_ML_architecture_manual"><a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a></span>。 因此，当缓冲区大小超过某个 MemTile 的容量时，IRON 会把缓冲区<em>物理上</em>分配到邻近的 MemTile。</p>
+<p>需要注意的是，每一列会把四个输出 <span class="math inline">\(C\)</span> tile 聚合到一个 MemTile 中（图 <a href="#fig-gemm-tiling-mapping" class="quarto-xref">图&nbsp;4</a> 的 (b) 和 (c)）。 这是因为四个 <span class="math inline">\(C\)</span> tile 需要同时传输，而 ShimTile 只提供两个 S2MM 通道。 因此，我们利用每个 MemTile 提供的六个 S2MM 通道 <span class="citation" data-cites="AMD_AIE_ML_architecture_manual"><a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a></span>，先临时存放这四个输出 tile，再通过 ShimTile 将它们传到 DRAM。</p>
+<p>我们把<em>原生</em> GEMM 尺寸定义为 <span class="math inline">\((m_\text{ct} \cdot m_\text{rows}) \times k_\text{mt} \times (n_\text{ct} \cdot n_\text{cols})\)</span>。 这对应于能够在整个 NPU 阵列上原生运行、同时还能保证高性能的 GEMM 尺寸。 此外，需要注意的是，尽管我们任意地把矩阵 <span class="math inline">\(A\)</span> 映射到行方向、把矩阵 <span class="math inline">\(B\)</span> 映射到列方向，反向映射同样可行，因此在 <span class="math inline">\(M\)</span> 和 <span class="math inline">\(N\)</span> 维度上存在对称解。 最后，虽然也可以采用输入驻留映射，但它并不适合高效支持任意 GEMM 尺寸。 具体来说，部分结果需要临时存放在 MemTile 中，随后再重新加载到 CompTile，以便利用 GEMM 中的数据复用。 这会需要三个输入通道才能高效执行 GEMM，而 CompTile 只有两个输入通道。</p>
+</section>
+<section id="sec-dma-transformations" class="level2">
+<h2 class="anchored" data-anchor-id="sec-dma-transformations">按需张量变换</h2>
+<p>我们广泛利用 DMA 的多维寻址特性，把数据重组为 NPU 核心所需的分块布局。 这使得矩阵能够以标准顺序存放在 DRAM 中（<em>行主序</em>和<em>列主序</em>）。 单核 GEMM 内核假定矩阵已经预先分块 <span class="citation" data-cites="AMD_AIE_API_user_guide_2025.1"><a href="#ref-AMD_AIE_API_user_guide_2025.1" role="doc-biblioref">[40]</a></span>。 具体而言，每个核心上运行的内核期望接收 <span class="math inline">\(r \times s \times t\)</span> 大小的 tile，而且 tile <em>内部</em> 与 tile <em>之间</em> 的数据都应为 <em>行主序</em>，如图 <a href="#fig-dma-transformations-mat-a" class="quarto-xref">图&nbsp;5</a> 上半部分所示，以矩阵 <span class="math inline">\(A\)</span> 为例。 前述跨多个核心分布 tile 的方式，加上连续 DRAM 访问的要求，会带来多次数据布局变换，下面将对此进行说明。</p>
+<div id="fig-dma-transformations-mat-a" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-dma-transformations-mat-a-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/matrix-a-dma-transformations.svg" class="img-fluid figure-img" style="width:70.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-dma-transformations-mat-a-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;5: A 矩阵的按需 DMA 变换。
+</figcaption>
+</figure>
+</div>
+<p>当矩阵从 DRAM 传送到 NPU 时，DMA 会根据每个 NPU tile 的寻址能力执行一系列变换。 图 <a href="#fig-dma-transformations-mat-a" class="quarto-xref">图&nbsp;5</a> 展示了与矩阵 <span class="math inline">\(A\)</span> tile 传输相关的各 DMA 通道的变换过程（DMA 通道见图 <a href="#fig-data-movement-matrix-a" class="quarto-xref">图&nbsp;2</a>）。 起初，ShimTile 的 MM2S 通道会从 DRAM 中读取一个尺寸为 <span class="math inline">\(m_\text{ct} \times K\)</span> 的 tile。 由于 ShimTile 支持 3D 寻址，这个 <em>行主序</em> 的 <span class="math inline">\(m_\text{ct} \times K\)</span> tile 会通过 MM2S 通道被转换为多个更小的 <span class="math inline">\(m_\text{ct} \times k_\text{mt}\)</span> tile（参数为 <span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{mt}\)</span>、<span class="math inline">\(K\)</span>）。 在每个 <span class="math inline">\(m_\text{ct} \times k_\text{mt}\)</span> tile 存入 MemTile 之前，S2MM MemTile 通道会再进行一次 3D 变换，把它分割成若干个 <span class="math inline">\(m_\text{ct} \times k_\text{ct}\)</span> tile（参数为 <span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{ct}\)</span>、<span class="math inline">\(k_\text{mt}\)</span>）。</p>
+<p>每个 MemTile 持有一个 <span class="math inline">\(m_\text{ct} \times k_\text{mt}\)</span> tile，并将其按一系列更小的 <span class="math inline">\(m_\text{ct} \times k_\text{ct}\)</span> tile 顺序传送到对应的 CompTile。 由于 CompTile 期望的是预分块数据，因此这些更小 tile 的数据布局也需要变换。 要描述这次传输，需要五个参数，即 <span class="math inline">\(r\)</span>、<span class="math inline">\(s\)</span>、<span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{ct}\)</span> 和 <span class="math inline">\(k_\text{mt}\)</span>。 然而，MemTile 只支持 4D 寻址。 为绕过这一限制，我们把这个变换拆成两个独立的变换，分别利用 MM2S MemTile（输出）通道和 S2MM CompTile（输入）通道中的硬件数据布局变换能力。 首先，MM2S MemTile 通道把数据分割成若干个 <span class="math inline">\(m_\text{ct} \times s\)</span> tile，如图 <a href="#fig-dma-transformations-mat-a" class="quarto-xref">图&nbsp;5</a> 所示（参数为 <span class="math inline">\(s\)</span>、<span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{ct}\)</span>、<span class="math inline">\(k_\text{mt}\)</span>）。 这使得 <span class="math inline">\(r \times s\)</span> tile 内的地址能够线性化，从而让随后在 S2MM CompTile 通道中进行的 3D 变换能够把数据重组为所需布局（<em>有效</em>参数为 <span class="math inline">\(r \cdot s\)</span>、<span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{ct}\)</span>）。</p>
+<p>DMA 中的地址生成以 32 位粒度进行 <span class="citation" data-cites="AMD_AIE_ML_architecture_manual AMD_AIE_ML_kernel_guide"><a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a>, <a href="#ref-AMD_AIE_ML_kernel_guide" role="doc-biblioref">[44]</a></span>。 DMA 本身无法对更小精度的数据类型执行布局变换（例如 int8 或 bf16 数据类型中的单个元素）。 不过，可以利用运行在 AIE 核心上的 shuffle 指令来支持这种操作，并实现细粒度的数据置换。 在我们的应用中，这在矩阵 <span class="math inline">\(B\)</span> 以 <em>列主序</em> 存于 DRAM 的场景下尤为重要。 为此，我们修改 GEMM 内核，使用 AIE API 的 transpose 函数 <span class="citation" data-cites="transpose_AIE_API"><a href="#ref-transpose_AIE_API" role="doc-biblioref">[51]</a></span>，使得 tile 内部和 tile 之间的数据都以 <em>列主序</em> 组织。 随后，我们再像矩阵 <span class="math inline">\(A\)</span> 那样，在整个 NPU 层次上对矩阵 <span class="math inline">\(B\)</span> 应用类似的变换（见图 <a href="#fig-dma-transformations-mat-a" class="quarto-xref">图&nbsp;5</a>）。</p>
+<p>此外，当矩阵 <span class="math inline">\(B\)</span> 为 <em>行主序</em> 时，只需要在 MemTile 中执行一次 4D 变换（参数为 <span class="math inline">\(s\)</span>、<span class="math inline">\(t\)</span>、<span class="math inline">\(k_\text{ct}\)</span>、<span class="math inline">\(n_\text{ct}\)</span>），因为每个 MemTile 持有一个 <span class="math inline">\(k_\text{ct} \times n_\text{ct}\)</span> tile（见第 <a href="#sec-gemm-mapping-strategy" class="quarto-xref">小节&nbsp;5.2</a> 节）。 类似地，矩阵 <span class="math inline">\(C\)</span> 的 tile（<em>行主序</em>）也只需要在 MemTile 中执行一次 4D 变换（参数为 <span class="math inline">\(r\)</span>、<span class="math inline">\(t\)</span>、<span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(n_\text{ct}\)</span>）。</p>
+<div id="fig-dram-npu-data-movement" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-dram-npu-data-movement-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/bd-mapping-shimtiles.svg" class="img-fluid figure-img" style="width:78.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-dram-npu-data-movement-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;6: NPU 与 DRAM 之间数据移动的简化视图，由第四层 GEMM 分块决定（<span class="math inline">\(m_\text{rows}\)</span>、<span class="math inline">\(n_\text{cols}=4\)</span>）。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-npu-dram-data-movement" class="level2">
+<h2 class="anchored" data-anchor-id="sec-npu-dram-data-movement">NPU 与 DRAM 之间的数据移动</h2>
+<p>最外层（第四层）GEMM 分块涵盖 NPU 与 DRAM 之间的数据移动。 NPU 通过 ShimTile 与 DRAM 连接，而数据移动的控制由片上命令处理器统一编排。 ShimTile 配有输入任务队列，以便顺序提交 DMA 传输任务。 当某个任务结束时，它会发出一个任务完成 token，命令处理器借此在多次 DRAM 传输之间进行同步。 每个 ShimTile 可访问 16 个 BD <span class="citation" data-cites="AMD_AIE_ML_architecture_manual"><a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a></span>，它们用于指定 DMA 传输。 当复杂的数据移动模式需要的 BD 数量超过 16 个时，我们可以复用（重新配置）这些 BD。 在重新配置 BD 之前，必须正确同步，并确保与该 BD 关联的上一笔传输已经完成 <span class="citation" data-cites="runtime_data_movement_mlir_aie"><a href="#ref-runtime_data_movement_mlir_aie" role="doc-biblioref">[52]</a></span>。</p>
+<p>图 <a href="#fig-dram-npu-data-movement" class="quarto-xref">图&nbsp;6</a> 展示了 NPU 与 DRAM 之间数据移动的简化视图。 每个 BD 都用于细粒度地描述数据移动。 具体而言，对于矩阵 <span class="math inline">\(A\)</span>，每个 BD 定义一次尺寸为 <span class="math inline">\(m_\text{ct} \times K\)</span> 的 ShimTile DMA 传输。 类似地，对于矩阵 <span class="math inline">\(B\)</span>，每个 BD 定义一次尺寸为 <span class="math inline">\(K \times n_\text{ct}\)</span> 的传输。 对于矩阵 <span class="math inline">\(C\)</span>，每个 BD 描述一次尺寸为 <span class="math inline">\((m_\text{ct} \cdot m_\text{rows}) \times n_\text{ct}\)</span> 的传输，因为每一列会聚合 <span class="math inline">\(m_\text{rows}\)</span> 个输出 tile。 我们实现中的命令处理器程序会根据 GEMM 映射策略，把 BD 映射并插入到各个 ShimTile 的任务队列中（例如把 <span class="math inline">\(BD_{A0}\)</span>、<span class="math inline">\(BD_{B0}\)</span> 和 <span class="math inline">\(BD_{C0}\)</span> 放入 ShimTile 0，把 <span class="math inline">\(BD_{A1}\)</span>、<span class="math inline">\(BD_{B1}\)</span> 和 <span class="math inline">\(BD_{C2}\)</span> 放入 ShimTile 1，等等）。 此外，<span class="math inline">\(BD_{A4}\)</span>、<span class="math inline">\(BD_{B0}\)</span> 和 <span class="math inline">\(BD_{C1}\)</span> 也会按照 GEMM 分块要求被推入 ShimTile 0 的队列。 类似地，我们的程序会按顺序把描述 GEMM 传输的 BD 排队到每个 ShimTile 的输入任务队列中。 需要指出的是，图 <a href="#fig-dram-npu-data-movement" class="quarto-xref">图&nbsp;6</a> 中的简化示例可直接用于 XDNA（<span class="math inline">\(n_\text{cols}=4\)</span>，见第 <a href="#sec-gemm-mapping-strategy" class="quarto-xref">小节&nbsp;5.2</a> 节），而 XDNA2 的 BD 映射可以直接按同样方式推导。</p>
+<p>根据目标 GEMM 尺寸（即 <span class="math inline">\(M\)</span>、<span class="math inline">\(K\)</span>、<span class="math inline">\(N\)</span>），每个 ShimTile 所需的 BD 可能会超过 16 个的上限。 在这种情况下就需要进行 BD 重配置，这可能会带来性能下降（见第 <a href="#sec-bd-reconfiguration" class="quarto-xref">小节&nbsp;6.3.4.3</a> 节）。 为解决这一挑战，我们提出如下流程，使 DMA 数据传输能够与 BD 重配置重叠。 起初，我们为 <span class="math inline">\(A\)</span>、<span class="math inline">\(B\)</span> 和 <span class="math inline">\(C\)</span> 这三类 DMA 传输各自向任务队列提交 5 个 BD。 这样可以高效利用每个 ShimTile 可用的 16 个 BD 中的 15 个。 每次 DMA 传输一旦到达队列前端，就会立即开始。 例如，图 <a href="#fig-dram-npu-data-movement" class="quarto-xref">图&nbsp;6</a> 中会先启动 <span class="math inline">\(BD_{A0}\)</span> 和 <span class="math inline">\(BD_{B0}\)</span> 的传输。 随后，命令处理器会按顺序等待每一次输出传输的任务完成 token（例如先等 <span class="math inline">\(BD_{C0}\)</span>，再等 <span class="math inline">\(BD_{C1}\)</span>，以此类推）。 需要注意的是，命令处理器只需要等待输出矩阵对应的 BD 完成（例如 <span class="math inline">\(BD_{C0}\)</span>），因为一旦它完成，与之对应的输入 BD（例如 <span class="math inline">\(BD_{A0}\)</span> 和 <span class="math inline">\(BD_{B0}\)</span>）也已经完成。 因此，每当某个输出 BD 完成后，这三个已退役的 BD 就可以安全地重新配置，并在队列中插入下一组三个 BD（如果有可用项）。 这样就能在稳态下始终让 15 个 BD 保持在队列中，使 DMA 数据移动与 BD 重配置高效重叠。 这一过程会迭代重复，直到完成 GEMM 分块。</p>
+<p>上文所述对 NPU 与 DRAM 数据移动的细粒度 BD 描述，使我们能够支持非常大的 GEMM 尺寸。 GEMM 的维度受限于多维张量寻址所使用的 NPU 寄存器位宽 <span class="citation" data-cites="AMD_AIE_ML_kernel_guide"><a href="#ref-AMD_AIE_ML_kernel_guide" role="doc-biblioref">[44]</a></span>。 例如，当 <span class="math inline">\(B\)</span> 以 <em>列主序</em> 存放时，<span class="citation" data-cites="GEMM_example_mlir_aie"><a href="#ref-GEMM_example_mlir_aie" role="doc-biblioref">[30]</a></span> 中的 GEMM 编程示例在 XDNA2 上对 bf16 的归约维度 <span class="math inline">\(K\)</span> 只支持到约 4K，而我们的方法可以在所有维度上支持大于 64K 的尺寸。</p>
+</section>
+<section id="sec-analytical-modeling-optimization" class="level2">
+<h2 class="anchored" data-anchor-id="sec-analytical-modeling-optimization">解析建模优化</h2>
+<p>为了最大化 GEMM 性能，我们提出一种基于解析建模的优化方法。 首先，我们关注单核性能，以便获得片上计算部分的洞见。 随后，我们把该方法扩展到系统层面优化，并把片外 DRAM 带宽约束纳入其中。</p>
+<section id="sec-single-core-optimization" class="level3">
+<h3 class="anchored" data-anchor-id="sec-single-core-optimization">单核 GEMM 优化</h3>
+<p>我们的模型使用体系结构参数，例如核心的峰值计算吞吐量（以 <span class="math inline">\(peak\_MACs\)</span> 表示，单位为 MACs/cycle）以及 DMA 带宽（以 <span class="math inline">\(DMA\_BW\)</span> 表示，单位为 Bytes/cycle），来寻找能够最大化性能的 <span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{ct}\)</span>、<span class="math inline">\(n_\text{ct}\)</span> 参数。 我们把效率（<span class="math inline">\(eff\)</span>）定义为已获得计算吞吐量占核心峰值吞吐量的比例。 式 <a href="#eq-compute-cycles" class="quarto-xref">式&nbsp;1</a> 给出了 GEMM 内核的计算周期数（<span class="math inline">\(C_{comp}\)</span>），而式 <a href="#eq-comm-a-cycles" class="quarto-xref">式&nbsp;2</a> 和 <a href="#eq-comm-b-cycles" class="quarto-xref">式&nbsp;3</a> 分别给出了 <span class="math inline">\(A\)</span>（<span class="math inline">\(CA_{comm}\)</span>）和 <span class="math inline">\(B\)</span>（<span class="math inline">\(CB_{comm}\)</span>）tile 的 DMA 传输所需周期数。 这里，<span class="math inline">\(ty(\cdot)\)</span> 表示矩阵的数据类型大小（以 Bytes 为单位）。</p>
+<p><span id="eq-compute-cycles"><span class="math display">\[
+C_{comp} = m_\text{ct} \cdot k_\text{ct} \cdot n_\text{ct}/ (eff \cdot peak\_MACs)
+\tag{1}\]</span></span></p>
+<p><span id="eq-comm-a-cycles"><span class="math display">\[
+CA_{comm} = m_\text{ct} \cdot k_\text{ct} \cdot ty(A)/ DMA\_BW
+\tag{2}\]</span></span></p>
+<p><span id="eq-comm-b-cycles"><span class="math display">\[
+CB_{comm} = k_\text{ct} \cdot n_\text{ct} \cdot ty(B)/ DMA\_BW
+\tag{3}\]</span></span></p>
+<p>接下来，我们用式 <a href="#eq-compute-bound-constr" class="quarto-xref">式&nbsp;4</a> 定义约束，以确保单核 GEMM 保持计算受限，也就是不受 <span class="math inline">\(A\)</span> 和 <span class="math inline">\(B\)</span> tile 的 DMA 带宽限制。 此外，式 <a href="#eq-memory-constr" class="quarto-xref">式&nbsp;5</a> 约束 GEMM 缓冲区必须能够放入 64 KB 的 L1 内存容量中（其中 1 KB 预留给栈）。 最后，我们施加一个直接的约束，即 <span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{ct}\)</span>、<span class="math inline">\(n_\text{ct}\)</span> 必须分别是 <span class="math inline">\(r\)</span>、<span class="math inline">\(s\)</span>、<span class="math inline">\(t\)</span> 的倍数（此处不展开）。</p>
+<p><span id="eq-compute-bound-constr"><span class="math display">\[
+C_{comp} \geq \{CA_{comm},\ CB_{comm}\}
+\tag{4}\]</span></span></p>
+<p><span id="eq-memory-constr"><span class="math display">\[
+\begin{aligned}
+\{2 \cdot m_\text{ct} \cdot k_\text{ct} \cdot ty(A)
+&amp;+ 2 \cdot k_\text{ct} \cdot n_\text{ct} \cdot ty(B) \\
+&amp;+ m_\text{ct} \cdot n_\text{ct} \cdot ty(C)\} \leq 63\,\text{KB}
+\end{aligned}
+\tag{5}\]</span></span></p>
+<p><span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{ct}\)</span>、<span class="math inline">\(n_\text{ct}\)</span> 的求解可以被表述为一个整数规划（IP）优化问题，并使用上述约束。 我们通过穷举方式求解该 IP，并把 MAC 数量的最大化（即 <span class="math inline">\(m_\text{ct} \cdot k_\text{ct} \cdot n_\text{ct}\)</span>）作为主目标。 这会增加 GEMM 中的数据复用，从而最大化整体效率。 此外，由于采用输出驻留的 GEMM 映射，我们还设置第二个目标，即最小化输出 <span class="math inline">\(C\)</span> tile（也就是 <span class="math inline">\(m_\text{ct} \cdot n_\text{ct}\)</span> 的乘积）。 这对于减少累加时的 load/store 次数以及降低由 bank 冲突造成的内存停顿至关重要。 显然，这两个优化目标会推动 <span class="math inline">\(k_\text{ct}\)</span> 增大，同时让 <span class="math inline">\(m_\text{ct}\)</span> 和 <span class="math inline">\(n_\text{ct}\)</span> 减小（但仍需足够大，以免受 DMA 带宽限制）。 此外，请注意我们并没有像对 <span class="math inline">\(A\)</span> 和 <span class="math inline">\(B\)</span> 那样，对输出 <span class="math inline">\(C\)</span> 缓冲区施加 DMA 约束（式 <a href="#eq-comm-a-cycles" class="quarto-xref">式&nbsp;2</a> 与 <a href="#eq-comm-b-cycles" class="quarto-xref">式&nbsp;3</a>），同时还把 <span class="math inline">\(C\)</span> 保留为单缓冲（式 <a href="#eq-memory-constr" class="quarto-xref">式&nbsp;5</a>）。 这会显著扩大搜索空间，从而在<em>一般</em> GEMM 情况下提高性能，这也是下文系统级优化所依赖的关键因素。</p>
+</section>
+<section id="sec-system-level-optimization" class="level3">
+<h3 class="anchored" data-anchor-id="sec-system-level-optimization">系统级 NPU 阵列优化</h3>
+<p>首先，我们以解析形式表达 GEMM 中每个矩阵的 DRAM 访问量。 式 <a href="#eq-a-dram-footprint" class="quarto-xref">式&nbsp;6</a> 给出了矩阵 <span class="math inline">\(A\)</span> 的 DRAM 读访问量（<span class="math inline">\(A_{mem}\)</span>）。 其中第一项 <span class="math inline">\(m_\text{ct} \cdot m_{\text{rows}} \cdot K \cdot ty(A)\)</span> 表示在沿 <span class="math inline">\(K\)</span> 维进行 GEMM 分块时发生的 DRAM 读访问（单位 Bytes）。 这是由输出驻留映射以及 <span class="math inline">\(A\)</span> 会沿行广播这一事实决定的（见第 <a href="#sec-gemm-mapping-strategy" class="quarto-xref">小节&nbsp;5.2</a> 节）。 第二项 <span class="math inline">\(N/(n_\text{ct} \cdot n_\text{cols})\)</span> 描述了由于沿 <span class="math inline">\(N\)</span> 维分块而带来的上述读访问重复次数。 类似地，第三项 <span class="math inline">\(M/(m_\text{ct} \cdot m_\text{rows})\)</span> 则刻画了沿 <span class="math inline">\(M\)</span> 维的重复。</p>
+<p><span id="eq-a-dram-footprint"><span class="math display">\[
+\begin{aligned}
+A_{mem} &amp;=
+\left(m_\text{ct} \cdot m_{\text{rows}} \cdot K \cdot ty(A)\right)
+\left(\frac{N}{n_\text{ct} \cdot n_\text{cols}}\right)
+\left(\frac{M}{m_\text{ct} \cdot m_\text{rows}}\right) \\
+\Rightarrow\ A_{mem} &amp;= M \cdot K \cdot N \cdot ty(A)/(n_\text{ct} \cdot n_\text{cols})
+\end{aligned}
+\tag{6}\]</span></span></p>
+<p>类似地，式 <a href="#eq-b-dram-footprint" class="quarto-xref">式&nbsp;7</a> 表示矩阵 <span class="math inline">\(B\)</span> 的 DRAM 读访问量（<span class="math inline">\(B_{mem}\)</span>），而式 <a href="#eq-c-dram-footprint" class="quarto-xref">式&nbsp;8</a> 则给出了输出矩阵 <span class="math inline">\(C\)</span> 的 DRAM 写访问量（<span class="math inline">\(C_{mem}\)</span>）。 我们注意到，这些方程为 GEMM 中的数据复用和分块方案提供了一个优雅而紧凑的表达。</p>
+<p><span id="eq-b-dram-footprint"><span class="math display">\[
+B_{mem} = M \cdot K \cdot N \cdot ty(B)/(m_\text{ct} \cdot m_\text{rows})
+\tag{7}\]</span></span></p>
+<p><span id="eq-c-dram-footprint"><span class="math display">\[
+C_{mem} = M \cdot N \cdot ty(C)
+\tag{8}\]</span></span></p>
+<p>此外，式 <a href="#eq-npu-time" class="quarto-xref">式&nbsp;9</a> 描述了 NPU 上的 GEMM 计算时间（<span class="math inline">\(T_{comp}\)</span>），而式 <a href="#eq-dram-time" class="quarto-xref">式&nbsp;10</a> 则表示总 DRAM 访问时间（<span class="math inline">\(T_{mem}\)</span>）。 这里，<span class="math inline">\(peak\_TOPS\)</span> 表示 NPU 阵列在最大运行频率下计算得到的<em>理论峰值</em>吞吐量。 此外，<span class="math inline">\(DRAM\_BW\)</span> 是 NPU 执行 GEMM 时所达到的<em>有效</em> DRAM 带宽。 需要注意的是，由于所有 NPU 核心都在<em>独立</em>执行同一个 GEMM 内核，式 <a href="#eq-npu-time" class="quarto-xref">式&nbsp;9</a> 中定义的单核效率 <span class="math inline">\(eff\)</span> 会直接对应整个 NPU 阵列的效率。</p>
+<p><span id="eq-npu-time"><span class="math display">\[
+T_{comp} = 2 \cdot M \cdot K \cdot N /(eff \cdot peak\_TOPS)
+\tag{9}\]</span></span></p>
+<p><span id="eq-dram-time"><span class="math display">\[
+T_{mem} = (A_{mem} + B_{mem} + C_{mem})/ DRAM\_BW
+\tag{10}\]</span></span></p>
+<p>正如前文在第 <a href="#sec-single-core-optimization" class="quarto-xref">小节&nbsp;5.6.1</a> 节中所讨论的，减小 <span class="math inline">\(m_\text{ct}\)</span> 和 <span class="math inline">\(n_\text{ct}\)</span>、以及增大 <span class="math inline">\(k_\text{ct}\)</span>，对于获得高效率、从而实现最大化的 GEMM 性能（等价于最小化 <span class="math inline">\(T_{comp}\)</span>）是至关重要的。 然而，从式 <a href="#eq-a-dram-footprint" class="quarto-xref">式&nbsp;6</a> 和式 <a href="#eq-b-dram-footprint" class="quarto-xref">式&nbsp;7</a> 可以看出，<span class="math inline">\(n_\text{ct}\)</span> 和 <span class="math inline">\(m_\text{ct}\)</span> 分别出现在 <span class="math inline">\(A\)</span> 和 <span class="math inline">\(B\)</span> 的 DRAM 访问分母中。 因此，随着 <span class="math inline">\(m_\text{ct}\)</span> 和 <span class="math inline">\(n_\text{ct}\)</span> 的减小，DRAM 访问时间 <span class="math inline">\(T_{mem}\)</span> 会增加。 这说明了计算时间与内存时间之间的<em>反比</em>关系：<em>一个增加，另一个就减少</em>。 因此，最优 GEMM 性能出现在两者相交的<em>平衡</em>点（即 <span class="math inline">\(T_{comp} \approx T_{mem}\)</span>）上。</p>
+<p>为了找到上述最优<em>平衡</em>点，我们先经验性地设定 <span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{ct}\)</span>、<span class="math inline">\(n_\text{ct}\)</span> 和 <span class="math inline">\(eff\)</span> 的起始值，然后执行下面说明的迭代过程（这些起始值可把迭代次数通常减少到 5 次以下）。 这些起始值基于单核内核优化的结果（见第 <a href="#sec-single-core-optimization" class="quarto-xref">小节&nbsp;5.6.1</a> 节）以及 GEMM 运行期间的有效 <span class="math inline">\(DRAM\_BW\)</span>（通过 micro-benchmarking 测量，见第 <a href="#sec-optimal-balanced-gemm-kernel" class="quarto-xref">小节&nbsp;6.3.1</a> 节）。 首先，我们测量起始值下 NPU 设备上的实际 GEMM 性能以及单核效率，并验证 GEMM 处于内存受限状态（<span class="math inline">\(T_{comp} &lt; T_{mem}\)</span>，这是由较小的 <span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(n_\text{ct}\)</span> 和较大的 <span class="math inline">\(k_\text{ct}\)</span> 导致的）。 在每次迭代中，我们都会减小参数 <span class="math inline">\(k_\text{ct}\)</span>（取 <span class="math inline">\(s\)</span> 的倍数），并求解一个与前一小节相似的 IP。 不过，在该特定迭代中，我们固定 <span class="math inline">\(k_\text{ct}\)</span> 参数，目标改为最大化 <span class="math inline">\(m_\text{ct} \cdot n_\text{ct}\)</span> 的乘积。 在给定 DMA 带宽与 L1 内存约束的情况下，这会让 <span class="math inline">\(m_\text{ct}\)</span> 和 <span class="math inline">\(n_\text{ct}\)</span> 取到尽可能大，从而确保得到一个高度优化的 GEMM 内核（MAC 数量最大）。 这一点对于找到最优<em>平衡</em>点至关重要，因为它能让每次迭代中的 <span class="math inline">\(T_{comp}\)</span> 增量尽可能小，同时还保证该迭代下 GEMM 性能最大。 这里我们注意到，<span class="math inline">\(eff\)</span> 是根据每次迭代的上一轮测量值估计出来的。 我们会针对每个 IP 的最优解，在 NPU 设备上迭代测量 GEMM 性能，并在每一步都验证当前性能高于前一步。 随着 GEMM 性能在各步中逐渐上升，最终我们会观察到性能下降，此时迭代停止。 显然，在这一特定点上，GEMM 已经转为计算受限（<span class="math inline">\(T_{comp} &gt; T_{mem}\)</span>），同时性能也更低。 因此，性能达到最大值的<em>平衡</em>点就已经被识别出来了（即上一轮迭代中的 <span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{ct}\)</span>、<span class="math inline">\(n_\text{ct}\)</span> 参数）。</p>
+</section>
+</section>
+</section>
+<section id="sec-evaluation" class="level1">
+<h1>评估</h1>
+<section id="sec-experimental-setup" class="level2">
+<h2 class="anchored" data-anchor-id="sec-experimental-setup">实验设置</h2>
+<p>对于实验评估，我们使用了两台代表性的迷你主机，对应两代 NPU。 用于 XDNA 的是 Minisforum UM790 Pro <span class="citation" data-cites="Phoenix_mini_PC"><a href="#ref-Phoenix_mini_PC" role="doc-biblioref">[53]</a></span>，它搭载 Ryzen 9 7940HS 处理器（Phoenix Point）<span class="citation" data-cites="Phoenix_processor"><a href="#ref-Phoenix_processor" role="doc-biblioref">[54]</a></span>。 用于 XDNA2 的是 ASRock 4×4 Box <span class="citation" data-cites="Krackan_mini_PC"><a href="#ref-Krackan_mini_PC" role="doc-biblioref">[55]</a></span>，它搭载 AMD Ryzen AI 7 350 处理器（Krackan Point）<span class="citation" data-cites="Krackan_processor"><a href="#ref-Krackan_processor" role="doc-biblioref">[56]</a></span>。 两台迷你主机都配备了双通道 DDR5-5600 MT/s DRAM。 CPU 运行 Ubuntu 24.04 LTS，并充当主机。 具体而言，CPU 使用 Xilinx Runtime（XRT）<span class="citation" data-cites="xrt_github_repo"><a href="#ref-xrt_github_repo" role="doc-biblioref">[57]</a></span> 在 DRAM 中分配连续的矩阵缓冲区，配置 NPU，调用 NPU 执行 GEMM，并处理完成通知。 最后，在所有实验中，NPU 都被配置在其最高性能级别，也就是 <em>turbo</em> 模式 <span class="citation" data-cites="xrt_smi_commands"><a href="#ref-xrt_smi_commands" role="doc-biblioref">[58]</a></span>，并使用 XDNA 驱动命令 <span class="citation" data-cites="xdna_driver_github_repo"><a href="#ref-xdna_driver_github_repo" role="doc-biblioref">[59]</a></span>。</p>
+</section>
+<section id="sec-single-core-gemm-performance" class="level2">
+<h2 class="anchored" data-anchor-id="sec-single-core-gemm-performance">单核 GEMM 性能</h2>
+<p>我们利用 AIE API <span class="citation" data-cites="AMD_AIE_API_user_guide_2025.1"><a href="#ref-AMD_AIE_API_user_guide_2025.1" role="doc-biblioref">[40]</a></span> 设计了高度优化的单核 GEMM 内核。 这些内核使用 <code>xchesscc</code> 工具编译，并采用多种编译器指令（例如软件流水化以及循环展开/展开平坦化）来获得高效率。 性能通过利用 NPU trace 单元进行硬件剖析来评估 <span class="citation" data-cites="AMD_AIE_ML_architecture_manual tracing_mlir_aie"><a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a>, <a href="#ref-tracing_mlir_aie" role="doc-biblioref">[60]</a></span>，从而获得周期精度的测量结果。 对于 int8，除了完整输出精度（int32）之外，我们还进行了精度缩减到 16 位和 8 位的实验；这是一种在 AIE 架构中提高 GEMM 性能的常见技术 <span class="citation" data-cites="Vitis_tutorials Charm_v2_2024 AMA_FPL_2024 GAMA_FPL_2025"><a href="#ref-Charm_v2_2024" role="doc-biblioref">[19]</a>, <a href="#ref-AMA_FPL_2024" role="doc-biblioref">[20]</a>, <a href="#ref-GAMA_FPL_2025" role="doc-biblioref">[23]</a>, <a href="#ref-Vitis_tutorials" role="doc-biblioref">[61]</a></span>。 此外，对于 bf16，我们保留输出精度为 bf16。 最后，对于 XDNA2，我们使用 bfp16 硬件数据通路来模拟 bf16 精度，这会进一步提高 GEMM 性能（这种模拟通过编译时的特定 <code>xchesscc</code> 标志实现，正如 <span class="citation" data-cites="AMD_AIE_API_user_guide_2025.1"><a href="#ref-AMD_AIE_API_user_guide_2025.1" role="doc-biblioref">[40]</a></span> 中所述）。</p>
+<div id="tbl-single-core-gemm-results" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-single-core-gemm-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;1: XDNA 与 XDNA2 的单核 GEMM 结果。
+</figcaption>
+<div aria-describedby="tbl-single-core-gemm-results-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 22%">
+<col style="width: 22%">
+<col style="width: 22%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>设备</th>
+<th>精度（输入-输出）</th>
+<th style="text-align: right;">内核尺寸 <span class="math inline">\(m_\text{ct}\times k_\text{ct}\times n_\text{ct}\)</span></th>
+<th style="text-align: right;">吞吐量（MACs/cycle）</th>
+<th style="text-align: right;">L1 核心内存（KB）</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>XDNA</strong></td>
+<td>int8-int8</td>
+<td style="text-align: right;">64 × 232 × 64</td>
+<td style="text-align: right;">233.0</td>
+<td style="text-align: right;">62.0 (97%)</td>
+</tr>
+<tr class="even">
+<td><strong>XDNA</strong></td>
+<td>int8-int16</td>
+<td style="text-align: right;">64 × 216 × 64</td>
+<td style="text-align: right;">217.6</td>
+<td style="text-align: right;">62.0 (97%)</td>
+</tr>
+<tr class="odd">
+<td><strong>XDNA</strong></td>
+<td>int8-int32</td>
+<td style="text-align: right;">48 × 280 × 48</td>
+<td style="text-align: right;">192.0</td>
+<td style="text-align: right;">61.5 (96%)</td>
+</tr>
+<tr class="even">
+<td><strong>XDNA</strong></td>
+<td>bf16-bf16</td>
+<td style="text-align: right;">64 × 104 × 64</td>
+<td style="text-align: right;">112.6</td>
+<td style="text-align: right;">60.0 (94%)</td>
+</tr>
+<tr class="odd">
+<td><strong>XDNA2</strong></td>
+<td>int8-int8</td>
+<td style="text-align: right;">64 × 232 × 64</td>
+<td style="text-align: right;">450.6</td>
+<td style="text-align: right;">62.0 (97%)</td>
+</tr>
+<tr class="even">
+<td><strong>XDNA2</strong></td>
+<td>int8-int16</td>
+<td style="text-align: right;">64 × 216 × 64</td>
+<td style="text-align: right;">419.8</td>
+<td style="text-align: right;">62.0 (97%)</td>
+</tr>
+<tr class="odd">
+<td><strong>XDNA2</strong></td>
+<td>int8-int32</td>
+<td style="text-align: right;">48 × 280 × 48</td>
+<td style="text-align: right;">384.0</td>
+<td style="text-align: right;">61.5 (96%)</td>
+</tr>
+<tr class="even">
+<td><strong>XDNA2</strong></td>
+<td>bf16-bf16</td>
+<td style="text-align: right;">48 × 152 × 48</td>
+<td style="text-align: right;">158.1</td>
+<td style="text-align: right;">61.5 (96%)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>在表 <a href="#tbl-single-core-gemm-results" class="quarto-xref">表&nbsp;1</a> 中，我们给出了第 <a href="#sec-single-core-optimization" class="quarto-xref">小节&nbsp;5.6.1</a> 节所述单核优化过程的最优解。 对于 int8 精度，我们在 XDNA 和 XDNA2 上分别获得了 192.0–233.0 MACs/cycle 和 384.0–450.6 MACs/cycle 的高吞吐量。 类似地，对于 bf16，我们在 XDNA 上达到 112.6 MACs/cycle，在 XDNA2 上达到 158.1 MACs/cycle。 可以看出，在这两种情况下，XDNA2 的吞吐量都高于 XDNA，因为它在单核层面拥有更高的峰值计算能力。 需要注意的是，由于性能是通过硬件 trace 测得的，表 <a href="#tbl-single-core-gemm-results" class="quarto-xref">表&nbsp;1</a> 的结果包含了由 bank 冲突带来的不可避免的内存停顿，因此反映的是<em>实际</em> NPU 性能（只要不受 DRAM 带宽限制）。 最后，所有解都达到了很高的 L1 内存利用率，范围为 94–97%。</p>
+<div id="tbl-top-ranked-solutions-gemm-xdna-array" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-top-ranked-solutions-gemm-xdna-array-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;2: XDNA 上跨不同数据类型的两组 top-ranked 方案评估（<span class="math inline">\(B\)</span> 为 <em>列主序</em>）。
+</figcaption>
+<div aria-describedby="tbl-top-ranked-solutions-gemm-xdna-array-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>设备</th>
+<th>精度（输入-输出）</th>
+<th style="text-align: right;">内核尺寸 <span class="math inline">\(m_\text{ct}\times k_\text{ct}\times n_\text{ct}\)</span></th>
+<th style="text-align: right;">乘积 <span class="math inline">\(m_\text{ct}\cdot n_\text{ct}\)</span></th>
+<th style="text-align: right;">吞吐量（MACs/cycle）</th>
+<th style="text-align: right;">L1 核心内存（KB）</th>
+<th style="text-align: right;">L2 总内存（KB）</th>
+<th style="text-align: right;">峰值（Comp. TOPS）</th>
+<th style="text-align: right;">GEMM 尺寸 <span class="math inline">\(M\times K\times N\)</span></th>
+<th style="text-align: right;">实际（NPU TOPS）</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>XDNA</strong></td>
+<td><strong>int8-int8</strong></td>
+<td style="text-align: right;"><strong>112 × 112 × 112</strong></td>
+<td style="text-align: right;"><strong>12.3K</strong></td>
+<td style="text-align: right;"><strong>212.5</strong></td>
+<td style="text-align: right;"><strong>61.3 (96%)</strong></td>
+<td style="text-align: right;"><strong>980 (48%)</strong></td>
+<td style="text-align: right;"><strong>6.80</strong></td>
+<td style="text-align: right;"><strong>4032 × 4032 × 4032</strong></td>
+<td style="text-align: right;"><strong>6.52</strong></td>
+</tr>
+<tr class="even">
+<td>XDNA</td>
+<td>int8-int8</td>
+<td style="text-align: right;">112 × 104 × 128</td>
+<td style="text-align: right;">14.0K</td>
+<td style="text-align: right;">207.4</td>
+<td style="text-align: right;">62.8 (98%)</td>
+<td style="text-align: right;">1004 (49%)</td>
+<td style="text-align: right;">6.63</td>
+<td style="text-align: right;">4032 × 4160 × 4096</td>
+<td style="text-align: right;">6.48</td>
+</tr>
+<tr class="odd">
+<td><strong>XDNA</strong></td>
+<td><strong>int8-int16</strong></td>
+<td style="text-align: right;"><strong>96 × 112 × 96</strong></td>
+<td style="text-align: right;"><strong>9.0K</strong></td>
+<td style="text-align: right;"><strong>192.0</strong></td>
+<td style="text-align: right;"><strong>60.0 (94%)</strong></td>
+<td style="text-align: right;"><strong>960 (47%)</strong></td>
+<td style="text-align: right;"><strong>6.14</strong></td>
+<td style="text-align: right;"><strong>4224 × 4032 × 4224</strong></td>
+<td style="text-align: right;"><strong>5.85</strong></td>
+</tr>
+<tr class="even">
+<td>XDNA</td>
+<td>int8-int16</td>
+<td style="text-align: right;">80 × 104 × 128</td>
+<td style="text-align: right;">10.0K</td>
+<td style="text-align: right;">186.9</td>
+<td style="text-align: right;">62.3 (97%)</td>
+<td style="text-align: right;">996 (49%)</td>
+<td style="text-align: right;">5.98</td>
+<td style="text-align: right;">4160 × 4160 × 4096</td>
+<td style="text-align: right;">5.75</td>
+</tr>
+<tr class="odd">
+<td><strong>XDNA</strong></td>
+<td><strong>int8-int32</strong></td>
+<td style="text-align: right;"><strong>80 × 88 × 96</strong></td>
+<td style="text-align: right;"><strong>7.5K</strong></td>
+<td style="text-align: right;"><strong>146.0</strong></td>
+<td style="text-align: right;"><strong>60.3 (94%)</strong></td>
+<td style="text-align: right;"><strong>964 (47%)</strong></td>
+<td style="text-align: right;"><strong>4.67</strong></td>
+<td style="text-align: right;"><strong>4160 × 4224 × 4224</strong></td>
+<td style="text-align: right;"><strong>4.42</strong></td>
+</tr>
+<tr class="even">
+<td>XDNA</td>
+<td>int8-int32</td>
+<td style="text-align: right;">64 × 80 × 128</td>
+<td style="text-align: right;">8.0K</td>
+<td style="text-align: right;">133.1</td>
+<td style="text-align: right;">62.0 (97%)</td>
+<td style="text-align: right;">992 (48%)</td>
+<td style="text-align: right;">4.26</td>
+<td style="text-align: right;">4096 × 4160 × 4096</td>
+<td style="text-align: right;">4.09</td>
+</tr>
+<tr class="odd">
+<td><strong>XDNA</strong></td>
+<td><strong>bf16-bf16</strong></td>
+<td style="text-align: right;"><strong>96 × 56 × 96</strong></td>
+<td style="text-align: right;"><strong>9.0K</strong></td>
+<td style="text-align: right;"><strong>99.8</strong></td>
+<td style="text-align: right;"><strong>60.0 (94%)</strong></td>
+<td style="text-align: right;"><strong>960 (47%)</strong></td>
+<td style="text-align: right;"><strong>3.19</strong></td>
+<td style="text-align: right;"><strong>4224 × 4032 × 4224</strong></td>
+<td style="text-align: right;"><strong>3.12</strong></td>
+</tr>
+<tr class="even">
+<td>XDNA</td>
+<td>bf16-bf16</td>
+<td style="text-align: right;">96 × 48 × 112</td>
+<td style="text-align: right;">10.5K</td>
+<td style="text-align: right;">97.3</td>
+<td style="text-align: right;">60.0 (94%)</td>
+<td style="text-align: right;">960 (47%)</td>
+<td style="text-align: right;">3.11</td>
+<td style="text-align: right;">4224 × 4032 × 4032</td>
+<td style="text-align: right;">3.02</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div id="tbl-top-ranked-solutions-gemm-xdna2-array" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-top-ranked-solutions-gemm-xdna2-array-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;3: XDNA2 上跨不同数据类型的两组 top-ranked 方案评估（<span class="math inline">\(B\)</span> 为 <em>列主序</em>）。
+</figcaption>
+<div aria-describedby="tbl-top-ranked-solutions-gemm-xdna2-array-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+<col style="width: 10%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>设备</th>
+<th>精度（输入-输出）</th>
+<th style="text-align: right;">内核尺寸 <span class="math inline">\(m_\text{ct}\times k_\text{ct}\times n_\text{ct}\)</span></th>
+<th style="text-align: right;">乘积 <span class="math inline">\(m_\text{ct}\cdot n_\text{ct}\)</span></th>
+<th style="text-align: right;">吞吐量（MACs/cycle）</th>
+<th style="text-align: right;">L1 核心内存（KB）</th>
+<th style="text-align: right;">L2 总内存（KB）</th>
+<th style="text-align: right;">峰值（Comp. TOPS）</th>
+<th style="text-align: right;">GEMM 尺寸 <span class="math inline">\(M\times K\times N\)</span></th>
+<th style="text-align: right;">实际（NPU TOPS）</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>XDNA2</strong></td>
+<td><strong>int8-int8</strong></td>
+<td style="text-align: right;"><strong>144 × 72 × 144</strong></td>
+<td style="text-align: right;"><strong>20.3K</strong></td>
+<td style="text-align: right;"><strong>343.0</strong></td>
+<td style="text-align: right;"><strong>60.8 (95%)</strong></td>
+<td style="text-align: right;"><strong>2106 (51%)</strong></td>
+<td style="text-align: right;"><strong>39.52</strong></td>
+<td style="text-align: right;"><strong>4032 × 4320 × 4608</strong></td>
+<td style="text-align: right;"><strong>37.35</strong></td>
+</tr>
+<tr class="even">
+<td>XDNA2</td>
+<td>int8-int8</td>
+<td style="text-align: right;">160 × 64 × 144</td>
+<td style="text-align: right;">22.5K</td>
+<td style="text-align: right;">322.6</td>
+<td style="text-align: right;">60.5 (95%)</td>
+<td style="text-align: right;">2064 (50%)</td>
+<td style="text-align: right;">37.16</td>
+<td style="text-align: right;">4480 × 4224 × 4608</td>
+<td style="text-align: right;">36.13</td>
+</tr>
+<tr class="odd">
+<td><strong>XDNA2</strong></td>
+<td><strong>int8-int16</strong></td>
+<td style="text-align: right;"><strong>128 × 72 × 112</strong></td>
+<td style="text-align: right;"><strong>14.0K</strong></td>
+<td style="text-align: right;"><strong>307.2</strong></td>
+<td style="text-align: right;"><strong>61.8 (97%)</strong></td>
+<td style="text-align: right;"><strong>2084 (51%)</strong></td>
+<td style="text-align: right;"><strong>35.39</strong></td>
+<td style="text-align: right;"><strong>4096 × 4320 × 4480</strong></td>
+<td style="text-align: right;"><strong>30.77</strong></td>
+</tr>
+<tr class="even">
+<td>XDNA2</td>
+<td>int8-int16</td>
+<td style="text-align: right;">160 × 64 × 96</td>
+<td style="text-align: right;">15.0K</td>
+<td style="text-align: right;">271.4</td>
+<td style="text-align: right;">62.0 (97%)</td>
+<td style="text-align: right;">2016 (49%)</td>
+<td style="text-align: right;">31.26</td>
+<td style="text-align: right;">4480 × 4224 × 4608</td>
+<td style="text-align: right;">29.59</td>
+</tr>
+<tr class="odd">
+<td><strong>XDNA2</strong></td>
+<td><strong>int8-int32</strong></td>
+<td style="text-align: right;"><strong>96 × 64 × 96</strong></td>
+<td style="text-align: right;"><strong>9.0K</strong></td>
+<td style="text-align: right;"><strong>256.0</strong></td>
+<td style="text-align: right;"><strong>60.0 (94%)</strong></td>
+<td style="text-align: right;"><strong>2016 (49%)</strong></td>
+<td style="text-align: right;"><strong>29.49</strong></td>
+<td style="text-align: right;"><strong>4224 × 4224 × 4608</strong></td>
+<td style="text-align: right;"><strong>24.74</strong></td>
+</tr>
+<tr class="even">
+<td>XDNA2</td>
+<td>int8-int32</td>
+<td style="text-align: right;">128 × 56 × 80</td>
+<td style="text-align: right;">10.0K</td>
+<td style="text-align: right;">209.9</td>
+<td style="text-align: right;">62.3 (97%)</td>
+<td style="text-align: right;">2036 (50%)</td>
+<td style="text-align: right;">24.18</td>
+<td style="text-align: right;">4096 × 4032 × 4480</td>
+<td style="text-align: right;">21.67</td>
+</tr>
+<tr class="odd">
+<td><strong>XDNA2</strong></td>
+<td><strong>bf16-bf16</strong></td>
+<td style="text-align: right;"><strong>112 × 48 × 96</strong></td>
+<td style="text-align: right;"><strong>10.5K</strong></td>
+<td style="text-align: right;"><strong>137.2</strong></td>
+<td style="text-align: right;"><strong>60.0 (94%)</strong></td>
+<td style="text-align: right;"><strong>2496 (61%)</strong></td>
+<td style="text-align: right;"><strong>15.81</strong></td>
+<td style="text-align: right;"><strong>4032 × 4224 × 4608</strong></td>
+<td style="text-align: right;"><strong>14.52</strong></td>
+</tr>
+<tr class="even">
+<td>XDNA2</td>
+<td>bf16-bf16</td>
+<td style="text-align: right;">160 × 40 × 80</td>
+<td style="text-align: right;">12.5K</td>
+<td style="text-align: right;">124.1</td>
+<td style="text-align: right;">62.5 (98%)</td>
+<td style="text-align: right;">2400 (59%)</td>
+<td style="text-align: right;">14.30</td>
+<td style="text-align: right;">4480 × 4160 × 4480</td>
+<td style="text-align: right;">13.67</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>在 XDNA2 的 bf16-bf16 情况下，我们使用 bfp16 硬件数据通路来进行模拟。</p>
+</section>
+<section id="sec-npu-array-gemm-performance" class="level2">
+<h2 class="anchored" data-anchor-id="sec-npu-array-gemm-performance">NPU 阵列上的 GEMM 性能</h2>
+<p>在本节中，我们介绍整个 NPU 阵列上的 GEMM 性能。 性能使用 <em>wall-clock</em> 时间评估，因此能捕捉到用户实际观测到的<em>真实</em>性能（包括操作系统开销、NPU 派发时间等）<span class="citation" data-cites="wall_clock_time_mlir_aie"><a href="#ref-wall_clock_time_mlir_aie" role="doc-biblioref">[62]</a></span>。 所有结果都是 100 次运行的平均值。</p>
+<section id="sec-optimal-balanced-gemm-kernel" class="level3">
+<h3 class="anchored" data-anchor-id="sec-optimal-balanced-gemm-kernel">最优平衡 GEMM 内核</h3>
+<p>正如上一节所示，GEMM 内核可以达到很高的吞吐量。 然而，当使用表 <a href="#tbl-single-core-gemm-results" class="quarto-xref">表&nbsp;1</a> 中的最佳计算内核尺寸时，我们发现 GEMM 在 NPU 阵列上的性能仍然很低。 例如，对于 int8-int16 精度，在 XDNA2 上我们在约 4K 的方阵 GEMM 上只得到 17.86 TOPS。 不过，当以最大运行频率计算时，该内核在 XDNA2 阵列上的峰值计算能力可达 48.36 TOPS（该最大频率通过 XDNA 驱动命令 <span class="citation" data-cites="xdna_driver_github_repo"><a href="#ref-xdna_driver_github_repo" role="doc-biblioref">[59]</a></span> 识别，即 XDNA 和 XDNA2 分别为 1 GHz 和 1.8 GHz）。 这说明在该特定内核尺寸下，GEMM 受内存限制，这是由于 <span class="math inline">\(m_\text{ct}\)</span> 和 <span class="math inline">\(n_\text{ct}\)</span> 值较小所致，也就是前文所述的计算与内存的反比关系。 因此，我们利用第 <a href="#sec-system-level-optimization" class="quarto-xref">小节&nbsp;5.6.2</a> 节所述的优化方法来识别最优<em>平衡</em>内核（即计算与内存达到平衡的位置）。 首先，我们使用 micro-benchmarking 来估计 NPU 在运行 GEMM 工作负载时可获得的<em>有效</em> DRAM 带宽。 在 micro-benchmarking 中，我们模拟 DRAM 与 NPU 阵列之间及其反向的 GEMM 传输，在 XDNA 和 XDNA2 上分别观察到约 15 GB/s 和约 50 GB/s。 随后，我们利用这些值来为第 <a href="#sec-system-level-optimization" class="quarto-xref">小节&nbsp;5.6.2</a> 节的迭代优化过程选择起始点。</p>
+<p>表 <a href="#tbl-top-ranked-solutions-gemm-xdna-array" class="quarto-xref">表&nbsp;2</a> 和表 <a href="#tbl-top-ranked-solutions-gemm-xdna2-array" class="quarto-xref">表&nbsp;3</a> 分别给出了 XDNA 和 XDNA2 的两组 top-ranked 方案。 首先需要注意的是，与表 <a href="#tbl-single-core-gemm-results" class="quarto-xref">表&nbsp;1</a> 中的内核相比，这些内核的 <span class="math inline">\(k_\text{ct}\)</span> 更低，而 <span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(n_\text{ct}\)</span> 更高。 这会降低它们的计算吞吐量；例如，XDNA 上 int8-int16 的 96×112×96（表 <a href="#tbl-top-ranked-solutions-gemm-xdna-array" class="quarto-xref">表&nbsp;2</a>）能够达到 192.0 MACs/cycle，而 64×216×64（表 <a href="#tbl-single-core-gemm-results" class="quarto-xref">表&nbsp;1</a>）则能达到 217.6 MACs/cycle。 不过，NPU 阵列上的 GEMM 性能却提升了，因为此时计算与内存达到了平衡。 例如，在使用 96×112×96 内核时，XDNA 在约 4K GEMM 尺寸上的性能为 5.85 TOPS（见表 <a href="#tbl-top-ranked-solutions-gemm-xdna-array" class="quarto-xref">表&nbsp;2</a>），而使用 64×216×64 内核时则只有 4.03 TOPS（未列于表 <a href="#tbl-single-core-gemm-results" class="quarto-xref">表&nbsp;1</a>）。</p>
+<p>其次，当进一步增大 <span class="math inline">\(m_\text{ct}\cdot n_\text{ct}\)</span> 的乘积（因此需要减小 <span class="math inline">\(k_\text{ct}\)</span> 以适应 L1）时，NPU 阵列上的 GEMM 性能会下降。 例如，对于 int8-int8，内核 160×64×144 的 <span class="math inline">\(m_\text{ct}\cdot n_\text{ct}\)</span> 乘积高于 144×72×144（22.5K 对 20.3K），但性能更低：36.13 TOPS 对 37.35 TOPS（见表 <a href="#tbl-top-ranked-solutions-gemm-xdna2-array" class="quarto-xref">表&nbsp;3</a>）。 这是因为此时 GEMM 已经变为计算受限，但计算本身也更低了（吞吐量从 343.0 MACs/cycle 降到 322.6 MACs/cycle）。 当单核吞吐量达到 322.6 MACs/cycle 时，整个 XDNA2 阵列上的峰值计算吞吐量为 37.16 TOPS。 然而，如表 <a href="#tbl-top-ranked-solutions-gemm-xdna2-array" class="quarto-xref">表&nbsp;3</a> 所示，在约 4K 的 GEMM 尺寸下，实际性能为 36.13 TOPS。 这约 3% 的差异主要归因于输出 <span class="math inline">\(C\)</span> tile 的 DMA 传输（单输出缓冲），它发生在每一轮沿 <span class="math inline">\(K\)</span> 的完整归约结束时（每隔 <span class="math inline">\(K/k_\text{ct}\)</span> 个 tile）。 另一个较小的贡献来自每隔 <span class="math inline">\(K/k_\text{ct}\)</span> 个 tile 执行一次的向量化清零内核（见第 <a href="#sec-gemm-mapping-strategy" class="quarto-xref">小节&nbsp;5.2</a> 节）；这通常只占 GEMM 内核时间的不到 10%（因此在这个约 4K 的示例中小于 0.15%）。 输出 DMA 传输和清零内核周期都已通过 NPU tracing 验证。 需要注意的是，随着 <span class="math inline">\(K\)</span> 增大，这些影响会进一步被摊薄。 其他贡献还包括初始 <span class="math inline">\(A\)</span> 和 <span class="math inline">\(B\)</span> tile 的 DRAM 传输时间、最终输出 <span class="math inline">\(C\)</span> tile 的传输时间，以及 <em>wall-clock</em> 时间测量中的开销（例如 NPU 派发时间）<span class="citation" data-cites="wall_clock_time_mlir_aie"><a href="#ref-wall_clock_time_mlir_aie" role="doc-biblioref">[62]</a></span>。 总之，表 <a href="#tbl-top-ranked-solutions-gemm-xdna-array" class="quarto-xref">表&nbsp;2</a> 和表 <a href="#tbl-top-ranked-solutions-gemm-xdna2-array" class="quarto-xref">表&nbsp;3</a> 中加粗的方案，代表了计算与内存之间最优的<em>平衡</em>点，也就是 GEMM 性能最大化的位置。</p>
+<p>需要说明的是，表 <a href="#tbl-top-ranked-solutions-gemm-xdna-array" class="quarto-xref">表&nbsp;2</a> 与表 <a href="#tbl-top-ranked-solutions-gemm-xdna2-array" class="quarto-xref">表&nbsp;3</a> 的结果对应于矩阵 <span class="math inline">\(B\)</span> 采用 <em>列主序</em> 的情况（关于 <span class="math inline">\(B\)</span> 为 <em>行主序</em> 的结果，见第 <a href="#sec-gemm-performance-sweeps" class="quarto-xref">小节&nbsp;6.3.3</a> 节）。 在所有结果中，用来提升有效 DRAM 带宽（从而提升 GEMM 性能）的连续参数 <span class="math inline">\(k_\text{mt}\)</span>，都按下文所示方式配置（见第 <a href="#sec-contiguous-k-mt-parameter" class="quarto-xref">小节&nbsp;6.3.2</a> 节）。 最后，对于每种数据类型，寻找最优解的优化过程少于 30 分钟（在相应的迷你主机上评估）。 整个执行时间主要由 <code>xchesscc</code> 和 IRON 的编译时间主导（每次迭代最多 5 分钟），而穷举搜索在所有情况下都少于 1 秒。</p>
+</section>
+<section id="sec-contiguous-k-mt-parameter" class="level3">
+<h3 class="anchored" data-anchor-id="sec-contiguous-k-mt-parameter">连续 <span class="math inline">\(k_\text{mt}\)</span> 参数</h3>
+<p>在本节中，我们展示连续参数 <span class="math inline">\(k_\text{mt}\)</span> 对 GEMM 性能的影响。 图 <a href="#fig-contiguous-bf16-bf16-xdna" class="quarto-xref">图&nbsp;7</a> 与图 <a href="#fig-contiguous-int8-int16-xdna2" class="quarto-xref">图&nbsp;8</a> 展示了在使用最优<em>平衡</em>内核、且矩阵规模约为 4K、<span class="math inline">\(B\)</span> 为 <em>列主序</em> 时，改变参数 <span class="math inline">\(k_\text{mt}\)</span> 所得到的 GEMM 性能。 例如，对于 XDNA，当 <span class="math inline">\(k_\text{mt}\)</span> 等于 <span class="math inline">\(k_\text{ct}\)</span>（图 <a href="#fig-contiguous-bf16-bf16-xdna" class="quarto-xref">图&nbsp;7</a> 中为 56）时，GEMM 性能非常低（即 1.27 TOPS）。 随着 <span class="math inline">\(k_\text{mt}\)</span> 增大（并且以 <span class="math inline">\(k_\text{ct}\)</span> 的倍数增长），性能会改善。 这是因为更大的 <span class="math inline">\(k_\text{mt}\)</span> 使得能够在 <span class="math inline">\(A\)</span>（<em>行主序</em>）和 <span class="math inline">\(B\)</span>（<em>列主序</em>）矩阵上遍历更多连续元素，从而提高<em>有效</em> DRAM 带宽。 然而，在某个点之后，这种提升会饱和（即更高的 <span class="math inline">\(k_\text{mt}\)</span> 只会带来边际改进）。 因此，我们会针对每种数据类型<em>经验性</em>地选择那个使性能达到饱和的较小值（即图 <a href="#fig-contiguous-bf16-bf16-xdna" class="quarto-xref">图&nbsp;7</a> 中的 <span class="math inline">\(k_\text{mt}=224\)</span>）。 需要注意的是，在保持较高 GEMM 性能的同时选择最小值非常重要，因为这会减少将最终 GEMM 尺寸对齐到<em>原生</em> GEMM 尺寸时可能需要的零填充。 例如，对于 bf16-bf16 情况，在整个 4×4 XDNA 阵列上原生运行的<em>原生</em> GEMM 尺寸为 384×224×384。 我们还注意到，这会导致 L2 内存利用率下降，在所有数据类型上介于 47–61% 之间（见表 <a href="#tbl-top-ranked-solutions-gemm-xdna-array" class="quarto-xref">表&nbsp;2</a> 与表 <a href="#tbl-top-ranked-solutions-gemm-xdna2-array" class="quarto-xref">表&nbsp;3</a>）。 虽然当 <span class="math inline">\(k_\text{mt}\)</span> 更高时可以获得更高的 L2 内存利用率（例如图 <a href="#fig-contiguous-bf16-bf16-xdna" class="quarto-xref">图&nbsp;7</a> 中 <span class="math inline">\(k_\text{mt}=560\)</span> 时可达 96%），但 GEMM 性能只会带来不到 1% 的边际提升。</p>
+<div class="columns">
+<div class="column" style="width:50%;">
+<div id="fig-contiguous-bf16-bf16-xdna" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-contiguous-bf16-bf16-xdna-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/contiguous-plot-96-56-96-bf16-bf16-phoenix.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-contiguous-bf16-bf16-xdna-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;7: XDNA。
+</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:50%;">
+<div id="fig-contiguous-int8-int16-xdna2" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-contiguous-int8-int16-xdna2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/contiguous-plot-128-72-112-i8-i16-kracken.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-contiguous-int8-int16-xdna2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;8: XDNA2。
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>图 <a href="#fig-contiguous-bf16-bf16-xdna" class="quarto-xref">图&nbsp;7</a> 与图 <a href="#fig-contiguous-int8-int16-xdna2" class="quarto-xref">图&nbsp;8</a> 展示了连续参数 <span class="math inline">\(k_\text{mt}\)</span> 对性能的影响。 左图对应 bf16-bf16 96×56×96，右图对应 int8-int16 128×72×112。</p>
+<p>类似地，对于 XDNA2，在 int8-int16 情况下，我们把 <span class="math inline">\(k_\text{mt}\)</span> 设为 432（图 <a href="#fig-contiguous-int8-int16-xdna2" class="quarto-xref">图&nbsp;8</a>）。 在这种情况下，在 XDNA2 阵列上原生运行的<em>原生</em> GEMM 尺寸变为 512×432×896。 我们注意到，图 <a href="#fig-contiguous-int8-int16-xdna2" class="quarto-xref">图&nbsp;8</a> 的最后三个点，得益于 MemTile 中的相邻内存共享能力，而这正是 XDNA2 上 GEMM 映射策略的直接结果（见第 <a href="#sec-memtile-design" class="quarto-xref">小节&nbsp;5.3</a> 节）。 对于其他所有数据类型，我们也以类似方式设置参数 <span class="math inline">\(k_\text{mt}\)</span>。 具体而言，在 XDNA 上，我们把 int8-int8 和 int8-int16 的 <span class="math inline">\(k_\text{mt}\)</span> 设为 448，而 int8-int32 则设为 352。 在 XDNA2 上，我们把 int8-int8 的 <span class="math inline">\(k_\text{mt}\)</span> 设为 432，而 int8-int32 与 bf16-bf16 均设为 384。</p>
+<p>这里有必要指出，<span class="citation" data-cites="GEMM_example_mlir_aie"><a href="#ref-GEMM_example_mlir_aie" role="doc-biblioref">[30]</a></span> 中的非优化 GEMM 示例无法支持足够多的连续元素。 为了公平比较，我们使用了优化后的<em>平衡</em>内核，并修改其实现以支持单输出 <span class="math inline">\(C\)</span> 缓冲区（使其能够放入 L1）。 例如，对于图 <a href="#fig-contiguous-bf16-bf16-xdna" class="quarto-xref">图&nbsp;7</a> 和图 <a href="#fig-contiguous-int8-int16-xdna2" class="quarto-xref">图&nbsp;8</a> 所示的数据类型，我们分别在 XDNA 和 XDNA2 上获得了 2.4× 和 3.6× 更高的性能。 这些结果凸显了在 GEMM 性能中访问足够连续元素的重要性。</p>
+</section>
+<section id="sec-gemm-performance-sweeps" class="level3">
+<h3 class="anchored" data-anchor-id="sec-gemm-performance-sweeps">GEMM 性能扫描</h3>
+<p>在图 <a href="#fig-gemm-sweep-int8-int8-phoenix" class="quarto-xref">图&nbsp;9</a>、图 <a href="#fig-gemm-sweep-int8-int16-phoenix" class="quarto-xref">图&nbsp;10</a> 与图 <a href="#fig-gemm-sweep-bf16-bf16-phoenix" class="quarto-xref">图&nbsp;11</a> 中，我们展示了 roofline GEMM 性能扫描（线性坐标）。 每个点代表一个是<em>原生</em> GEMM 尺寸整数倍的矩阵尺寸（使用最优<em>平衡</em>内核）。 我们在每种情况下都选取了 400 多个点（分别针对 <span class="math inline">\(B\)</span> 为 <em>列主序</em> 和 <em>行主序</em>），矩阵尺寸最大到 8K，并且没有偏向任何特定的 <span class="math inline">\(M\)</span>、<span class="math inline">\(K\)</span>、<span class="math inline">\(N\)</span> 维度。 首先需要注意，当算术强度（ARI）较低（即矩阵尺寸较小时）时，性能会受限。 在这种情况下，GEMM 严重受内存限制。 然而，随着 ARI 增大，GEMM 性能会提升，并在达到某个值后逐渐稳定下来。 在所有情况下，把矩阵 <span class="math inline">\(B\)</span> 存为 <em>列主序</em> 的平均性能都高于 <em>行主序</em>。 这是因为这样能够为 <span class="math inline">\(A\)</span> 和 <span class="math inline">\(B\)</span> 两个矩阵都访问到足够的连续数据（这由 <span class="math inline">\(k_\text{mt}\)</span> 参数决定）。 不过，当 <span class="math inline">\(B\)</span> 为 <em>行主序</em> 时，连续访问仅限于 <span class="math inline">\(n_\text{ct}\)</span> 参数，而只有对于 <span class="math inline">\(A\)</span>（<em>行主序</em>）才能遍历到 <span class="math inline">\(k_\text{mt}\)</span> 个连续数据。 为此，在 XDNA 上，我们观察到 int8-int8、int8-int16 和 bf16-bf16 的平均性能分别高出 4.8%、4.4% 和 0.57%。</p>
+<p>此外，我们注意到，对于 XDNA2，<em>列主序</em> 与 <em>行主序</em> 之间的差异更大。 具体而言，对于 int8-int8、int8-int16 和 bf16-bf16，我们分别观察到平均高出 19.1%、25.2% 和 8.7% 的性能。 XDNA 与 XDNA2 之间这种差异，推测是由 NPU NoC、SoC 级互连以及 DRAM 之间的复杂相互作用所致 <span class="citation" data-cites="NPU_arch_MICRO_2024 NPU_HOT_CHIPS_2023"><a href="#ref-NPU_arch_MICRO_2024" role="doc-biblioref">[7]</a>, <a href="#ref-NPU_HOT_CHIPS_2023" role="doc-biblioref">[38]</a></span>，它会影响 NPU 所感知到的<em>有效</em> DRAM 带宽（尽管两台迷你主机都配备了相同的 DRAM）。 另外，我们注意到，对于 XDNA 和 XDNA2，bf16 下 <em>列主序</em> 与 <em>行主序</em> 之间的差异都比 int8 更小。 这是因为 bf16 在 <span class="math inline">\(n_\text{ct}\)</span> 维度上访问了更多字节（当 <span class="math inline">\(B\)</span> 为 <em>行主序</em> 时），这反而在该情况下提高了 GEMM 性能，从而缩小了两者之间的差距。</p>
+<p>对于 XDNA，我们注意到，在 <span class="math inline">\(B\)</span> 为 <em>行主序</em> 和 <em>列主序</em> 时，性能都会在某个 ARI 值之后趋于稳定，几乎呈现为一条线。 此外，对于 XDNA2，我们观察到，当 <span class="math inline">\(B\)</span> 为 <em>列主序</em> 时，GEMM 性能同样呈现稳定的线状分布。 然而，当 <span class="math inline">\(B\)</span> 为 <em>行主序</em> 时，它的分布则更为散乱。 这是因为 XDNA2 对<em>有效</em> DRAM 带宽的依赖更强（由于它能够达到显著更高的绝对 TOPS），而当在 <span class="math inline">\(A\)</span> 和 <span class="math inline">\(B\)</span> 两个矩阵上都访问到足够连续的数据时，这种带宽会被显著提升并稳定下来。 例如，对于 XDNA2 上的 int8-int16，我们测得当 <span class="math inline">\(B\)</span> 为 <em>列主序</em> 时的波动仅为 5%，而当 <span class="math inline">\(B\)</span> 为 <em>行主序</em> 时则达到 19%（ARI &gt; 1600）。 最后，在所有 GEMM 扫描点中，XDNA 分别在 int8-int8、int8-int16、int8-int32 和 bf16-bf16 上达到了最高 6.76、6.05、4.57 和 3.14 TOPS。 类似地，XDNA2 分别在 int8-int8、int8-int16、int8-int32 和 bf16-bf16 上达到了最高 38.05、31.52、25.31 和 14.71 TOPS（为了简洁起见，省略了 int8-int32 扫描）。</p>
+<div class="columns">
+<div class="column" style="width:33.33%;">
+<div id="fig-gemm-sweep-int8-int8-phoenix" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-gemm-sweep-int8-int8-phoenix-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/gemm-sweep-kernel-112x112x112-i8-i8-phoenix.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gemm-sweep-int8-int8-phoenix-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;9: int8-int8。
+</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:33.33%;">
+<div id="fig-gemm-sweep-int8-int16-phoenix" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-gemm-sweep-int8-int16-phoenix-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/gemm-sweep-kernel-96x112x96-i8-i16-phoenix.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gemm-sweep-int8-int16-phoenix-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;10: int8-int16。
+</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:33.33%;">
+<div id="fig-gemm-sweep-bf16-bf16-phoenix" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-gemm-sweep-bf16-bf16-phoenix-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/gemm-sweep-kernel-96x56x96-bf16-bf16-phoenix.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gemm-sweep-bf16-bf16-phoenix-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;11: bf16-bf16。
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>XDNA 的 roofline GEMM 性能扫描如上三图所示。</p>
+<div class="columns">
+<div class="column" style="width:33.33%;">
+<div id="fig-gemm-sweep-int8-int8-kracken" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-gemm-sweep-int8-int8-kracken-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/gemm-sweep-kernel-144x72x144-i8-i8-kracken.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gemm-sweep-int8-int8-kracken-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;12: int8-int8。
+</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:33.33%;">
+<div id="fig-gemm-sweep-int8-int16-kracken" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-gemm-sweep-int8-int16-kracken-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/gemm-sweep-kernel-128x72x112-i8-i16-kracken.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gemm-sweep-int8-int16-kracken-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;13: int8-int16。
+</figcaption>
+</figure>
+</div>
+</div><div class="column" style="width:33.33%;">
+<div id="fig-gemm-sweep-bf16-bf16-kracken" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-gemm-sweep-bf16-bf16-kracken-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus/gemm-sweep-kernel-112x48x96-bf16-bf16-kracken.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-gemm-sweep-bf16-bf16-kracken-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;14: bf16-bf16。
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<p>XDNA2 的 roofline GEMM 性能扫描如上三图所示。</p>
+</section>
+<section id="sec-insights-and-discussion" class="level3">
+<h3 class="anchored" data-anchor-id="sec-insights-and-discussion">洞见与讨论</h3>
+<section id="sec-gemm-performance-multiple-sizes" class="level4">
+<h4 class="anchored" data-anchor-id="sec-gemm-performance-multiple-sizes">多种 GEMM 尺寸下的性能</h4>
+<p>现代 DL 工作负载会在其各层中执行尺寸差异很大的 GEMM。 我们采用的输出驻留映射允许通过零填充来支持<em>任意</em> GEMM 尺寸，使其对齐到<em>原生</em> GEMM 尺寸（见第 <a href="#sec-gemm-mapping-strategy" class="quarto-xref">小节&nbsp;5.2</a> 节）。 零填充可以利用 NPU 架构在 MemTile 通道中对按需零填充的支持来高效完成 <span class="citation" data-cites="AMD_AIE_ML_architecture_manual"><a href="#ref-AMD_AIE_ML_architecture_manual" role="doc-biblioref">[37]</a></span>；如何充分利用这一特性留待未来工作。</p>
+<p>在不同 GEMM 尺寸之间切换会带来关键的性能低效。 为此，一种做法可能是针对每个尺寸都重新配置 NPU 阵列并设计专用 GEMM。 当量化整个 GEMM 设计的重配置延迟时，我们在 XDNA 和 XDNA2 上分别测得 3.4 ms 和 4.9 ms 的延迟。 然而，这种重配置延迟与 GEMM 执行时间相当（例如，XDNA2 上一个约 4K 的方阵 int8-int16 GEMM 需要 5.2 ms）。 这说明，对整个设计进行重配置会带来相当可观的开销。</p>
+<p>当在 NPU 上保持<em>同一个</em> GEMM 设计时，对于不同问题尺寸（<span class="math inline">\(M\)</span>、<span class="math inline">\(K\)</span>、<span class="math inline">\(N\)</span>）只需要重新配置两个参数：（i）输出 tile 的总数 <span class="math inline">\(M\cdot N/(m_\text{ct} \cdot n_\text{ct})\)</span>，以及（ii）沿归约维度 <span class="math inline">\(K/k_\text{ct}\)</span> 的 tile 数量 <span class="citation" data-cites="roesti2025unlocking"><a href="#ref-roesti2025unlocking" role="doc-biblioref">[29]</a></span>。 根据我们的测量，这种很小的重配置在系统层面不会带来任何可见的性能开销。 因此，识别最优参数（即 <span class="math inline">\(m_\text{ct}\)</span>、<span class="math inline">\(k_\text{ct}\)</span>、<span class="math inline">\(n_\text{ct}\)</span>、<span class="math inline">\(k_\text{mt}\)</span>，见第 <a href="#sec-gemm-design" class="quarto-xref">小节&nbsp;5</a> 节）并将其复用于不同 GEMM 尺寸，是实现高性能 DL 部署的关键。 最后，我们指出，这里给出的系统级 GEMM 结果是针对评估中使用的迷你主机而言的。 不过，我们提出的优化方法可以推广到当前两代中的任何 NPU 设备。</p>
+</section>
+<section id="sec-single-output-buffer" class="level4">
+<h4 class="anchored" data-anchor-id="sec-single-output-buffer">单输出缓冲区</h4>
+<p>由于采用输出驻留映射，我们把输出 <span class="math inline">\(C\)</span> tile 保留为单缓冲，只对输入 <span class="math inline">\(A\)</span> 和 <span class="math inline">\(B\)</span> 使用双缓冲（见第 <a href="#sec-gemm-mapping-strategy" class="quarto-xref">小节&nbsp;5.2</a> 节）。 这对于在<em>一般</em> GEMM 情况下最大化性能至关重要，因为它让单核参数优化具有更高的灵活性。 具体而言，与对 <span class="math inline">\(C\)</span> 采用双缓冲相比，这种做法允许使用更大的 <span class="math inline">\(m_\text{ct} \times k_\text{ct} \times n_\text{ct}\)</span> 参数组合（受 L1 内存大小约束）。 这会帮助我们识别出一个性能更高的<em>平衡</em>内核，从而在系统层面实现更高的 GEMM 性能。 例如，当我们使用第 <a href="#sec-system-level-optimization" class="quarto-xref">小节&nbsp;5.6.2</a> 节中的优化方法，并对 <span class="math inline">\(C\)</span> 采用双缓冲时，会为 XDNA2 上的 int8-int16 数据类型识别出 112×48×96 作为最优<em>平衡</em>内核。 对于约 4K 的方阵 GEMM，这个内核可以提供 26.1 TOPS。 然而，表 <a href="#tbl-top-ranked-solutions-gemm-xdna2-array" class="quarto-xref">表&nbsp;3</a> 中的 128×72×112 内核（单 <span class="math inline">\(C\)</span> 缓冲）可提供 30.77 TOPS，性能提升 18%。 类似地，在 XDNA 上，<span class="math inline">\(C\)</span> 的双缓冲可提供 2.76 TOPS（80×40×96 内核），而单缓冲可提供 3.12 TOPS（表 <a href="#tbl-top-ranked-solutions-gemm-xdna-array" class="quarto-xref">表&nbsp;2</a> 中的 96×56×96 内核，高 13%）。 当归约维度 <span class="math inline">\(K\)</span> 足够大时，单缓冲情况下输出 <span class="math inline">\(C\)</span> tile 的传输开销会被摊薄（通常在 <span class="math inline">\(K/k_\text{ct} &gt; 20\)</span> 时，GEMM 性能下降小于 5%）。</p>
+</section>
+<section id="sec-bd-reconfiguration" class="level4">
+<h4 class="anchored" data-anchor-id="sec-bd-reconfiguration">NPU-DRAM 数据移动与 BD 重配置</h4>
+<p>第 <a href="#sec-npu-dram-data-movement" class="quarto-xref">小节&nbsp;5.5</a> 节所述流程可以让 NPU 与 DRAM 的数据移动和 BD 重配置高效重叠。 为了量化其对性能的影响，我们把设计修改为按顺序同步并重配置 BD（也就是不进行重叠）。 在这种情况下，对于 XDNA2 上的 int8-int16，我们在约 4K 的方阵 GEMM 上只测得 22.21 TOPS，而表 <a href="#tbl-top-ranked-solutions-gemm-xdna2-array" class="quarto-xref">表&nbsp;3</a> 中的重叠设计可达到 30.77 TOPS（非重叠设计下降 28%）。 类似地，对于 XDNA 上的 int8-int16（见表 <a href="#tbl-top-ranked-solutions-gemm-xdna-array" class="quarto-xref">表&nbsp;2</a>），我们观察到 27% 的性能退化。 这说明，把 DMA 传输与 BD 重配置重叠起来，对于获得高 GEMM 性能至关重要。</p>
+</section>
+<section id="sec-future-work" class="level4">
+<h4 class="anchored" data-anchor-id="sec-future-work">未来研究</h4>
+<p>XDNA2 集成了对 bfp16 精度的硬件支持，其中多个数值共享一个公共指数。 这会给利用 NPU 多维 DMA 寻址特性的数据布局变换带来额外挑战（见第 <a href="#sec-dma-transformations" class="quarto-xref">小节&nbsp;5.4</a> 节）。 不过，这超出了本文范围，因此留待未来工作解决。 此外，我们提出的优化方法也可以用于 GEMM 的特殊情形，例如 general matrix-vector multiplication（GEMV），这同样留待未来工作。</p>
+</section>
+</section>
+</section>
+</section>
+<section id="sec-conclusion" class="level1">
+<h1>结论</h1>
+<p>在本文中，我们提出了一种新的优化方法，用于最大化 Ryzen AI NPU 上的 GEMM 性能。 我们观察到计算与片外内存之间存在<em>反比</em>关系，并据此确定了性能最大化的最优平衡点。 为了识别这一最优性能点，我们利用了解析建模和硬件剖析技术。 我们的方法达到了最先进的 GEMM 性能，并且可以推广到当前 AMD Ryzen AI 的两代 NPU。</p>
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" role="doc-bibliography" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">参考文献</h2><div id="refs" class="references csl-bib-body" data-entry-spacing="0" role="list">
+<div id="ref-NVIDIA_H100" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[1] </div><div class="csl-right-inline">Nvidia, <span>“<span>Confidential Compute on <span>NVIDIA</span> Hopper H100</span>”</span>. <a href="https://resources.nvidia.com/en-us-hopper-architecture/nvidia-h100-tensor-c" class="uri">https://resources.nvidia.com/en-us-hopper-architecture/nvidia-h100-tensor-c</a>, 2023.</div>
+</div>
+<div id="ref-AMD_CDNA_4" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[2] </div><div class="csl-right-inline">AMD, <span>“<span>AMD CDNA™ 4 Architecture</span>”</span>. <a href="https://www.amd.com/content/dam/amd/en/documents/instinct-tech-docs/white-papers/amd-cdna-4-architecture-whitepaper.pdf" class="uri">https://www.amd.com/content/dam/amd/en/documents/instinct-tech-docs/white-papers/amd-cdna-4-architecture-whitepaper.pdf</a>, 2025.</div>
+</div>
+<div id="ref-TPUv42021" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[3] </div><div class="csl-right-inline">N. P. Jouppi <em>et al.</em>, <span>“<span>Ten Lessons From Three Generations Shaped <span>Google’s</span> <span>TPUv4i</span>: Industrial Product</span>”</span>, in <em><span>2021 ACM/IEEE 48th Annual International Symposium on Computer Architecture (ISCA)</span></em>, 2021, pp. 1～14. doi: <a href="https://doi.org/10.1109/ISCA52012.2021.00010">10.1109/ISCA52012.2021.00010</a>.</div>
+</div>
+<div id="ref-MAIA_microsoft_2024" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[4] </div><div class="csl-right-inline">S. Xu and C. Ramakrishnan, <span>“Inside Maia 100”</span>, in <em>2024 IEEE Hot Chips 36 Symposium (HCS)</em>, 2024, pp. 1～17. doi: <a href="https://doi.org/10.1109/HCS61935.2024.10665248">10.1109/HCS61935.2024.10665248</a>.</div>
+</div>
+<div id="ref-Meta_second_gen_chip" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[5] </div><div class="csl-right-inline">J. Coburn <em>et al.</em>, <span>“<span>Meta’s Second Generation AI Chip: Model-Chip Co-Design and Productionization Experiences</span>”</span>, in <em>Proceedings of the 52nd Annual International Symposium on Computer Architecture</em>, in ISCA ’25. New York, NY, USA: Association for Computing Machinery, 2025, pp. 1689～1702. doi: <a href="https://doi.org/10.1145/3695053.3731409">10.1145/3695053.3731409</a>.</div>
+</div>
+<div id="ref-Amazon_Inferentia2" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[6] </div><div class="csl-right-inline"><span>“<span>Introducing Amazon EC2 Inf2 Instances Featuring AWS Inferentia2</span>”</span>. <a href="https://d1.awsstatic.com/events/Summits/reinvent2022/CMP334_22986.pdf" class="uri">https://d1.awsstatic.com/events/Summits/reinvent2022/CMP334_22986.pdf</a>, 2022.</div>
+</div>
+<div id="ref-NPU_arch_MICRO_2024" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[7] </div><div class="csl-right-inline">A. Rico <em>et al.</em>, <span>“<span>AMD XDNA NPU in Ryzen AI Processors</span>”</span>, <em>IEEE Micro</em>, vol. 44, no. 6, pp. 73～82, 2024, doi: <a href="https://doi.org/10.1109/MM.2024.3423692">10.1109/MM.2024.3423692</a>.</div>
+</div>
+<div id="ref-Versal_AI_Edge_gen_2" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[8] </div><div class="csl-right-inline">T. Knopp, J. Chu, and S. Ahmad, <span>“AMD Versal™ AI Edge Series Gen 2 for Vision and Automotive”</span>, in <em>2024 IEEE Hot Chips 36 Symposium (HCS)</em>, 2024, pp. 1～28. doi: <a href="https://doi.org/10.1109/HCS61935.2024.10665274">10.1109/HCS61935.2024.10665274</a>.</div>
+</div>
+<div id="ref-Intel_NPU" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[9] </div><div class="csl-right-inline">Intel, <span>“<span>Heterogeneous AI Powerhouse: Unveiling the Hardware and Software Foundation of Intel® Core™ Ultra Processors for the Edge</span>”</span>. <a href="https://www.intel.com/content/www/us/en/content-details/819442/heterogeneous-ai-powerhouse-unveiling-the-hardware-and-software-foundation-of-intel-core-ultra-processors-for-the-edge.html" class="uri">https://www.intel.com/content/www/us/en/content-details/819442/heterogeneous-ai-powerhouse-unveiling-the-hardware-and-software-foundation-of-intel-core-ultra-processors-for-the-edge.html</a>, 2025.</div>
+</div>
+<div id="ref-Qualcomm_Hexagon_NPU" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[10] </div><div class="csl-right-inline">E. Mahurin, <span>“Qualocmm® Hexagon™ NPU”</span>, in <em>2023 IEEE Hot Chips 35 Symposium (HCS)</em>, 2023, pp. 1～19. doi: <a href="https://doi.org/10.1109/HCS59251.2023.10254715">10.1109/HCS59251.2023.10254715</a>.</div>
+</div>
+<div id="ref-Nvidia_Jetson_nano" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[11] </div><div class="csl-right-inline">Nvidia, <span>“<span>NVIDIA Jetson AGX Orin Series </span>”</span>. <a href="https://www.nvidia.com/content/dam/en-zz/Solutions/gtcf21/jetson-orin/nvidia-jetson-agx-orin-technical-brief.pdf" class="uri">https://www.nvidia.com/content/dam/en-zz/Solutions/gtcf21/jetson-orin/nvidia-jetson-agx-orin-technical-brief.pdf</a>, 2022.</div>
+</div>
+<div id="ref-Versal_Hot_chips_2019" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[12] </div><div class="csl-right-inline">S. Ahmad <em>et al.</em>, <span>“<span>Xilinx First 7nm Device: Versal AI Core (VC1902)</span>”</span>, in <em>2019 IEEE Hot Chips 31 Symposium (HCS)</em>, 2019, pp. 1～28. doi: <a href="https://doi.org/10.1109/HOTCHIPS.2019.8875639">10.1109/HOTCHIPS.2019.8875639</a>.</div>
+</div>
+<div id="ref-Versal_Hot_chips_2021" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[13] </div><div class="csl-right-inline">R. Freeman, J. V. Barnett, and B. V. Vonderschmitt, <span>“<span>Xilinx Edge Processors</span>”</span>, in <em>2021 IEEE Hot Chips 33 Symposium (HCS)</em>, 2021, pp. 1～21. doi: <a href="https://doi.org/10.1109/HCS52781.2021.9567521">10.1109/HCS52781.2021.9567521</a>.</div>
+</div>
+<div id="ref-AMD_CES_2023" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[14] </div><div class="csl-right-inline">AMD, <span>“<span>AMD Highlights Future of High-Performance and Adaptive Computing During Opening Keynote of CES 2023</span>”</span>. <a href="https://www.amd.com/en/newsroom/press-releases/2023-1-4-amd-highlights-future-of-high-performance-and-adap.html" class="uri">https://www.amd.com/en/newsroom/press-releases/2023-1-4-amd-highlights-future-of-high-performance-and-adap.html</a>, 2023.</div>
+</div>
+<div id="ref-MaxEVA_2023" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[15] </div><div class="csl-right-inline">E. Taka, A. Arora, K.-C. Wu, and D. Marculescu, <span>“<span>MaxEVA: Maximizing the Efficiency of Matrix Multiplication on Versal AI Engine</span>”</span>, in <em>2023 International Conference on Field Programmable Technology (ICFPT)</em>, 2023, pp. 96～105. doi: <a href="https://doi.org/10.1109/ICFPT59805.2023.00016">10.1109/ICFPT59805.2023.00016</a>.</div>
+</div>
+<div id="ref-CHARM_FPGA_2023" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[16] </div><div class="csl-right-inline">J. Zhuang <em>et al.</em>, <span>“<span>CHARM: Composing Heterogeneous AcceleRators for Matrix Multiply on Versal ACAP Architecture</span>”</span>, in <em>Proceedings of the 2023 ACM/SIGDA International Symposium on Field Programmable Gate Arrays</em>, in FPGA ’23. New York, NY, USA: Association for Computing Machinery, 2023, pp. 153～164. doi: <a href="https://doi.org/10.1145/3543622.3573210">10.1145/3543622.3573210</a>.</div>
+</div>
+<div id="ref-AutoMM_DAC_2023" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[17] </div><div class="csl-right-inline">J. Zhuang, Z. Yang, and P. Zhou, <span>“<span>High Performance, Low Power Matrix Multiply Design on ACAP: from Architecture, Design Challenges and DSE Perspectives</span>”</span>, in <em>2023 60th ACM/IEEE Design Automation Conference (DAC)</em>, 2023, pp. 1～6. doi: <a href="https://doi.org/10.1109/DAC56929.2023.10247981">10.1109/DAC56929.2023.10247981</a>.</div>
+</div>
+<div id="ref-Versal_vs_Stratix_FCCM_2024" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[18] </div><div class="csl-right-inline">E. Taka, D. Gourounas, A. Gerstlauer, D. Marculescu, and A. Arora, <span>“<span>Efficient Approaches for GEMM Acceleration on Leading AI-Optimized FPGAs</span>”</span>, in <em>2024 IEEE 32nd Annual International Symposium on Field-Programmable Custom Computing Machines (FCCM)</em>, 2024, pp. 54～65. doi: <a href="https://doi.org/10.1109/FCCM60383.2024.00015">10.1109/FCCM60383.2024.00015</a>.</div>
+</div>
+<div id="ref-Charm_v2_2024" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[19] </div><div class="csl-right-inline">J. Zhuang <em>et al.</em>, <span>“<span>CHARM 2.0: Composing Heterogeneous Accelerators for Deep Learning on Versal ACAP Architecture</span>”</span>, <em>ACM Trans. Reconfigurable Technol. Syst.</em>, vol. 17, no. 3, Sep. 2024, doi: <a href="https://doi.org/10.1145/3686163">10.1145/3686163</a>.</div>
+</div>
+<div id="ref-AMA_FPL_2024" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[20] </div><div class="csl-right-inline">X. Deng, S. Wang, T. Gao, J. Liu, L. Liu, and N. Zheng, <span>“<span>AMA: An Analytical Approach to Maximizing the Efficiency of Deep Learning on Versal AI Engine</span>”</span>, in <em>2024 34th International Conference on Field-Programmable Logic and Applications (FPL)</em>, 2024, pp. 227～235. doi: <a href="https://doi.org/10.1109/FPL64840.2024.00039">10.1109/FPL64840.2024.00039</a>.</div>
+</div>
+<div id="ref-ARIES_FPGA_2025" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[21] </div><div class="csl-right-inline">J. Zhuang <em>et al.</em>, <span>“<span>ARIES: An Agile MLIR-Based Compilation Flow for Reconfigurable Devices with AI Engines</span>”</span>, in <em>Proceedings of the 2025 ACM/SIGDA International Symposium on Field Programmable Gate Arrays</em>, in FPGA ’25. New York, NY, USA: Association for Computing Machinery, 2025, pp. 92～102. doi: <a href="https://doi.org/10.1145/3706628.3708870">10.1145/3706628.3708870</a>.</div>
+</div>
+<div id="ref-RSN_ISCA_2025" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[22] </div><div class="csl-right-inline">C. Wang, X. Zhang, J. Cong, and J. C. Hoe, <span>“<span>Reconfigurable Stream Network Architecture</span>”</span>, in <em>Proceedings of the 52nd Annual International Symposium on Computer Architecture</em>, in ISCA ’25. New York, NY, USA: Association for Computing Machinery, 2025, pp. 1848～1866. doi: <a href="https://doi.org/10.1145/3695053.3731088">10.1145/3695053.3731088</a>.</div>
+</div>
+<div id="ref-GAMA_FPL_2025" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[23] </div><div class="csl-right-inline">K. Mhatre, E. Taka, and A. Arora, <span>“<span>GAMA: High-Performance GEMM Acceleration on AMD Versal ML-Optimized AI Engines</span>”</span>, in <em>2025 35th International Conference on Field-Programmable Logic and Applications (FPL)</em>, 2025. Available: <a href="https://arxiv.org/abs/2504.09688">https://arxiv.org/abs/2504.09688</a></div>
+</div>
+<div id="ref-GGML_github" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[24] </div><div class="csl-right-inline">GGML, <span>“<span>GGML: Tensor Library for Machine Learning</span>”</span>. <a href="https://github.com/ggml-org/ggml" class="uri">https://github.com/ggml-org/ggml</a>, 2025.</div>
+</div>
+<div id="ref-cublas_doc" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[25] </div><div class="csl-right-inline">Nvidia, <span>“<span>cuBLAS Documentation</span>”</span>. <a href="https://docs.nvidia.com/cuda/cublas/index.html" class="uri">https://docs.nvidia.com/cuda/cublas/index.html</a>, 2025.</div>
+</div>
+<div id="ref-cutlass_doc" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[26] </div><div class="csl-right-inline">Nvidia, <span>“<span>NVIDIA CUTLASS Documentation</span>”</span>. <a href="https://docs.nvidia.com/cutlass/index.html" class="uri">https://docs.nvidia.com/cutlass/index.html</a>, 2025.</div>
+</div>
+<div id="ref-hipBLAS_doc" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[27] </div><div class="csl-right-inline">AMD, <span>“<span>hipBLAS Documentation</span>”</span>. <a href="https://rocm.docs.amd.com/projects/hipBLAS/en/latest/index.html" class="uri">https://rocm.docs.amd.com/projects/hipBLAS/en/latest/index.html</a>, 2025.</div>
+</div>
+<div id="ref-rocBLAS_doc" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[28] </div><div class="csl-right-inline">AMD, <span>“<span>rocBLAS Documentation</span>”</span>. <a href="https://rocm.docs.amd.com/projects/rocBLAS/en/latest/index.html" class="uri">https://rocm.docs.amd.com/projects/rocBLAS/en/latest/index.html</a>, 2025.</div>
+</div>
+<div id="ref-roesti2025unlocking" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[29] </div><div class="csl-right-inline">A. Rösti and M. Franz, <span>“Unlocking the AMD neural processing unit for ML training on the client using bare-metal-programming tools”</span>, in <em>2025 IEEE 33rd Annual International Symposium on Field-Programmable Custom Computing Machines (FCCM)</em>, IEEE, 2025, pp. 271～271.</div>
+</div>
+<div id="ref-GEMM_example_mlir_aie" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[30] </div><div class="csl-right-inline">AMD, <span>“<span>Matrix Multiplication - Whole Array Design</span>”</span>. <a href="https://github.com/Xilinx/mlir-aie/blob/main/programming_examples/basic/matrix_multiplication/whole_array/README.md" class="uri">https://github.com/Xilinx/mlir-aie/blob/main/programming_examples/basic/matrix_multiplication/whole_array/README.md</a>, 2025.</div>
+</div>
+<div id="ref-fang2025dato_paper" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[31] </div><div class="csl-right-inline">S. Fang <em>et al.</em>, <span>“<span>Dato: A Task-Based Programming Model for Dataflow Accelerators</span>”</span>. 2025. Available: <a href="https://arxiv.org/abs/2509.06794">https://arxiv.org/abs/2509.06794</a></div>
+</div>
+<div id="ref-Zen_attention_AMD_paper" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[32] </div><div class="csl-right-inline">A. Deshmukh, V. Y. Raparti, and S. Hsu, <span>“<span>Zen-Attention: A Compiler Framework for Dynamic Attention Folding on AMD NPUs</span>”</span>. 2025. Available: <a href="https://arxiv.org/abs/2508.17593">https://arxiv.org/abs/2508.17593</a></div>
+</div>
+<div id="ref-karami2025exploringdynamicschedulingspace" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[33] </div><div class="csl-right-inline">R. Karami, R. Patwari, H. Kwon, and A. Sirasao, <span>“<span>Exploring the Dynamic Scheduling Space of Real-Time Generative AI Applications on Emerging Heterogeneous Systems</span>”</span>. 2025. Available: <a href="https://arxiv.org/abs/2507.14715">https://arxiv.org/abs/2507.14715</a></div>
+</div>
+<div id="ref-Stensil_NPU_FPGA2025" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[34] </div><div class="csl-right-inline">Z. Xu, M. Yu, Y. Zhang, J. Cai, Q. Yang, and T. Wei, <span>“<span>Tile-Level Pipeline for Linear Scalable Stencil Computation on AMD AI Engines</span>”</span>, in <em>Proceedings of the 2025 ACM/SIGDA International Symposium on Field Programmable Gate Arrays</em>, in FPGA ’25. New York, NY, USA: Association for Computing Machinery, 2025, pp. 172～178. doi: <a href="https://doi.org/10.1145/3706628.3708822">10.1145/3706628.3708822</a>.</div>
+</div>
+<div id="ref-Fortran_instrinsics_FPGA2025" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[35] </div><div class="csl-right-inline">N. Brown and G. Rodriguez-Canal, <span>“<span>Seamless Acceleration of Fortran Intrinsics via AMD AI Engines</span>”</span>, in <em>Proceedings of the 2025 ACM/SIGDA International Symposium on Field Programmable Gate Arrays</em>, in FPGA ’25. New York, NY, USA: Association for Computing Machinery, 2025, p. 185. doi: <a href="https://doi.org/10.1145/3706628.3708854">10.1145/3706628.3708854</a>.</div>
+</div>
+<div id="ref-Variant_FFT_NPU_2024" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[36] </div><div class="csl-right-inline">A. Nozaki, T. Kojima, H. Nakamura, and H. Takase, <span>“<span>A Study on Number Theoretic Transform Acceleration on AMD AI Engine</span>”</span>, in <em>2024 IEEE 17th International Symposium on Embedded Multicore/Many-core Systems-on-Chip (MCSoC)</em>, 2024, pp. 325～331. doi: <a href="https://doi.org/10.1109/MCSoC64144.2024.00060">10.1109/MCSoC64144.2024.00060</a>.</div>
+</div>
+<div id="ref-AMD_AIE_ML_architecture_manual" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[37] </div><div class="csl-right-inline">AMD, <span>“<span>Versal Adaptive SoC AIE-ML Architecture Manual (AM020)</span>”</span>. <a href="https://docs.amd.com/r/en-US/am020-versal-aie-ml" class="uri">https://docs.amd.com/r/en-US/am020-versal-aie-ml</a>, 2025.</div>
+</div>
+<div id="ref-NPU_HOT_CHIPS_2023" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[38] </div><div class="csl-right-inline">M. Subramon, D. Kramer, and I. Paul, <span>“<span>AMD Ryzen™ 7040 Series: Technology Overview</span>”</span>, in <em>2023 IEEE Hot Chips 35 Symposium (HCS)</em>, 2023, pp. 1～27. doi: <a href="https://doi.org/10.1109/HCS59251.2023.10254701">10.1109/HCS59251.2023.10254701</a>.</div>
+</div>
+<div id="ref-IRON_MICRO_2024" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[39] </div><div class="csl-right-inline">AMD, <span>“<span>AMD Announces Expanded Consumer and Commercial AI PC Portfolio at CES</span>”</span>. <a href="https://www.amd.com/content/dam/amd/en/documents/products/processors/ryzen/ai/iron-for-ryzen-ai-tutorial-micro-2024.pdf" class="uri">https://www.amd.com/content/dam/amd/en/documents/products/processors/ryzen/ai/iron-for-ryzen-ai-tutorial-micro-2024.pdf</a>, 2024.</div>
+</div>
+<div id="ref-AMD_AIE_API_user_guide_2025.1" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[40] </div><div class="csl-right-inline">AMD, <span>“<span>AI Engine API User Guide: Matrix Multiplication</span>”</span>. <a href="https://download.amd.com/docnav/aiengine/xilinx2025_1/aiengine_api/aie_api/doc/group__group__mmul.html" class="uri">https://download.amd.com/docnav/aiengine/xilinx2025_1/aiengine_api/aie_api/doc/group__group__mmul.html</a>, 2025.</div>
+</div>
+<div id="ref-AMD_quark_bfp16" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[41] </div><div class="csl-right-inline">AMD, <span>“<span>BFP16 (Block floating point) Quantization</span>”</span>. <a href="https://quark.docs.amd.com/latest/pytorch/tutorial_bfp16.html" class="uri">https://quark.docs.amd.com/latest/pytorch/tutorial_bfp16.html</a>, 2025.</div>
+</div>
+<div id="ref-Microsoft_block_floating_point_NEURIPS_2020" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[42] </div><div class="csl-right-inline">B. Darvish Rouhani <em>et al.</em>, <span>“<span>Pushing the Limits of Narrow Precision Inferencing at Cloud Scale with Microsoft Floating Point</span>”</span>, in <em>Advances in Neural Information Processing Systems</em>, H. Larochelle, M. Ranzato, R. Hadsell, M. F. Balcan, and H. Lin, 编, Curran Associates, Inc., 2020, pp. 10271～10281. Available: <a href="https://proceedings.neurips.cc/paper_files/paper/2020/file/747e32ab0fea7fbd2ad9ec03daa3f840-Paper.pdf">https://proceedings.neurips.cc/paper_files/paper/2020/file/747e32ab0fea7fbd2ad9ec03daa3f840-Paper.pdf</a></div>
+</div>
+<div id="ref-AMD_CES" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[43] </div><div class="csl-right-inline">AMD, <span>“<span>AMD Announces Expanded Consumer and Commercial AI PC Portfolio at CES</span>”</span>. <a href="https://www.amd.com/en/newsroom/press-releases/2025-1-6-amd-announces-expanded-consumer-and-commercial-ai-.html" class="uri">https://www.amd.com/en/newsroom/press-releases/2025-1-6-amd-announces-expanded-consumer-and-commercial-ai-.html</a>, 2025.</div>
+</div>
+<div id="ref-AMD_AIE_ML_kernel_guide" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[44] </div><div class="csl-right-inline">AMD, <span>“<span>AI Engine-ML Kernel and Graph Programming Guide (UG1603)</span>”</span>. <a href="https://docs.amd.com/r/en-US/ug1603-ai-engine-ml-kernel-graph?tocId=U3UXOInouDrMPWWdkItJdg" class="uri">https://docs.amd.com/r/en-US/ug1603-ai-engine-ml-kernel-graph?tocId=U3UXOInouDrMPWWdkItJdg</a>, 2025.</div>
+</div>
+<div id="ref-mlir_aie_github_repo" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[45] </div><div class="csl-right-inline">AMD, <span>“<span>IRON API and MLIR-based AI Engine Toolchain</span>”</span>. <a href="https://github.com/Xilinx/mlir-aie" class="uri">https://github.com/Xilinx/mlir-aie</a>, 2025.</div>
+</div>
+<div id="ref-Erika_IRON_FCCM_2025" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[46] </div><div class="csl-right-inline">E. Hunhoff <em>et al.</em>, <span>“Efficiency, Expressivity, and Extensibility in a Close-to-Metal NPU Programming Interface”</span>, in <em>2025 IEEE 33rd Annual International Symposium on Field-Programmable Custom Computing Machines (FCCM)</em>, 2025, pp. 85～94. doi: <a href="https://doi.org/10.1109/FCCM62733.2025.00043">10.1109/FCCM62733.2025.00043</a>.</div>
+</div>
+<div id="ref-mlir_paper" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[47] </div><div class="csl-right-inline">C. Lattner <em>et al.</em>, <span>“<span><span>MLIR</span>: Scaling Compiler Infrastructure for Domain Specific Computation</span>”</span>, in <em>2021 <span>IEEE/ACM</span> International Symposium on Code Generation and Optimization (CGO)</em>, 2021, pp. 2～14. doi: <a href="https://doi.org/10.1109/CGO51591.2021.9370308">10.1109/CGO51591.2021.9370308</a>.</div>
+</div>
+<div id="ref-mlir_python_bindings" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[48] </div><div class="csl-right-inline">MLIR, <span>“<span>MLIR Python Bindings</span>”</span>. <a href="https://mlir.llvm.org/docs/Bindings/Python/" class="uri">https://mlir.llvm.org/docs/Bindings/Python/</a>, 2025.</div>
+</div>
+<div id="ref-AIE_intrinsics" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[49] </div><div class="csl-right-inline">AMD, <span>“<span>AI Engine-ML Intrinsics User Guide</span>”</span>. <a href="https://download.amd.com/docnav/aiengine/xilinx2025_1/aiengine_ml_intrinsics/intrinsics/index.html" class="uri">https://download.amd.com/docnav/aiengine/xilinx2025_1/aiengine_ml_intrinsics/intrinsics/index.html</a>, 2025.</div>
+</div>
+<div id="ref-peano_github_repo" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[50] </div><div class="csl-right-inline">AMD, <span>“<span>AIEngine Fork of LLVM (Peano)</span>”</span>. <a href="https://github.com/Xilinx/llvm-aie" class="uri">https://github.com/Xilinx/llvm-aie</a>, 2025.</div>
+</div>
+<div id="ref-transpose_AIE_API" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[51] </div><div class="csl-right-inline">AMD, <span>“<span>AI Engine API User Guide: Reshaping</span>”</span>. <a href="https://xilinx.github.io/aie_api/group__group__reshape.html" class="uri">https://xilinx.github.io/aie_api/group__group__reshape.html</a>, 2025.</div>
+</div>
+<div id="ref-runtime_data_movement_mlir_aie" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[52] </div><div class="csl-right-inline">AMD, <span>“<span>Runtime Data Movement</span>”</span>. <a href="https://github.com/Xilinx/mlir-aie/blob/main/programming_guide/section-2/section-2d/DMATasks.md" class="uri">https://github.com/Xilinx/mlir-aie/blob/main/programming_guide/section-2/section-2d/DMATasks.md</a>, 2025.</div>
+</div>
+<div id="ref-Phoenix_mini_PC" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[53] </div><div class="csl-right-inline">Minisforum, <span>“<span>Minisforum UM790 Pro</span>”</span>. <a href="https://store.minisforum.com/products/minisforum-um790-pro" class="uri">https://store.minisforum.com/products/minisforum-um790-pro</a>, 2025.</div>
+</div>
+<div id="ref-Phoenix_processor" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[54] </div><div class="csl-right-inline">AMD, <span>“<span>AMD Ryzen™ 9 7940HS</span>”</span>. <a href="https://www.amd.com/en/products/processors/laptop/ryzen/7000-series/amd-ryzen-9-7940hs.html" class="uri">https://www.amd.com/en/products/processors/laptop/ryzen/7000-series/amd-ryzen-9-7940hs.html</a>, 2025.</div>
+</div>
+<div id="ref-Krackan_mini_PC" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[55] </div><div class="csl-right-inline">A. Industrial, <span>“<span>4X4 BOX-AI350</span>”</span>. <a href="https://www.asrockind.com/en-gb/4X4%20BOX-AI350" class="uri">https://www.asrockind.com/en-gb/4X4%20BOX-AI350</a>, 2025.</div>
+</div>
+<div id="ref-Krackan_processor" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[56] </div><div class="csl-right-inline">AMD, <span>“<span>AMD Ryzen™ Al 7 350</span>”</span>. <a href="https://www.amd.com/en/products/processors/laptop/ryzen/ai-300-series/amd-ryzen-ai-7-350.html" class="uri">https://www.amd.com/en/products/processors/laptop/ryzen/ai-300-series/amd-ryzen-ai-7-350.html</a>, 2025.</div>
+</div>
+<div id="ref-xrt_github_repo" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[57] </div><div class="csl-right-inline">AMD, <span>“<span>Xilinx Runtime (XRT)</span>”</span>. <a href="https://github.com/Xilinx/XRT" class="uri">https://github.com/Xilinx/XRT</a>, 2025.</div>
+</div>
+<div id="ref-xrt_smi_commands" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[58] </div><div class="csl-right-inline">AMD, <span>“<span>NPU Management Interface</span>”</span>. <a href="https://ryzenai.docs.amd.com/en/latest/xrt_smi.html" class="uri">https://ryzenai.docs.amd.com/en/latest/xrt_smi.html</a>, 2025.</div>
+</div>
+<div id="ref-xdna_driver_github_repo" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[59] </div><div class="csl-right-inline">AMD, <span>“<span>AMD XDNA™ Driver for Linux</span>”</span>. <a href="https://github.com/amd/xdna-driver" class="uri">https://github.com/amd/xdna-driver</a>, 2025.</div>
+</div>
+<div id="ref-tracing_mlir_aie" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[60] </div><div class="csl-right-inline">AMD, <span>“<span>Section 4b - Trace</span>”</span>. <a href="https://github.com/Xilinx/mlir-aie/tree/main/programming_guide/section-4/section-4b" class="uri">https://github.com/Xilinx/mlir-aie/tree/main/programming_guide/section-4/section-4b</a>, 2025.</div>
+</div>
+<div id="ref-Vitis_tutorials" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[61] </div><div class="csl-right-inline">AMD, <span>“<span>Vitis Tutorials: AI Engine Development (XD100)</span>”</span>. <a href="https://docs.amd.com/r/en-US/Vitis-Tutorials-AI-Engine-Development/AI-Engine-Development" class="uri">https://docs.amd.com/r/en-US/Vitis-Tutorials-AI-Engine-Development/AI-Engine-Development</a>, 2025.</div>
+</div>
+<div id="ref-wall_clock_time_mlir_aie" class="csl-entry" role="listitem">
+<div class="csl-left-margin">[62] </div><div class="csl-right-inline">AMD, <span>“<span>Section 4a - Timers</span>”</span>. <a href="https://github.com/Xilinx/mlir-aie/tree/main/programming_guide/section-4/section-4a" class="uri">https://github.com/Xilinx/mlir-aie/tree/main/programming_guide/section-4/section-4a</a>, 2025.</div>
+</div>
+</div></section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "已复制");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "已复制");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/sadsock\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© 2026 SadSock</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>
