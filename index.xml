@@ -10,7 +10,1254 @@
 <atom:link href="https://sadsock.github.io/index.xml" rel="self" type="application/rss+xml"/>
 <description></description>
 <generator>quarto-1.9.37</generator>
-<lastBuildDate>Mon, 04 May 2026 00:00:00 GMT</lastBuildDate>
+<lastBuildDate>Wed, 06 May 2026 00:00:00 GMT</lastBuildDate>
+<item>
+  <title>Tempus: A Temporally Scalable Resource-Invariant GEMM Streaming Framework for Versal AI Edge</title>
+  <link>https://sadsock.github.io/posts/2026-05-06-tempus-a-temporally-scalable-resource-invariant-gemm-streaming-framework-for-versal-ai-edge.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<p>原文版权声明：本文依据公开来源论文 <em>Tempus: A Temporally Scalable Resource-Invariant GEMM Streaming Framework for Versal AI Edge</em> 进行中文翻译整理，仅供学习与研究使用。 我仅提供翻译与网页整理，不拥有原文版权；原文版权归作者及发布方所有。 转载、分发或用于商业用途时，请遵守原论文及原始发布平台的版权规定。</p>
+<p>原文信息：Mahdieh Grailoo，José Núñez-Yáñez。<em>Tempus: A Temporally Scalable Resource-Invariant GEMM Streaming Framework for Versal AI Edge</em>。arXiv:2605.00536v2。</p>
+<p>说明：以下内容按原文句序逐句对应翻译整理。 图注、表注、表格说明、算法和参考文献信息尽量保留原貌；作者名、标题、期刊会议信息不翻译。 原文中的 LaTeX 样式宏已展开为普通可移植写法，代码和算法中的标识符保持原样。</p>
+<p>作者：Mahdieh Grailoo；José Núñez-Yáñez。</p>
+<p>单位：Linköping University, Sweden；Universidad Politecnica de Madrid, Spain。</p>
+<section id="sec-abstract" class="level1">
+<h1>摘要</h1>
+<p>大语言模型（LLM）的 scaling laws 表明，模型质量会随着计算规模提升而改善，但边缘部署会对计算、内存和功耗施加严格约束。 由于通用矩阵乘法（GEMM）最多占推理时间的 <img src="https://latex.codecogs.com/png.latex?90%5C%25">，高效的 GEMM 加速对边缘 AI 至关重要。 AMD Versal adaptive SoC 中的 Adaptive Intelligent Engines 很适合这项任务，但现有最先进（SOTA）框架通过空间扩展来最大化性能，也就是把工作负载分布到数百个核心上；这种方法在资源受限的 edge SoC 上会因为物理实现失败、带宽饱和和过高资源消耗而失效。 我们提出 Tempus，这是一个面向 AMD Versal AI Edge SoC 的 Resource-Invariant Temporal GEMM 框架。 Tempus 不会随着矩阵尺寸增大而扩展硬件资源，而是使用固定的 16 个 AIE-ML 核心计算块，并通过迭代式 graph 执行，以及 Programmable Logic 中的算法化数据分块与复制来实现可扩展性。 高速 cascade streaming 可在 Initiation Interval（II）为 1 时实现低延迟 partial sum reduction，而无死锁的 DATAFLOW 协议则最大化传输-计算重叠与 PLIO 复用。 在 GEMM 工作负载上评估时，Tempus 在总片上功耗 <img src="https://latex.codecogs.com/png.latex?10.677"> W 下达到 <img src="https://latex.codecogs.com/png.latex?607"> GOPS。 通过 Platform-Aware Utility（PAU）指标刻画系统级效率，我们证明 Tempus 的 prominence factor 比领先的空间 SOTA（ARIES）高 <img src="https://latex.codecogs.com/png.latex?211.2%5Ctimes">。 此外，该框架保持 <img src="https://latex.codecogs.com/png.latex?0.00%5C%25"> 的 URAM/DSP 利用率，实现 <img src="https://latex.codecogs.com/png.latex?22.0%5Ctimes"> core frugality、<img src="https://latex.codecogs.com/png.latex?7.1%5Ctimes"> power frugality 和 <img src="https://latex.codecogs.com/png.latex?6.3%5Ctimes"> I/O demand 降低，为边缘 LLM 推理建立了可持续、可扩展的基础。</p>
+<p>关键词：Hardware-Software Co-design；Versal ACAP System-on-Chip；Intelligent Engine；Large Language Models；Temporal Scaling；Resource-Constrained Edge Devices；Parallelization；Sustainable Inference。</p>
+</section>
+<section id="sec-introduction" class="level1">
+<h1>引言</h1>
+<p>大语言模型（LLM）的 scaling laws 已经表明，即便能够访问庞大的资源池，temporal scaling 也是完整模型部署的唯一可行路径 <span class="citation" data-cites="hoffmann2022training kaplan2020scaling pearce2024reconciling">[1], [2], [3]</span>。 因此，现代 LLM 前所未有的规模和计算需求，需要为部署提供专用硬件加速 <span class="citation" data-cites="xu2025slim jiang2025comprehensive guo2025survey li2025tiny nunez2025sgrace grailoo2024heterogeneous">[4], [5], [6], [7], [8], [9]</span>，尤其是在受限的边缘设备中 <span class="citation" data-cites="CHARMtwo ARIES AutoMM CHARM AutoSA">[10], [11], [12], [13], [14]</span>。 在这些模型中，General Matrix Multiplication（GEMM）的效率是工作负载的核心性能瓶颈，在推理期间通常消耗超过 <img src="https://latex.codecogs.com/png.latex?90%5C%25"> 的总执行时间。 Tempus 聚焦于在 AMD Versal Adaptive Compute Acceleration（ACAP）Edge 平台上，对 rectangular GEMM 进行可持续加速；这些平台是由 processing system（PS）、programmable logic（PL）和 adaptable intelligent engines（AIE-ML）组成的异构 System-on-Chip <span class="citation" data-cites="AMD_Versal_AI_Edge_PSG_2024 AMD_UG1079_2025 Xilinx_Versal_AI_Edge_WP518_2021">[15], [16], [17]</span>。</p>
+<p>此前为 Versal ACAP 设计的最先进（SOTA）优化框架，主要依赖大规模空间扩展来竞争峰值吞吐量，即把工作负载分布到数百个 intelligent engine 上；这些核心通常存在于 VC Versal Core 和 VE Versal 等更大器件中，它们拥有 300 到 400 个核心 <span class="citation" data-cites="aie4ml ARIES AutoMM AutoSA CHARM CHARMtwo GAMA MaxEVA">[10], [11], [12], [13], [14], [18], [19], [20]</span>。 当移植到资源受限的边缘设备时，这种方法会从根本上失效。 这些设计需要很高的核心和资源利用率，会导致过高功耗，并使稀缺的 PL 组件饱和。 这种饱和会限制 PL fabric 用于集成完整模型推理所需的关键非矩阵乘法 kernel，例如 Softmax 或 Layer normalization <span class="citation" data-cites="grailoo2024activation">[21]</span>。 此外，推动空间规模达到极限通常会导致物理实现失败。 因此，性能会随着核心数线性扩展这一内在假设，在这种受限场景下会崩溃。</p>
+<p>为克服边缘侧性能与资源之间的不匹配，我们引入 Temporal rectangular GEMM Scaling，这是一个新的框架，它通过限制并固定硬件资源分配来获得高性能和可扩展性，并优先考虑效率而非空间并行。 我们的主要贡献如下。</p>
+<ol type="1">
+<li><p><strong>Resource-Invariant Frugality Framework：</strong> Tempus 通过考虑一个固定空间计算块，将资源利用率与矩阵尺寸解耦。 大规模工作负载的扩展通过迭代式 AIE-ML graph 执行和算法化数据复制来实现。 此外，3D MatMul 结构使用数据归约和多播映射到固定 2D 阵列（例如 Split×Cascade）。 与 SOTA 相比，Tempus 实现了 core、power 和 I/O frugality。 同时，通过把 programmable logic 限制在轻量 streaming FIFO 和固定大小 tiling buffer 上，该架构使用 <img src="https://latex.codecogs.com/png.latex?0.00%5C%25"> 的 URAM/DSP，为 foundation model 所需的非 GEMM kernel（例如 Softmax、Layer-normalization）保留 fabric。</p></li>
+<li><p><strong>Platform-Aware Utility and Architectural Efficiency：</strong> Tempus 通过 Platform-Aware Utility（PAU）指标，将性能按物理潜力归一化，从而优先考虑体系结构 proficiency，并达到比领先空间 SOTA 高 <img src="https://latex.codecogs.com/png.latex?211.2%5Ctimes"> 的 prominence。 评估展示了近似理想的扩展性：<img src="https://latex.codecogs.com/png.latex?32,%5C!768%5Ctimes"> 的工作负载增长只造成 <img src="https://latex.codecogs.com/png.latex?6.8%5Ctimes"> 的延迟增长，从而有效摊薄固定系统初始化成本。 我们还进一步展示，效率会受到 micro-kernel dimension（DIM）调节，优化后的 tile 尺寸带来 <img src="https://latex.codecogs.com/png.latex?10.5%5Ctimes"> 的延迟下降；如果增加本地内存，这一数字还可以进一步改善。</p></li>
+<li><p><strong>Compute-Transfer Overlapping Efficiency：</strong> 通过 cascade interface 进行高速 streaming，可实现低延迟 partial sum reduction，避免约 <img src="https://latex.codecogs.com/png.latex?50%5C%25"> 更慢的 buffer-sharing 方法，同时保证 pipeline initiation interval（II）为 1。 为绕过边缘设备的 “Bandwidth Wall”，我们通过 hybrid packet/broadcast switching 和无死锁 DATAFLOW 协议最大化 PLIO 复用。 PL streaming 还会把计算与 programmable logic 和 AIE array 之间的数据传输重叠起来，从而有效隐藏通信延迟。</p></li>
+<li><p><strong>Analytical Modeling of Performance-Critical Parameters：</strong> 我们的工作引入了解析模型，用于推导支配系统级效率的参数。 这些模型确定了 scheduling 参数，例如用于 temporal scaling 的 <code>GRAPH_ITER_CNT</code>、用于 tiling 的 Kernel size，以及用于数据复用的 Replication Factor。</p></li>
+</ol>
+<p>该框架的源代码已开放在 <a href="https://github.com/mgrailoo/TEMPUS" class="uri">https://github.com/mgrailoo/TEMPUS</a>。</p>
+<div id="fig-speedup-scaling" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-speedup-scaling-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/tempus-a-temporally-scalable-resource-invariant-gemm-streaming-framework-for-versal-ai-edge/arch.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-speedup-scaling-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;1: Versal ACAP 架构：本框架的异构系统集成与执行流程。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-related-work" class="level1">
+<h1>相关工作：空间扩展与时间扩展</h1>
+<p>Versal ACAP 上的先前 GEMM 加速经历了两代 AI Engine，目标是在大型器件（300-400 个核心）上通过空间扩展最大化吞吐量。 这种思路在资源受限的边缘平台上会失败。 我们的工作提出 temporal GEMM scaling，作为一种替代性的 resource-invariant 范式。</p>
+<section id="sec-spatial-scaling-frameworks" class="level2">
+<h2 class="anchored" data-anchor-id="sec-spatial-scaling-frameworks">空间扩展框架与利用率挑战（第一代：AIE）</h2>
+<p>这些框架专注于在大型 AIE 阵列上实现最大理论性能，将吞吐量置于资源节俭性之上。</p>
+<ul>
+<li><p><strong>CHARM 与 2.0（Heterogeneity-Aware Partitioning）：</strong> CHARM 率先使用 Cascade Stream interface 在 AIE 阵列上执行 GEMM。 单体式 CHARM 设计在不同 layer sizes 下效率严重不足，性能下降最高可达 <img src="https://latex.codecogs.com/png.latex?5760%5Ctimes">。 CHARM 2.0 通过把阵列划分为异构 accelerator 来解决这一问题，使 BERT 吞吐量最高提高 <img src="https://latex.codecogs.com/png.latex?5.29%5Ctimes">。 它使用 288 个 AIE 核心（VCK1902 的 72%）、91.52% BRAM 和 82.94% URAM 利用率，在 <img src="https://latex.codecogs.com/png.latex?1024%5E3"> INT16 GEMM 上达到 10.03 TOPS <span class="citation" data-cites="CHARM CHARMtwo">[10], [13]</span>。 CHARM 还面临显著资源问题，导致某些 INT8 设计由于拥塞问题只能利用 <img src="https://latex.codecogs.com/png.latex?48%5C%25"> 的 AIE 核心 <span class="citation" data-cites="CHARM">[13]</span>。</p></li>
+<li><p><strong>MaxEVA（Throughput-Centric Optimization）：</strong> MaxEVA 解决了 CHARM 等先前方案遇到的小矩阵瓶颈，并在仿真中达到很高的 AIE-only 吞吐量。 然而，它受到低效 buffer-sharing 的限制，并把专用 AIE 核心用于 reduction kernel，从而限制了真实世界效率。 对最大空间利用率的追求导致了物理实现失败。 例如，MaxEVA 最初吞吐量最高的设计需要 <img src="https://latex.codecogs.com/png.latex?100%5C%25"> 使用全部 400 个 AIE 核心，但由于 routing congestion 在 Place-and-Route（PnR）阶段失败 <span class="citation" data-cites="MaxEVA">[20]</span>。 这种以仿真为中心的方法提供了理论性能，但缺乏系统实现 <span class="citation" data-cites="MaxEVA">[20]</span>。</p></li>
+<li><p><strong>AMA（Algorithmic Efficiency）：</strong> AMA 是 MaxEVA 的高级后继方案，它通过增强 MAC kernel 使其直接执行累加，从而消除了专用 reduction kernel。 这一创新带来了性能和能效收益。 然而，AMA 保持了相同的根本限制：它依赖更慢的 buffer-sharing interface 进行 reduction，并且其 AIE-only 仿真方法使其脱离真实世界约束，尽管它使用了多达 342 个核心 <span class="citation" data-cites="AMA">[22]</span>。</p></li>
+<li><p><strong>AutoMM（Resource-Conscious DSE）：</strong> AutoMM 在 CHARM 方法基础上引入了针对 INT8/INT16 精度优化的资源保守设计空间探索（DSE）。 它使用 288 个 AIE 核心（VCK1902 的 72%），达到 7.51 TOPS 和 56.8 W 总功耗，并且相较空间替代方案具有更低的 BRAM 利用率（49.33%）。 然而，它的保守资源方法限制了性能可扩展性，后来的 ARIES 展示了 INT16 上 <img src="https://latex.codecogs.com/png.latex?1.57%5Ctimes"> 更高的能效 <span class="citation" data-cites="AutoMM">[12]</span>。</p></li>
+</ul>
+</section>
+<section id="sec-advanced-frameworks" class="level2">
+<h2 class="anchored" data-anchor-id="sec-advanced-frameworks">高级框架（第二代：AIE-ML）与编译器辅助扩展</h2>
+<p>随着体系结构优化空间不断扩大，编译流程提供了自动化方案，用于管理复杂的资源利用模式。</p>
+<ul>
+<li><p><strong>GAMA（AIE-ML Optimization）：</strong> GAMA 是首个关于第二代 intelligent engine（AIE-ML）架构，即 VE2802，的研究 <span class="citation" data-cites="GAMA">[19]</span>。 它的创新点是自定义 buffer placement algorithm，可达到最高 100% 的内存利用率，并相比标准编译器减少 12% stalls。 通过使用 staggered kernel placement 来缓解拥塞，它在仿真中实现了阵列利用率和性能。 关键的是，GAMA 使用更快的 Cascade interface，因此达到比 MaxEVA 和 ARIES 更高的 throughput efficiency。</p></li>
+<li><p><strong>ARIES（MLIR Compilation Flow）：</strong> ARIES 引入了一个 agile MLIR-based flow，用于跨 Versal 平台实现多级并行 <span class="citation" data-cites="ARIES">[11]</span>。 它的核心创新是统一的 MLIR 表示，横跨 AIE 和 PL，从而支持 AIE 器件上的优化与可移植性。 与基于仿真的方法不同，ARIES 提供了真实板上评估结果。 它通过大规模空间扩展实现高吞吐量，使用 88%（352 个核心）的 AIE，并伴随很高的 PL 资源使用率（76% URAM），因此不适合资源受限的边缘设备。</p></li>
+<li><p><strong>AutoSA（Polyhedral Compilation）：</strong> AutoSA 是一个 polyhedral compiler，可生成带有硬件优化（SIMD、II=1、double buffering）的单体 systolic array <span class="citation" data-cites="AutoSA">[14]</span>。 尽管它在 16 nm AMD U250 FPGA 上取得了高性能，CHARM 在相同精度下仍实现了高 2.9× 的吞吐量。</p></li>
+</ul>
+<p>与 SOTA 相比，我们的 resource-invariant temporal scaling 通过迭代执行、维度归约和数据复制来提供性能。 它位于一个小型固定核心块中，使用高速 cascade 和 DATAFLOW streaming，从而保证资源保守性和 edge 兼容性。</p>
+</section>
+</section>
+<section id="sec-versal-acap-architecture" class="level1">
+<h1>Versal ACAP 架构：AI Edge VE2302</h1>
+<p>AMD Versal AI Edge VE2302 SoC 将三类不同处理引擎集成到单个异构架构中，如图 图&nbsp;1 所示。 Intelligent Engines 构成一个由 34 个 VLIW/SIMD 处理器（AIE-ML）组成的阵列，每个处理器都带有本地内存 <span class="citation" data-cites="lei2024mapping">[23]</span>（绿色灰色框），并针对该架构核心处的深度学习计算 kernel 进行优化。 Adaptive Engines（Programmable Logic）（红色框）提供可重配置硬件（328K system logic cells、464 DSP），用于 flexible logic 和数据移动，例如 data streaming control（FIFO）、data tiling、de-tiling 和 replications。 Scalar Engines（Processing System）（蓝色框）包含双核 Arm Cortex-A72 和 Cortex-R5F 处理器，用于系统编排和通用任务 <span class="citation" data-cites="AMD_Versal_AI_Edge_PSG_2024 AMD_UG1079_2025 Xilinx_Versal_AI_Edge_WP518_2021">[15], [16], [17]</span>。</p>
+<p>AIE-ML 阵列通过两条关键路径与更广泛的系统连接。 它通过高速 AXI4-Streams（PLIO）直接连接到 PL，这是把数据送入阵列的主要通道。 与 Processing System（PS）的通信以及对外部 DRAM 的访问，都通过高带宽 Network-on-Chip（NoC）实现。 在 AIE-ML 阵列内部，三种专用数据通信机制支持高效计算，并且对我们的扩展方法至关重要。 Cascade Interface 在相邻核心之间提供直接、低延迟连接（AIE-ML 中为 512-bit 宽），用于快速 partial sum reduction，从而支持我们的 temporal scaling 方法。 Memory Interface 支持相邻核心之间的 buffer sharing，而 AXI4 Switch 则连接非相邻核心，并被配置为高效 packet-switching 与 broadcasting。 为简化说明，后续所有解释和图示都考虑一个 2×2 的 AIE-ML 核心阵列。</p>
+</section>
+<section id="sec-methodology" class="level1">
+<h1>方法：Resource-Invariant Temporal GEMM Scaling</h1>
+<p>我们的框架把大矩阵乘法转换成可预测的迭代式流处理过程。 通过把 3D MatMul 映射到固定 2D AIE-ML 阵列（Split×Cascade，例如 2×8），并且只为 dataflow 使用一组固定 PL 资源，我们实现了 resource-invariant performance。</p>
+<section id="sec-system-orchestration" class="level2">
+<h2 class="anchored" data-anchor-id="sec-system-orchestration">系统编排与控制流（PS 侧）</h2>
+<p>Versal ACAP 异构系统的协调，以及我们的 Temporal Scaling 框架中的 dataflow，由 Processing System/Host CPU 管理；它作为中央 orchestrator，如图 图&nbsp;1 所示。 该流程从 scalar engines 发起执行开始。 输入矩阵存储在外部 DRAM 中。 随后，一个专用 DMA HLS kernel 使用无死锁 DATAFLOW 设计，管理从外部 DRAM 到 AIE-ML 阵列的数据传输，从而确保连续高速数据流。 数据使用 AXI4-MM 协议，通过高带宽 NoC（蓝色箭头）从外部 DRAM 传输。 随后，数据通过 AXI4-Stream（AXIS）网络（红色箭头）流入 AIE-ML 阵列。 之后，数据通过 AXI4-Stream（AXIS）网络（红色路径）流入 AIE-ML 阵列。 在这一步中，为最大化稀缺 PLIO 资源的复用，会采用专门路由，即 Broadcast circuit-switching 和 Packet Switching。 当固定核心 AIE-ML graph 执行矩阵乘法时，内部 AIE-to-AIE 的 partial sum reduction 通信由高速 512-bit Cascade Stream 处理（图 图&nbsp;1 中的深红色箭头）<span class="citation" data-cites="AMD_UG1079_2025">[16]</span>。 Memory Interface（绿色箭头）则用于每个核心内存中的本地数据访问。 最后，得到的矩阵 C 从 AIE-ML 阵列流回 PL，DMA kernel 在其中收集结果，并通过 NoC（红色路径）写回 External DRAM，从而完成执行周期。</p>
+<p>系统的详细执行由 PS 编排的 7-phase timed control flow 管理，如算法 1 所示。 在 Phase 0（INIT）中，host 计算 temporal scaling 的关键参数 <code>GRAPH_ITER_CNT</code>。 它使用 XRT 的 aligned allocator 为矩阵 A、B 和 C 分配内存缓冲区，确保 4096-byte boundary alignment，以获得最佳 DMA 性能。 Phase 1-2（DATA_PREP、DEVICE_INIT）把生成的 PLIO streams 和硬件 binary（<code>.xclbin</code>）加载到 Versal 设备上，并初始化 AIE-ML 阵列和 PL kernel。 Phase 3（BUFFER_CREATE）把已分配的缓冲区映射到 External DRAM，从而建立 host-device 数据通道。 Phase 4（DATA_XFER_HOST2DEV）把输入矩阵从 host memory 传输到 device DRAM，并实例化 PL kernel 和 AIE graph。 核心计算从 Phase 5（KERNEL_LAUNCH）开始，即启动 kernel，随后进入 Phase 6（CORE_COMPUTATION），其中 temporal scaling 通过迭代式 AIE graph 执行（<code>gemm_aie_gr.run(GRAPH_ITER_CNT)</code>）实现，并与 PL kernel 运行（<code>dma_krnl.wait()</code>）并发。 最后，host 同步完成状态，并把结果传回 host memory。</p>
+<div id="alg-host-execution" class="theorem algorithm">
+<p><span class="theorem-title"><strong>Algorithm 1</strong></span> <strong>算法 1：主机应用执行流程（7 个阶段）</strong></p>
+<pre class="text"><code>Function main(argc, argv)
+  PHASE 0: Configuration and Memory Setup
+  Calculate GRAPH_ITER_CNT for temporal scaling.
+  Load matrix data or generate test patterns.
+  Allocate host memory using aligned_allocator (4096-byte aligned).
+  PHASE 1-4: Initialization and Setup
+  Initialize XRT device and load XCLBIN.
+  Create buffer objects and map them.
+  Transfer A and B to device.
+  Instantiate FPGA HLS kernel and AIE graph.
+  PHASE 5: Kernel Launch  // Start timer
+  Launch dma_hls_rhdl.
+  PHASE 6: CORE COMPUTATION
+  Run AIE graph for GRAPH_ITER_CNT times.
+  Wait for kernel.
+  Record compute total.  // Stop timer
+  PHASE 7: Output/Validation
+  Sync output.
+  Write output and validate.
+  Print summary.
+EndFunction</code></pre>
+</div>
+</section>
+<section id="sec-algorithmic-data-preparation" class="level2">
+<h2 class="anchored" data-anchor-id="sec-algorithmic-data-preparation">算法化数据准备（Tiling、Data Decomposition 与 3D-to-2D Mapping）</h2>
+<p>这一阶段说明框架如何通过维度归约、精确 tiling 和专门的数据重复来克服硬件限制，如图 图&nbsp;2 所示。 维度归约把 3D MatMul 计算映射到固定 2D 核心阵列（<img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BSPLIT%7D%20%5Ctimes%20%5Cmathrm%7BCASC%5C_LN%7D"> cores）。 其原始工作负载尺寸为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Baligned%7D%0A%5Cmathrm%7BGEMM%5C_SIZE%5C_A%7D%20%5Ctimes%20%5Cmathrm%7BGEMM%5C_SIZE%5C_AB%7D%20%5C%5C%0A%5Ctimes%20%5Cmathrm%7BGEMM%5C_SIZE%5C_B%7D%0A%5Cend%7Baligned%7D%0A"></p>
+<p>其中 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BCASC%5C_LN%7D"> 通过 cascade streams 把核心串联起来，以对 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BGEMM%5C_SIZE%5C_AB%7D"> 维度做 reduction，而 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BSPLIT%7D"> 定义并行组。 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BGEMM%5C_SIZE%5C_AB%7D"> 维度通过 temporal iteration 处理，而 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BGEMM%5C_SIZE%5C_A%7D"> 和 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BGEMM%5C_SIZE%5C_B%7D"> 维度则在阵列上进行空间分布。</p>
+<p>图 图&nbsp;2 展示了层次化 decomposition 策略。 split boundaries（虚线）表示为 temporal scaling 而进行的横向划分，形成并行处理组，而 cascade paths 表示用于 partial sum reduction 的纵向 AIE-to-AIE 通信（由 CASC_LN 管理）。 该图展示了大型输入矩阵（A 和 B）如何被转换为低延迟 streams（a0_casc0、a0_casc1、b0_casc0、b0_casc1、b1_casc0、b1_casc1），并按 Blocks（temporal units）、Tiles（由 DIM 定义的内存单元）和 Sub-tiles（vector units）进行层次化组织。 在 block 层级，矩阵被分解为 sequential Blocks（例如 <code>block1</code>、<code>block2</code>）。 在 blocks 内部，数据组织为 Tiles（<code>tile1</code> 到 <code>tile4</code>）或对应于 DIM 参数的 micro-kernel。 最大 DIM 受到 AIE-ML 核心本地内存容量限制，该内存需要在多个矩阵之间划分。</p>
+<p>最小单元是 Subtiles（<code>subtile1</code> 到 <code>subtile8</code>），表示为 AIE-ML vector execution 优化的最小数据段。 为简化说明，后续所有图示和解释都考虑一个最小 2×2 AIE-ML 核心阵列、<img src="https://latex.codecogs.com/png.latex?32%5Ctimes16%5Ctimes32"> 的 rectangular GEMM size、DIM 为 8、sub_tile size 为 4，以及 A、B、C 分别为 <img src="https://latex.codecogs.com/png.latex?16%5Ctimes8">、<img src="https://latex.codecogs.com/png.latex?8%5Ctimes16"> 和 <img src="https://latex.codecogs.com/png.latex?16%5Ctimes16"> 的 block size。 在 PLIO_Cascade_Stream_Generation 期间，Matrix A tiles 遵循 row-major ordering，而 Matrix B 使用 column-major ordering，与 core cluster 的通信模式对齐。 Matrix A replication 发生在每个 block processing cycle 之后的 tiles 之间，而 Matrix B replication 发生在 blocks 中的每一列之后。 Subtile 维度针对 AIE-ML 指令效率优化，其物理维度随 DATA_TYPE 调整（例如 int16 和 int32 为 4×4×4），同时保持 subtiles 内部元素 serialization 为 row-major。</p>
+<div id="fig-hierarchical-tiling" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-hierarchical-tiling-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/tempus-a-temporally-scalable-resource-invariant-gemm-streaming-framework-for-versal-ai-edge/tiling4.svg" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-hierarchical-tiling-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;2: 层次化数据分解与流生成。
+</figcaption>
+</figure>
+</div>
+<div id="alg-plio-generation" class="theorem algorithm">
+<p><span class="theorem-title"><strong>Algorithm 2</strong></span> <strong>算法 2：PLIO 流生成与分块（Tiling）</strong></p>
+<pre class="text"><code>Require MatA, MatB; Config parameters (GEMM_SIZE, DIM, SPLIT, CASC_LN, DATA_TYPE)
+Ensure Cascade input streams (a0_casc*), (b*_casc*)
+WRD_LN &lt;- 128 / DATA_TYPE_bits  // Elements per 128-bit PLIO chunk
+GRAPH_ITER_CNT &lt;- calculated via graph iteration count equation
+Replication Factor &lt;- calculated via replication factor equation
+For each temporal block
+  Matrix A Ordering: Process MatA tiles in row-major order.
+  Matrix B Ordering: Process MatB tiles in column-major order.
+  Apply algorithmic data repetition (replication factor) patterns.
+  PLIO formatting: ensure WRD_LN elements per line.
+EndFor</code></pre>
+</div>
+<div id="tbl-data-ordering" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-data-ordering-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;1: Data Ordering Summary for Stream Generation。
+</figcaption>
+<div aria-describedby="tbl-data-ordering-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Data Level</th>
+<th>A</th>
+<th>B</th>
+<th>C</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Elements within sub-tiles</td>
+<td>Row-major</td>
+<td>Row-major</td>
+<td>Row-major</td>
+</tr>
+<tr class="even">
+<td>Sub-tiles within tiles</td>
+<td>Row-major</td>
+<td>Row-major</td>
+<td>Row-major</td>
+</tr>
+<tr class="odd">
+<td>Tiles within blocks</td>
+<td>Row-major</td>
+<td>Column-major</td>
+<td>Column-major</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<p>算法 2（PLIO_Stream_Generation）把大型输入矩阵转换成固定核心 AIE-ML graph 的顺序数据流。 第 1 行计算每个 128-bit PLIO chunk 中的元素数量，即 WRD_LN。 处理完整工作负载所需的 temporal iterations 数量，由 graph iteration count 定义：</p>
+<p><span id="eq-gic"><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7BGRAPH%5C_ITER%5C_CNT%7D%20=%0A%5Cfrac%7B%5Cmathrm%7BGEMM%5C_SIZE%5C_A%7D%20%5Ctimes%20%5Cmathrm%7BGEMM%5C_SIZE%5C_B%7D%7D%0A%7B%5Cmathrm%7BDIM%5C_A%7D%20%5Ctimes%20%5Cmathrm%7BDIM%5C_B%7D%20%5Ctimes%20%5Cmathrm%7BSPLIT%7D%7D.%0A%5Ctag%7B1%7D"></span></p>
+<p><span id="eq-rf"><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7BREPLICATION%5C_FACTOR%5C_A/B%7D%20=%0A%5Cfrac%7B%5Cmathrm%7BGEMM%5C_SIZE%5C_B/A%7D%7D%7B%5Cmathrm%7BDIM%5C_B/A%7D%20%5Ctimes%20%5Cmathrm%7BSPLIT%7D%7D.%0A%5Ctag%7B2%7D"></span></p>
+<p>这里，Matrix A 会在每个 block processing cycle 之后于 tiles 之间复制，而 Matrix B 会在 blocks 内处理每一列之后复制，如图 图&nbsp;2 所示。 随后的循环（第 5-9 行）在这一数据重复框架内使用 row-major 和 column-major ordering 处理矩阵，以最大化 computational density。</p>
+</section>
+<section id="sec-hardware-pipelining" class="level2">
+<h2 class="anchored" data-anchor-id="sec-hardware-pipelining">硬件流水线与 AIE-ML Graph 执行</h2>
+<p>本小节描述固定核心 AIE-ML graph 如何执行已准备好的 data streams，并详细说明支持高效计算与数据传输重叠的高速 pipeline protocols。</p>
+<div id="fig-system-integration" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-system-integration-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/tempus-a-temporally-scalable-resource-invariant-gemm-streaming-framework-for-versal-ai-edge/stream3.svg" class="img-fluid figure-img" style="width:90.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-system-integration-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;3: AIE-ML Cores Data Flow for our framework: Fixed AIE-ML Compute Block with Optimized I/O Architecture。
+</figcaption>
+</figure>
+</div>
+<section id="sec-aie-ml-engine-graph" class="level3">
+<h3 class="anchored" data-anchor-id="sec-aie-ml-engine-graph">AIE-ML Engine Graph（AIE-ML Cores 阵列）</h3>
+<p>图 图&nbsp;3 展示了处理已准备 data streams 的 AIE-ML graph 执行过程。 该图展示了 graph 如何由 CASC_LN（cascade levels）和 SPLIT（parallel splits）参数化，并且 AIE-ML 阵列如何通过 PLIO interfaces 连接到 FPGA/PL kernel。 该图说明了高速 streaming protocols 如何在重叠计算的同时支持高效数据移动。 cascade stream chains 作为核心之间的水平连接可见，为 AIE-to-AIE partial sum reduction 提供 512-bit 宽路径（红色箭头），并生成 c1 和 c2 输出 streams。 它直接实现了从 3D MatMul 到 2D array 的维度归约，即通过 chaining 处理 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BGEMM%5C_SIZE%5C_AB%7D"> 维度的累加。 这将 synchronization overhead 最小化，以实现 Initiation Interval（II）为 1，并避免约 50% 更慢的 buffer sharing interface。 输入分布遵循图中可见的专门路由模式：Matrix A 使用 broadcast circuit-switching（显示为从单个源分支到多个目标的实线蓝色箭头），将 a0_casc* input streams 同时路由到所有 SPLIT groups；Matrix B 则使用 packet switching（表示为 time-multiplexed streams 的虚线蓝色箭头），把不同 b*_casc* input streams 动态路由到不同 splits，从而最大化受限 VE2302 的 PLIO 资源复用。</p>
+<p>AIE-ML graph construction 和 streaming connections 在算法 3 中形式化。 第 2-3 行实例化核心计算 graph <code>mmult[SPLIT]</code>。 第 4 行创建 Matrix A 的 PLIO interfaces，实现 broadcast circuit-switched distribution。 嵌套循环（第 5-16 行）建立所有连接。 Matrix A 被 broadcast 到所有 splits（第 10 行），从而支持 data multi-casting。 第 11 行中 Matrix B 的 split-specific connections 实现 packet-switched routing。 第 14 行，output collection 通过 cascade streams 收集结果。 第 8 行设置 runtime ratios 以进行性能优化，完成高效 MatMul 执行的 graph construction。</p>
+<div id="alg-aie" class="theorem algorithm">
+<p><span class="theorem-title"><strong>Algorithm 3</strong></span> <strong>算法 3：AI Engine 图构建</strong></p>
+<pre class="text"><code>Input: CASC_LN, SPLIT
+Function GeMM Constructor()
+  Instantiate mmult[SPLIT]
+  Create PLIO matA_inp[CASC_LN]
+  For i = 0 to SPLIT - 1
+    Create PLIO matB_inp[CASC_LN]
+    Create PLIO matC_out[i]
+    For k = 0 to CASC_LN - 1
+      runtime(mmult[i].kernels[k]) &lt;- 1.0
+      Connect matA_inp[k] to mmult[i].inA[k]
+      Connect matB_inp[idx] to mmult[i].inB[k]
+    EndFor
+    Connect mmult[i].out to matC_out[i]
+  EndFor
+EndFunction</code></pre>
+</div>
+</section>
+<section id="sec-fpga-pl-kernel" class="level3">
+<h3 class="anchored" data-anchor-id="sec-fpga-pl-kernel">FPGA/PL Kernel（dma_hls）</h3>
+<p><code>dma_hls</code> kernel 通过 PLIO streams 在 External DRAM memory 和固定核心 AIE-ML array 之间编排高速数据传输。 该 kernel 使用 Vitis HLS 实现，并采用无死锁 dataflow 设计；该设计只使用轻量 streaming FIFO，避免像 SOTA 一样使用单体 buffering，因此符合 PL Resource Conservation <span class="citation" data-cites="CHARM CHARMtwo">[10], [13]</span>。 算法 4 详细描述了该 kernel 的高速执行。 在该算法中，memory pointers 通过 AXI4 Memory-Mapped streams 映射到 NoC DDR4 interfaces。 第 4 行的 top-level DATAFLOW pragma 支持 input/output functions 并发执行。 第 8 行通过 modulo addressing 实现顺序分发，使 128-bit burst data transfer 能够高效送入 AIE-ML array。 第 6 行展示了该设计在整个 data path 上保持 II=1 pipeline efficiency。</p>
+<div id="alg-pl-execution" class="theorem algorithm">
+<p><span class="theorem-title"><strong>Algorithm 4</strong></span> <strong>算法 4：FPGA/PL 顶层执行与数据流（DMA_HLS）</strong></p>
+<pre class="text"><code>Require Memory pointers: matA, matB, matC; Streams: strmInp
+Ensure Streams: strmOut
+Function DMA_HLS(matA, matB, matC, streams)
+  Constants: NUM_A_FILES = 8
+  Constants: NUM_B_FILES = 16
+  #pragma HLS DATAFLOW
+  For each memory read transaction
+    #pragma HLS PIPELINE II=1  // Enforce throughput
+    ReadData &lt;- matX[i]  // 128-bit burst
+    stream_idx &lt;- i mod NUM_A_FILES  // Sequential distribution
+    Write ReadData to strmOut[stream_idx]
+  EndFor
+  out_C(strmInp_C, matC)  // Deadlock-free Matrix C collection (pairwise writes)
+EndFunction</code></pre>
+</div>
+</section>
+</section>
+</section>
+<section id="sec-environmental-setup" class="level1">
+<h1>环境设置</h1>
+<p>该框架在 AMD Versal AI Edge VE2302 ACAP（XCVE2302-1LSESFVA784-E）上实现，采用 AIE-MLv1 架构，PL 组件运行在 312.5 MHz，而受限的 PLIO 资源会约束 split（SPLIT）和 cascade paths（CASC_LN）。 对于 <img src="https://latex.codecogs.com/png.latex?(32-1024)%5E3"> 的矩阵工作负载以及 INT16/INT32 精度，本文使用一个固定的 16 个 AIE-ML 核心空间计算块。 使用 16 个核心配置，是因为该 area group 的 24 条 registered 128-bit PLIO channels 能够支持它。 VE2302 ACAP 架构在编译器中由 <code>__AIE_ARCH__ == 20</code> 标识，除 <code>INT16</code> 和 <code>INT32</code> 之外，还具备对 <code>INT4</code>、<code>INT8</code> 和 <code>BFLOAT16</code> 数据类型的原生硬件支持。 然而，我们的评估受到 AMD Vitis 2024.1 toolchain 中可用软件支持的限制。 具体而言，我们的设计依赖 AMD Xilinx DSP Library 中的模板化矩阵乘法 kernel，这限制了我们能够同时为仿真和硬件结果报告的数值格式范围。</p>
+<p>所有设计都使用 AMD Vitis 2024.1 编译。 我们报告完整系统吞吐量和资源利用率，其中包括 PL 和 DDR memory controller。 这种整体实现使其能够与提供板上结果的 SOTA 框架直接比较，同时排除仅有仿真的研究。 最后，功耗使用 AMD AIE-specific Xilinx Power Estimator（XPE）工具估算。</p>
+<div id="tbl-resource-utilization-full" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-resource-utilization-full-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;2: Tempus 中 <img src="https://latex.codecogs.com/png.latex?1024%5E3"> INT16 GEMM 的性能和资源利用率。
+</figcaption>
+<div aria-describedby="tbl-resource-utilization-full-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>指标</th>
+<th style="text-align: right;">数值</th>
+<th>上下文</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>I. Performance and Timing (ms)</strong></td>
+<td style="text-align: right;"></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>AIE Cores Used</td>
+<td style="text-align: right;">16 (47%)</td>
+<td>固定，Resource-Invariant</td>
+</tr>
+<tr class="odd">
+<td>Core Computation (<img src="https://latex.codecogs.com/png.latex?t_%7B%5Ctext%7Bactual%7D%7D">)</td>
+<td style="text-align: right;">3.537</td>
+<td>实测执行</td>
+</tr>
+<tr class="even">
+<td>Achieved Throughput</td>
+<td style="text-align: right;">607 GOPS</td>
+<td>由延迟推导</td>
+</tr>
+<tr class="odd">
+<td>Device/XCLBIN Init</td>
+<td style="text-align: right;">226.928</td>
+<td>一次性设置</td>
+</tr>
+<tr class="even">
+<td>Buffer Creation/Mapping</td>
+<td style="text-align: right;">20.362</td>
+<td>内存分配</td>
+</tr>
+<tr class="odd">
+<td>Kernel/Graph Create</td>
+<td style="text-align: right;">55.882</td>
+<td>编译开销</td>
+</tr>
+<tr class="even">
+<td>Kernel Launch</td>
+<td style="text-align: right;">0.218</td>
+<td>启动 kernel</td>
+</tr>
+<tr class="odd">
+<td>PL Tiling</td>
+<td style="text-align: right;">13.276</td>
+<td>PL Tiling/Replication 开销</td>
+</tr>
+<tr class="even">
+<td>Graph Run/DMA Wait</td>
+<td style="text-align: right;">3.319</td>
+<td>Runtime scheduling</td>
+</tr>
+<tr class="odd">
+<td>Output Sync</td>
+<td style="text-align: right;">0.013</td>
+<td>结果收集</td>
+</tr>
+<tr class="even">
+<td>PL performance</td>
+<td style="text-align: right;">312.5</td>
+<td>PL performance</td>
+</tr>
+<tr class="odd">
+<td><strong>II. Power and Energy</strong></td>
+<td style="text-align: right;"></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>AIE Engine Power</td>
+<td style="text-align: right;">2.381 W</td>
+<td>16 cores active</td>
+</tr>
+<tr class="odd">
+<td>Memory Power</td>
+<td style="text-align: right;">3.173 W</td>
+<td>B/XRAM + NoC-DDRMC</td>
+</tr>
+<tr class="even">
+<td>Total On-Chip Power</td>
+<td style="text-align: right;">10.677 W</td>
+<td>Frugal consumption</td>
+</tr>
+<tr class="odd">
+<td>Energy Eff. (AIE)</td>
+<td style="text-align: right;">255 GOPS/W</td>
+<td>Core efficiency</td>
+</tr>
+<tr class="even">
+<td>Energy Eff. (Total)</td>
+<td style="text-align: right;">56.87 GOPS/W</td>
+<td>System efficiency</td>
+</tr>
+<tr class="odd">
+<td><strong>III. Resource Utilization</strong></td>
+<td style="text-align: right;"></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>LUT</td>
+<td style="text-align: right;">6.16%</td>
+<td>PL capacity preserved</td>
+</tr>
+<tr class="odd">
+<td>BRAM</td>
+<td style="text-align: right;">62.58%</td>
+<td>Streaming FIFOs</td>
+</tr>
+<tr class="even">
+<td>URAM</td>
+<td style="text-align: right;">0.00%</td>
+<td>Resource conservation</td>
+</tr>
+<tr class="odd">
+<td>DSP</td>
+<td style="text-align: right;">0.00%</td>
+<td>Resource conservation</td>
+</tr>
+<tr class="even">
+<td>CLB Registers</td>
+<td style="text-align: right;">7.65%</td>
+<td>Resource conservation</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="sec-simulation-results" class="level1">
+<h1>仿真结果与可持续性分析</h1>
+<p>本节评估 Resource-Invariant Temporal Scaling rectangular GEMM 框架的性能与可持续性。</p>
+<section id="sec-system-level-characterization" class="level2">
+<h2 class="anchored" data-anchor-id="sec-system-level-characterization">系统级表征：性能、功耗和资源使用</h2>
+<p>运行指标详见表 表&nbsp;2，它表示的是 <img src="https://latex.codecogs.com/png.latex?1024%5E3"> INT16 工作负载的系统实现，而不是仅 AIE 仿真。 该框架达到 <img src="https://latex.codecogs.com/png.latex?607"> GOPS，core computation latency 为 <img src="https://latex.codecogs.com/png.latex?3.537"> ms，总片上功耗为 <img src="https://latex.codecogs.com/png.latex?10.677"> W。 执行时间线的详细分解表明，core computation 高度高效，突出了该设计的 streaming 与 computation efficiency。 功耗分析表明，AIE engines 仅消耗 2.381 W，而 memory subsystems（包括 B/XRAM 和 NoC-DDRMC）消耗 <img src="https://latex.codecogs.com/png.latex?3.173"> W，占总 <img src="https://latex.codecogs.com/png.latex?10.677"> W 片上功耗的很大一部分，并确认该工作负载具有 I/O-bounded 特性。</p>
+<div id="tbl-dim-scaling-timing" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-dim-scaling-timing-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;3: 不同数据类型下，Tempus 在固定工作负载（<img src="https://latex.codecogs.com/png.latex?512%5E3">）上的 Tile Dimension（DIM）扩展。
+</figcaption>
+<div aria-describedby="tbl-dim-scaling-timing-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Type</th>
+<th style="text-align: right;">DIM</th>
+<th style="text-align: right;">Latency (ms)</th>
+<th style="text-align: right;">Throughput (GOPS)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>INT16</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">6.194</td>
+<td style="text-align: right;">43.338</td>
+</tr>
+<tr class="even">
+<td>INT16</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">3.230</td>
+<td style="text-align: right;">83.107</td>
+</tr>
+<tr class="odd">
+<td>INT16</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">1.811</td>
+<td style="text-align: right;">148.225</td>
+</tr>
+<tr class="even">
+<td>INT16</td>
+<td style="text-align: right;">32</td>
+<td style="text-align: right;">1.123</td>
+<td style="text-align: right;">239.034</td>
+</tr>
+<tr class="odd">
+<td><strong>INT16</strong></td>
+<td style="text-align: right;"><strong>64</strong></td>
+<td style="text-align: right;"><strong>0.792</strong></td>
+<td style="text-align: right;"><strong>338.934</strong></td>
+</tr>
+<tr class="even">
+<td>INT16</td>
+<td style="text-align: right;">128</td>
+<td style="text-align: right;">0.586</td>
+<td style="text-align: right;">458.081</td>
+</tr>
+<tr class="odd">
+<td>INT32</td>
+<td style="text-align: right;">4</td>
+<td style="text-align: right;">11.848</td>
+<td style="text-align: right;">22.657</td>
+</tr>
+<tr class="even">
+<td>INT32</td>
+<td style="text-align: right;">8</td>
+<td style="text-align: right;">6.171</td>
+<td style="text-align: right;">43.500</td>
+</tr>
+<tr class="odd">
+<td>INT32</td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">3.225</td>
+<td style="text-align: right;">83.236</td>
+</tr>
+<tr class="even">
+<td>INT32</td>
+<td style="text-align: right;">32</td>
+<td style="text-align: right;">1.779</td>
+<td style="text-align: right;">150.891</td>
+</tr>
+<tr class="odd">
+<td><strong>INT32</strong></td>
+<td style="text-align: right;"><strong>64</strong></td>
+<td style="text-align: right;"><strong>1.150</strong></td>
+<td style="text-align: right;"><strong>233.422</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="sec-validation-temporal-scaling" class="level2">
+<h2 class="anchored" data-anchor-id="sec-validation-temporal-scaling">Temporal Scaling 与工作负载分析验证</h2>
+<p>性能分析验证了这样一个原则：可扩展性可以通过 temporal iteration 而不是物理核心扩展实现，从而证明 resource-invariant 方法的有效性。</p>
+<section id="sec-tile-dimension-scaling" class="level3">
+<h3 class="anchored" data-anchor-id="sec-tile-dimension-scaling">Tile Dimension Scaling</h3>
+<p>表 表&nbsp;3 揭示了 micro-kernel tile size（DIM）与 <img src="https://latex.codecogs.com/png.latex?512%5E3"> 工作负载计算效率之间的关键关系。 把 DIM 从 4 增加到 128，会使吞吐量提升 <img src="https://latex.codecogs.com/png.latex?10.5%5Ctimes">。 这表明，为每个核心提供更多本地内存，会通过启用更大的 micro-kernel 来直接降低延迟。 理论上，DIM 可以增加到 256 以进一步改进；然而，每个 AIE-ML tile 的本地内存约束从根本上把 INT16 的实际上限限制在 DIM=128。 精度扩展仍然可预测：INT32 在其 DIM=64 上限下达到 233.422 GOPS，约为 INT16 吞吐量的一半，这反映了硬件的 <img src="https://latex.codecogs.com/png.latex?2%5Ctimes"> 数据宽度惩罚，同时确认 Tempus 在固定计算 fabric 内具有稳健的 architectural proficiency。</p>
+<div id="tbl-gemm-scaling-timing" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gemm-scaling-timing-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;4: 不同数据类型下，Tempus 使用最大可用 DIM 时的 workload scaling。
+</figcaption>
+<div aria-describedby="tbl-gemm-scaling-timing-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Type</th>
+<th>Size</th>
+<th style="text-align: right;">DIM</th>
+<th style="text-align: right;">Latency (ms)</th>
+<th style="text-align: right;">Throughput (GOPS)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>INT16</td>
+<td><img src="https://latex.codecogs.com/png.latex?32%5E3"></td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">0.396</td>
+<td style="text-align: right;">0.165</td>
+</tr>
+<tr class="even">
+<td>INT16</td>
+<td><img src="https://latex.codecogs.com/png.latex?64%5E3"></td>
+<td style="text-align: right;">32</td>
+<td style="text-align: right;">0.389</td>
+<td style="text-align: right;">1.348</td>
+</tr>
+<tr class="odd">
+<td>INT16</td>
+<td><img src="https://latex.codecogs.com/png.latex?128%5E3"></td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">0.395</td>
+<td style="text-align: right;">10.618</td>
+</tr>
+<tr class="even">
+<td>INT16</td>
+<td><img src="https://latex.codecogs.com/png.latex?256%5E3"></td>
+<td style="text-align: right;">128</td>
+<td style="text-align: right;">0.407</td>
+<td style="text-align: right;">82.443</td>
+</tr>
+<tr class="odd">
+<td>INT16</td>
+<td><img src="https://latex.codecogs.com/png.latex?512%5E3"></td>
+<td style="text-align: right;">128</td>
+<td style="text-align: right;">0.586</td>
+<td style="text-align: right;">458.081</td>
+</tr>
+<tr class="even">
+<td>INT16</td>
+<td><img src="https://latex.codecogs.com/png.latex?768%5E3"></td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">1.637</td>
+<td style="text-align: right;">553.433</td>
+</tr>
+<tr class="odd">
+<td>INT16</td>
+<td><img src="https://latex.codecogs.com/png.latex?1024%5E3"></td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">3.537</td>
+<td style="text-align: right;">607.148</td>
+</tr>
+<tr class="even">
+<td>INT32</td>
+<td><img src="https://latex.codecogs.com/png.latex?32%5E3"></td>
+<td style="text-align: right;">16</td>
+<td style="text-align: right;">0.397</td>
+<td style="text-align: right;">0.165</td>
+</tr>
+<tr class="odd">
+<td>INT32</td>
+<td><img src="https://latex.codecogs.com/png.latex?64%5E3"></td>
+<td style="text-align: right;">32</td>
+<td style="text-align: right;">0.403</td>
+<td style="text-align: right;">1.301</td>
+</tr>
+<tr class="even">
+<td>INT32</td>
+<td><img src="https://latex.codecogs.com/png.latex?128%5E3"></td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">0.396</td>
+<td style="text-align: right;">10.592</td>
+</tr>
+<tr class="odd">
+<td>INT32</td>
+<td><img src="https://latex.codecogs.com/png.latex?256%5E3"></td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">0.483</td>
+<td style="text-align: right;">69.471</td>
+</tr>
+<tr class="even">
+<td>INT32</td>
+<td><img src="https://latex.codecogs.com/png.latex?512%5E3"></td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">1.150</td>
+<td style="text-align: right;">233.422</td>
+</tr>
+<tr class="odd">
+<td>INT32</td>
+<td><img src="https://latex.codecogs.com/png.latex?768%5E3"></td>
+<td style="text-align: right;">32</td>
+<td style="text-align: right;">5.412</td>
+<td style="text-align: right;">167.400</td>
+</tr>
+<tr class="even">
+<td>INT32</td>
+<td><img src="https://latex.codecogs.com/png.latex?1024%5E3"></td>
+<td style="text-align: right;">32</td>
+<td style="text-align: right;">14.757</td>
+<td style="text-align: right;">145.523</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="sec-workload-scaling-analysis" class="level3">
+<h3 class="anchored" data-anchor-id="sec-workload-scaling-analysis">Workload Scaling Analysis and Architectural Efficiency</h3>
+<p>表 表&nbsp;4 刻画了 Tempus 在 operations 增长 <img src="https://latex.codecogs.com/png.latex?32,%5C!768%5Ctimes">（从 <img src="https://latex.codecogs.com/png.latex?32%5E3"> 到 <img src="https://latex.codecogs.com/png.latex?1024%5E3">）时的 temporal scaling。 Tempus 摊薄固定开销，从 <img src="https://latex.codecogs.com/png.latex?32%5E3"> 时的次优效率过渡到 <img src="https://latex.codecogs.com/png.latex?1024%5E3">（INT16）时持续的 607 GOPS。 关键洞见是，<img src="https://latex.codecogs.com/png.latex?512%5E3"> 工作负载在 DIM=128 时达到近似理想扩展，但 <img src="https://latex.codecogs.com/png.latex?1024%5E3"> 被限制在 DIM=64，这会增加 iteration counts，并导致延迟非线性跳升到 3.537 ms。 值得注意的是，精度扩展仍然可预测，因此 <img src="https://latex.codecogs.com/png.latex?1024%5E3"> 上的 INT32 被限制在 DIM=32，并由于 <img src="https://latex.codecogs.com/png.latex?2%5Ctimes"> 数据宽度惩罚而给出约为 INT16 四分之一的吞吐量（145.5 GOPS）。 这种自适应扩展证明 Tempus 会自动遵守硬件边界，为实时 edge AI 提供可预测、可持续的性能。</p>
+<div id="tbl-consistency" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-consistency-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;5: Tempus 在 INT16 下的 PL Resource Utilization and Power Consistency；所有工作负载中的 URAM/DSP 利用率均为 0.00%。
+</figcaption>
+<div aria-describedby="tbl-consistency-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 15%">
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 21%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Workload</th>
+<th style="text-align: right;">Total On-Chip Power (W)</th>
+<th style="text-align: right;">LUT (%)</th>
+<th style="text-align: right;">BRAM (%)</th>
+<th style="text-align: right;">CLB Regs (%)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><img src="https://latex.codecogs.com/png.latex?32%5E3"></td>
+<td style="text-align: right;">10.698</td>
+<td style="text-align: right;">6.09</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.63</td>
+</tr>
+<tr class="even">
+<td><img src="https://latex.codecogs.com/png.latex?64%5E3"></td>
+<td style="text-align: right;">10.639</td>
+<td style="text-align: right;">6.11</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.64</td>
+</tr>
+<tr class="odd">
+<td><img src="https://latex.codecogs.com/png.latex?128%5E3"></td>
+<td style="text-align: right;">10.315</td>
+<td style="text-align: right;">6.13</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.65</td>
+</tr>
+<tr class="even">
+<td><img src="https://latex.codecogs.com/png.latex?256%5E3"></td>
+<td style="text-align: right;">10.692</td>
+<td style="text-align: right;">6.11</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.64</td>
+</tr>
+<tr class="odd">
+<td><img src="https://latex.codecogs.com/png.latex?512%5E3"></td>
+<td style="text-align: right;">10.661</td>
+<td style="text-align: right;">6.18</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.65</td>
+</tr>
+<tr class="even">
+<td><img src="https://latex.codecogs.com/png.latex?768%5E3"></td>
+<td style="text-align: right;">10.631</td>
+<td style="text-align: right;">6.20</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.67</td>
+</tr>
+<tr class="odd">
+<td><img src="https://latex.codecogs.com/png.latex?1024%5E3"></td>
+<td style="text-align: right;">10.677</td>
+<td style="text-align: right;">6.16</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.65</td>
+</tr>
+<tr class="even">
+<td><img src="https://latex.codecogs.com/png.latex?8%5Ctimes32%5Ctimes8"></td>
+<td style="text-align: right;">10.701</td>
+<td style="text-align: right;">6.11</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.64</td>
+</tr>
+<tr class="odd">
+<td><img src="https://latex.codecogs.com/png.latex?128%5Ctimes768%5Ctimes64"></td>
+<td style="text-align: right;">10.236</td>
+<td style="text-align: right;">6.14</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.66</td>
+</tr>
+<tr class="even">
+<td><img src="https://latex.codecogs.com/png.latex?512%5Ctimes64%5Ctimes512"></td>
+<td style="text-align: right;">10.281</td>
+<td style="text-align: right;">6.11</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.64</td>
+</tr>
+<tr class="odd">
+<td><img src="https://latex.codecogs.com/png.latex?512%5Ctimes1024%5Ctimes512"></td>
+<td style="text-align: right;">10.680</td>
+<td style="text-align: right;">6.17</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.65</td>
+</tr>
+<tr class="even">
+<td><img src="https://latex.codecogs.com/png.latex?128%5Ctimes768%5Ctimes3072"></td>
+<td style="text-align: right;">10.721</td>
+<td style="text-align: right;">6.17</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.66</td>
+</tr>
+<tr class="odd">
+<td><img src="https://latex.codecogs.com/png.latex?768%5Ctimes3072%5Ctimes768"></td>
+<td style="text-align: right;">10.788</td>
+<td style="text-align: right;">6.18</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.68</td>
+</tr>
+<tr class="even">
+<td><img src="https://latex.codecogs.com/png.latex?8%5Ctimes1024%5Ctimes1024"></td>
+<td style="text-align: right;">10.282</td>
+<td style="text-align: right;">6.15</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.65</td>
+</tr>
+<tr class="odd">
+<td><img src="https://latex.codecogs.com/png.latex?8%5Ctimes2048%5Ctimes2048"></td>
+<td style="text-align: right;">10.703</td>
+<td style="text-align: right;">6.15</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.65</td>
+</tr>
+<tr class="even">
+<td><img src="https://latex.codecogs.com/png.latex?8%5Ctimes4096%5Ctimes4096"></td>
+<td style="text-align: right;">10.715</td>
+<td style="text-align: right;">6.19</td>
+<td style="text-align: right;">62.58</td>
+<td style="text-align: right;">7.65</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div style="overflow-x:auto;">
+<div id="tbl-comparison-combined" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-comparison-combined-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;6: <img src="https://latex.codecogs.com/png.latex?1024%5E3"> INT16 GEMM 的 throughput、power 与 Platform-Aware Utility 综合比较分析 <span class="citation" data-cites="CHARMtwo ARIES AutoMM CHARM AutoSA">[10], [11], [12], [13], [14]</span>。
+</figcaption>
+<div aria-describedby="tbl-comparison-combined-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 5%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+<col style="width: 7%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Framework</th>
+<th style="text-align: right;">Cores</th>
+<th style="text-align: right;">Lat. (ms)</th>
+<th style="text-align: right;">TOPS</th>
+<th style="text-align: right;">Pwr (W)</th>
+<th style="text-align: right;">U% (1)</th>
+<th style="text-align: right;">PLIO</th>
+<th style="text-align: right;">T/C (2)</th>
+<th style="text-align: right;">T/P (3)</th>
+<th style="text-align: right;">C-Fru (4)</th>
+<th style="text-align: right;">P-Fru (5)</th>
+<th style="text-align: right;">I-Fru (6)</th>
+<th style="text-align: right;">PAU(n) (7)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Tempus (Temporal)</strong></td>
+<td style="text-align: right;"><strong>16</strong></td>
+<td style="text-align: right;">3.537</td>
+<td style="text-align: right;">0.607</td>
+<td style="text-align: right;"><strong>10.677</strong></td>
+<td style="text-align: right;"><strong>0.00</strong></td>
+<td style="text-align: right;"><strong>26</strong></td>
+<td style="text-align: right;">0.038</td>
+<td style="text-align: right;">0.057</td>
+<td style="text-align: right;"><strong>22.0<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></strong></td>
+<td style="text-align: right;"><strong>7.1<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></strong></td>
+<td style="text-align: right;"><strong>6.3<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></strong></td>
+<td style="text-align: right;"><strong>211.2<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></strong></td>
+</tr>
+<tr class="even">
+<td>ARIES (Spatial)</td>
+<td style="text-align: right;">352</td>
+<td style="text-align: right;">0.1354</td>
+<td style="text-align: right;">15.86</td>
+<td style="text-align: right;">76.30</td>
+<td style="text-align: right;">76.03</td>
+<td style="text-align: right;">164</td>
+<td style="text-align: right;">0.045</td>
+<td style="text-align: right;">0.208</td>
+<td style="text-align: right;">1.0<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+<td style="text-align: right;">1.0<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+<td style="text-align: right;">1.0<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+<td style="text-align: right;">1.0</td>
+</tr>
+<tr class="odd">
+<td>CHARM 2.0 (Spatial)</td>
+<td style="text-align: right;">288</td>
+<td style="text-align: right;">0.2141</td>
+<td style="text-align: right;">10.03</td>
+<td style="text-align: right;">64.80</td>
+<td style="text-align: right;">82.94</td>
+<td style="text-align: right;">120</td>
+<td style="text-align: right;">0.035</td>
+<td style="text-align: right;">0.155</td>
+<td style="text-align: right;">1.2<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+<td style="text-align: right;">1.1<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+<td style="text-align: right;">1.4<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+<td style="text-align: right;">1.2<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+</tr>
+<tr class="even">
+<td>AutoMM (Spatial)</td>
+<td style="text-align: right;">288</td>
+<td style="text-align: right;">0.2859</td>
+<td style="text-align: right;">7.51</td>
+<td style="text-align: right;">56.80</td>
+<td style="text-align: right;">82.94</td>
+<td style="text-align: right;">120</td>
+<td style="text-align: right;">0.026</td>
+<td style="text-align: right;">0.132</td>
+<td style="text-align: right;">1.2<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+<td style="text-align: right;">1.3<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+<td style="text-align: right;">1.4<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+<td style="text-align: right;">1.1<img src="https://latex.codecogs.com/png.latex?%5Ctimes"></td>
+</tr>
+<tr class="odd">
+<td>AutoSA (Spatial)</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">0.6298</td>
+<td style="text-align: right;">3.41</td>
+<td style="text-align: right;">84.90</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">0.0401</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">–</td>
+<td style="text-align: right;">–</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<p>注：（1）URAM% Utilization。（2）TOPS/Core density。（3）TOPS/Power efficiency（AI Efficiency）。（4）C-Fru: Core Frugality。（5）P-Fru: Power Frugality。（6）I-Fru: I/O Frugality（PLIO）。（7）Platform-Aware Utility Factor。</p>
+<div style="overflow-x:auto;">
+<div id="tbl-versal-strengths" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-versal-strengths-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;7: Compute、Resource 与 Power Strengths Comparison。
+</figcaption>
+<div aria-describedby="tbl-versal-strengths-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Feature</th>
+<th>VCK190 (VC1902)</th>
+<th>VE2802</th>
+<th>VE2302</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>AI Compute &amp; Efficiency</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>AI Engine Type</td>
+<td>1st Gen AI Engine <span class="citation" data-cites="AMD_UG1079_2025">[16]</span></td>
+<td>AIE-ML v2 <span class="citation" data-cites="AMD_Versal_AI_Edge_PSG_2024">[15]</span></td>
+<td>AIE-ML <span class="citation" data-cites="Xilinx_Versal_AI_Edge_WP518_2021">[17]</span></td>
+</tr>
+<tr class="odd">
+<td>Cores</td>
+<td>400</td>
+<td>304</td>
+<td>34</td>
+</tr>
+<tr class="even">
+<td>Peak AIE INT16 Performance</td>
+<td>64 TOPS</td>
+<td>101 TOPS</td>
+<td>11.5 TOPS</td>
+</tr>
+<tr class="odd">
+<td>AI Efficiency (TOPS/W)</td>
+<td>0.71–1.28</td>
+<td>2.69</td>
+<td>1.15–1.53</td>
+</tr>
+<tr class="even">
+<td><strong>Power &amp; Thermal</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>Total Chip Power (TCP)</td>
+<td>100–180 W</td>
+<td>Up to 75 W</td>
+<td>15–20 W</td>
+</tr>
+<tr class="even">
+<td><strong>Programmable Logic &amp; Resources</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="odd">
+<td>System Logic Cells</td>
+<td>1,968K</td>
+<td>1,139K</td>
+<td>328K</td>
+</tr>
+<tr class="even">
+<td>DSP Engines</td>
+<td>1,968</td>
+<td>1,312</td>
+<td>464</td>
+</tr>
+<tr class="odd">
+<td><strong>External Memory Support</strong></td>
+<td></td>
+<td></td>
+<td></td>
+</tr>
+<tr class="even">
+<td>DDR4 Support</td>
+<td>8 GB @ 3200 Mb/s</td>
+<td>Up to 16 GB</td>
+<td>4 GB (64-bit, upgradable to 8 GB)</td>
+</tr>
+<tr class="odd">
+<td>LPDDR4 Support</td>
+<td>8 GB @ 3900 Mb/s</td>
+<td>12 GB @ 3733 Mb/s (192-bit)</td>
+<td>4 GB (64-bit)</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<p>一般说明：INT16 performance 从 INT8 specifications 推断（<img src="https://latex.codecogs.com/png.latex?%5Cfrac%7B1%7D%7B2%7D%5Ctimes"> INT8）。 AI Efficiency = Peak INT8 TOPS <img src="https://latex.codecogs.com/png.latex?%5Cdiv"> Max TCP。</p>
+</section>
+</section>
+<section id="sec-resource-power-invariance" class="level2">
+<h2 class="anchored" data-anchor-id="sec-resource-power-invariance">资源与功耗不变性</h2>
+<p>表 表&nbsp;5 表明，Tempus 在指数级工作负载增长下保持严格的 resource invariance。 总片上功耗保持节俭，约为 10.6 W，而关键 PL 资源（DSP、URAM）保持 0.00% 利用率。 这与 SOTA spatial designs 形成鲜明对比，后者会使资源饱和，例如 CHARM 2.0 使用 82.94% 的 URAM。 低 LUT 和 BRAM 用量仅来自轻量 streaming FIFOs（FIFO_depth=16、outstanding=32、BURST=32），它为完整模型 pipeline 中 Softmax 和 LayerNorm 等 essential kernels 的 heterogeneous orchestration 保留了 PL 容量。 进一步降低 FIFO depth、outstanding transactions 和 burst size 可以带来更大的 BRAM 节省。</p>
+</section>
+</section>
+<section id="sec-comparative-sustainability" class="level1">
+<h1>比较可持续性与资源节俭性</h1>
+<p>我们在表 表&nbsp;6 中，将 resource-invariant Tempus 框架与 spatial SOTA frameworks（ARIES、CHARM 2.0、AutoMM、AutoSA）进行评估。 这些基线优先追求高端 Versal devices（VCK190/VE2802，约 300-400 个核心）上的峰值吞吐量，而这些设备与 Tempus 所用 VE2302 在计算效率和内存容量上有所不同，见表 表&nbsp;7。 然而，它们在 edge-class SoC 上会失败，因为减少核心数会违背其关于 spatial parallelism 的假设，进而导致编译失败。 为了在存在硬件不对称的情况下实现公平比较，我们引入 platform-aware metrics，将 algorithmic efficiency 与绝对资源预算解耦。</p>
+<section id="sec-platform-aware-utility" class="level2">
+<h2 class="anchored" data-anchor-id="sec-platform-aware-utility">平台感知效用（PAU(n)）</h2>
+<p>Architectural proficiency 通过测量提取出的计算工作量相对于部署平台总物理潜力和资源足迹（cores、power、I/O 和 peak throughput）的关系来评估。 它奖励在资源受限板卡上表现良好的设计，并惩罚 brute-force spatial arrays。 PAU 定义如下：</p>
+<p><span id="eq-pau"><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7BPAU%7D%20=%0A%5Cfrac%7B%5Cmathrm%7BTOPS%7D%7D%0A%7B%5Cmathrm%7BCores%7D%20%5Ctimes%20%5Cmathrm%7BPower(W)%7D%20%5Ctimes%20%5Cmathrm%7BPLIO%7D%20%5Ctimes%20%5Cmathrm%7BTheoretical%5C%20Peak(Pk)%7D%7D.%0A%5Ctag%7B3%7D"></span></p>
+<p>为突出 Tempus 的体系结构优势，我们定义 Platform-Aware Utility Factor <img src="https://latex.codecogs.com/png.latex?n%20=%20%5Cmathrm%7BPAU%7D_%7B%5Cmathrm%7Bother%7D%7D%20/%20%5Cmathrm%7BPAU%7D_%7B%5Cmathrm%7BARIES%7D%7D">，其中 <img src="https://latex.codecogs.com/png.latex?n%20%3E%201"> 表示比 SOTA ARIES 基线具有更高 utility。 表 表&nbsp;6 显示，尽管 Tempus 的绝对延迟更高（VE2302 上为 <img src="https://latex.codecogs.com/png.latex?3.537%5C,%5Ctext%7Bms%7D">，而 ARIES 在 VCK190 上为 <img src="https://latex.codecogs.com/png.latex?0.135%5C,%5Ctext%7Bms%7D">），它仍达到 <img src="https://latex.codecogs.com/png.latex?211.2%5Ctimes"> 更高的 utility factor，避免了 rigid spatial architectures 固有的 utilization collapse。</p>
+</section>
+<section id="sec-resource-invariant-frugality" class="level2">
+<h2 class="anchored" data-anchor-id="sec-resource-invariant-frugality">资源不变的节俭性与异构编排</h2>
+<p>Tempus 的可持续执行通过 core、power 和 I/O domains 上的多维 frugality 来刻画。 这些指标定义如下：</p>
+<p><span id="eq-frugality-core-power"><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BC%7D%5Ctext%7B-Fru%7D%20=%0A%5Cfrac%7B%5Cmathrm%7BCores%7D_%7B%5Cmathrm%7Bother%7D%7D%7D%7B%5Cmathrm%7BCores%7D_%7B%5Cmathrm%7BTempus%7D%7D%7D,%0A%5Cqquad%0A%5Cmathcal%7BP%7D%5Ctext%7B-Fru%7D%20=%0A%5Cfrac%7B%5Cmathrm%7BPower%7D_%7B%5Cmathrm%7Bother%7D%7D%7D%7B%5Cmathrm%7BPower%7D_%7B%5Cmathrm%7BTempus%7D%7D%7D.%0A%5Ctag%7B4%7D"></span></p>
+<p><span id="eq-frugality-io"><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathcal%7BI%7D%5Ctext%7B-Fru%7D%20=%0A%5Cfrac%7B%5Cmathrm%7BPLIO%7D_%7B%5Cmathrm%7Bother%7D%7D%7D%7B%5Cmathrm%7BPLIO%7D_%7B%5Cmathrm%7BTempus%7D%7D%7D.%0A%5Ctag%7B5%7D"></span></p>
+<p>如表 表&nbsp;6 所详述，Tempus 相对于 ARIES 基线达到 <img src="https://latex.codecogs.com/png.latex?22.0%5Ctimes"> Core Frugality、<img src="https://latex.codecogs.com/png.latex?7.1%5Ctimes"> Power Frugality 和 <img src="https://latex.codecogs.com/png.latex?6.3%5Ctimes"> I/O Frugality。 spatial scaling SOTA frameworks 会在 compact devices 上走向体系结构死胡同，因为它们会为单个 GEMM kernel 占满片上 URAM 的 <img src="https://latex.codecogs.com/png.latex?76%5C%25">–<img src="https://latex.codecogs.com/png.latex?83%5C%25">，而 Tempus 保持 <img src="https://latex.codecogs.com/png.latex?0.00%5C%25"> URAM/DSP utilization components。 I/O 优势同样显著且保持不变。 我们的 hybrid streaming 方法结合了 packet switching 与 cascade streaming，前者用于 data streams 的 dynamic time-multiplexing，后者消除 intermediate results 的冗余 I/O，从而保证 I/O 约束永远不会限制可扩展性。 这种 resource invariance 对 heterogeneous orchestration 至关重要，因为它为并发集成其他关键模型 kernel（例如 Softmax、Layer Normalization）保留了 programmable logic fabric 和 memory resources。</p>
+</section>
+<section id="sec-normalized-computational-efficiencies" class="level2">
+<h2 class="anchored" data-anchor-id="sec-normalized-computational-efficiencies">归一化计算效率（<img src="https://latex.codecogs.com/png.latex?T/%5Cmathcal%7BC%7D">, <img src="https://latex.codecogs.com/png.latex?T/%5Cmathcal%7BP%7D">）</h2>
+<p>报告 throughput per core（<img src="https://latex.codecogs.com/png.latex?T/%5Cmathcal%7BC%7D">）和 performance per watt（<img src="https://latex.codecogs.com/png.latex?T/%5Cmathcal%7BP%7D">），是为了在严格热边界内刻画 computational density 与 AI efficiency：</p>
+<p><span id="eq-normalized-efficiencies"><img src="https://latex.codecogs.com/png.latex?%0AT/%5Cmathcal%7BC%7D%20=%0A%5Cfrac%7B%5Cmathrm%7BTOPS%7D%7D%7B%5Cmathrm%7BCores%7D%7D,%0A%5Cqquad%0AT/%5Cmathcal%7BP%7D%20=%0A%5Cfrac%7B%5Cmathrm%7BTOPS%7D%7D%7B%5Cmathrm%7BPower(W)%7D%7D.%0A%5Ctag%7B6%7D"></span></p>
+<p>尽管 Tempus 的硬件预算比 spatial reference 低近 <img src="https://latex.codecogs.com/png.latex?6%5Ctimes">（11.5 vs.&nbsp;64.0 Peak TOPS），它仍达到有竞争力的 <img src="https://latex.codecogs.com/png.latex?T/%5Cmathcal%7BP%7D">，并保持高 computational density。 这种效率确保 foundation models 能够进行可持续、对能耗敏感的执行，而传统 massive parallelism 会在 edge devices 上导致热失效。</p>
+<div style="overflow-x:auto;">
+<div id="tbl-rectangular-cubic-equivalence" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-rectangular-cubic-equivalence-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;8: 形状无关的 Tempus 性能：矩形 GEMM 与时延等效的立方工作负载（INT16）。
+</figcaption>
+<div aria-describedby="tbl-rectangular-cubic-equivalence-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 17%">
+<col style="width: 17%">
+<col style="width: 23%">
+<col style="width: 17%">
+<col style="width: 23%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Architectural Role</th>
+<th>Rectangular GEMM</th>
+<th style="text-align: right;">Rectangular Latency (ms)</th>
+<th>Cubic Equivalent</th>
+<th style="text-align: right;">Cubic Latency (ms)</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>Decoding Phase (Attention Projection Layers) (narrow shapes)</strong></td>
+<td></td>
+<td style="text-align: right;"></td>
+<td></td>
+<td style="text-align: right;"></td>
+</tr>
+<tr class="even">
+<td>Small/Mobile LLM (e.g., Pythia/MobileLLM)</td>
+<td><img src="https://latex.codecogs.com/png.latex?8%5Ctimes1024%5Ctimes1024"> (DIM=128)</td>
+<td style="text-align: right;">0.604</td>
+<td><img src="https://latex.codecogs.com/png.latex?192%5E3"> (DIM=96)</td>
+<td style="text-align: right;">0.403</td>
+</tr>
+<tr class="odd">
+<td>Small/Mobile LLM (TinyLlama/Gemma)</td>
+<td><img src="https://latex.codecogs.com/png.latex?8%5Ctimes2048%5Ctimes2048"> (DIM=64)</td>
+<td style="text-align: right;">1.527</td>
+<td><img src="https://latex.codecogs.com/png.latex?768%5E3"> (DIM=64)</td>
+<td style="text-align: right;">1.637</td>
+</tr>
+<tr class="even">
+<td>Production LLM (LLaMA-2 7B)</td>
+<td><img src="https://latex.codecogs.com/png.latex?8%5Ctimes4096%5Ctimes4096"> (DIM=32)</td>
+<td style="text-align: right;">5.241</td>
+<td><img src="https://latex.codecogs.com/png.latex?1024%5E3"> (DIM=64)</td>
+<td style="text-align: right;">3.537</td>
+</tr>
+<tr class="odd">
+<td><strong>Attention Head Logic (fragmented shapes)</strong></td>
+<td></td>
+<td style="text-align: right;"></td>
+<td></td>
+<td style="text-align: right;"></td>
+</tr>
+<tr class="even">
+<td>Tiny head (experimental)</td>
+<td><img src="https://latex.codecogs.com/png.latex?8%5Ctimes32%5Ctimes8"> (DIM=4)</td>
+<td style="text-align: right;">0.394</td>
+<td><img src="https://latex.codecogs.com/png.latex?32%5E3"> (DIM=4)</td>
+<td style="text-align: right;">0.396</td>
+</tr>
+<tr class="odd">
+<td>BERT-base single head <span class="citation" data-cites="devlin2018bert">[24]</span></td>
+<td><img src="https://latex.codecogs.com/png.latex?128%5Ctimes768%5Ctimes64"> (DIM=64)</td>
+<td style="text-align: right;">0.394</td>
+<td><img src="https://latex.codecogs.com/png.latex?192%5E3"> (DIM=96)</td>
+<td style="text-align: right;">0.403</td>
+</tr>
+<tr class="even">
+<td>Attention score matrix (seq=512) <span class="citation" data-cites="vaswani2017attention">[25]</span></td>
+<td><img src="https://latex.codecogs.com/png.latex?512%5Ctimes64%5Ctimes512"> (DIM=128)</td>
+<td style="text-align: right;">0.446</td>
+<td><img src="https://latex.codecogs.com/png.latex?256%5E3"> (DIM=128)</td>
+<td style="text-align: right;">0.407</td>
+</tr>
+<tr class="odd">
+<td>Vision Transformer (ViT) head</td>
+<td><img src="https://latex.codecogs.com/png.latex?128%5Ctimes128%5Ctimes128"> (DIM=64)</td>
+<td style="text-align: right;">0.395</td>
+<td><img src="https://latex.codecogs.com/png.latex?128%5E3"> (DIM=64)</td>
+<td style="text-align: right;">0.395</td>
+</tr>
+<tr class="even">
+<td><strong>Feed-forward networks (FFN) (wide shapes)</strong></td>
+<td></td>
+<td style="text-align: right;"></td>
+<td></td>
+<td style="text-align: right;"></td>
+</tr>
+<tr class="odd">
+<td>BERT-base FFN Up-projection <span class="citation" data-cites="devlin2018bert">[24]</span></td>
+<td><img src="https://latex.codecogs.com/png.latex?128%5Ctimes768%5Ctimes3072"> (DIM=96)</td>
+<td style="text-align: right;">1.258</td>
+<td><img src="https://latex.codecogs.com/png.latex?768%5E3"> (DIM=64)</td>
+<td style="text-align: right;">1.637</td>
+</tr>
+<tr class="even">
+<td>Production-scale mid-size <span class="citation" data-cites="koroteev2021bert">[26]</span></td>
+<td><img src="https://latex.codecogs.com/png.latex?512%5Ctimes1024%5Ctimes512"> (DIM=64)</td>
+<td style="text-align: right;">1.147</td>
+<td><img src="https://latex.codecogs.com/png.latex?512%5E3"> (DIM=128)</td>
+<td style="text-align: right;">0.586</td>
+</tr>
+<tr class="odd">
+<td>BERT-base FFN expansion <span class="citation" data-cites="devlin2018bert">[24]</span></td>
+<td><img src="https://latex.codecogs.com/png.latex?768%5Ctimes3072%5Ctimes768"> (DIM=16)</td>
+<td style="text-align: right;">19.674</td>
+<td><img src="https://latex.codecogs.com/png.latex?1216%5E3"> (DIM=32)</td>
+<td style="text-align: right;">9.907</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+</section>
+<section id="sec-shape-agnostic-efficiency" class="level2">
+<h2 class="anchored" data-anchor-id="sec-shape-agnostic-efficiency">跨 LLM 架构的形状无关效率</h2>
+<p>为展示通用性，我们在来自 LLM components 的代表性 rectangular GEMM shapes 上评估 Tempus，包括 decoding projection layers、multi-head attention 和 feed-forward networks（FFNs）。 表 表&nbsp;8 比较了每个 rectangular workload 与一个 latency matching 的 cubic shape。 结果表明，Tempus 在不均衡维度上保持可预测的高效率，而 spatial frameworks 在这些维度上会遭遇“utilization collapse”，性能下降最高可达 <img src="https://latex.codecogs.com/png.latex?5760%5Ctimes">。</p>
+<section id="sec-decoding-phase" class="level3">
+<h3 class="anchored" data-anchor-id="sec-decoding-phase">解码阶段（窄形状）</h3>
+<p>在 LLM 中，训练会使用 200 万 tokens 的 massive batches <span class="citation" data-cites="zhang2024tinyllama">[27]</span> 来饱和硬件，而移动端部署则要求在 <img src="https://latex.codecogs.com/png.latex?%5Cmathrm%7BGEMM%5C_SIZE%5C_A%7D%20%5Cleq%208"> 时保持效率。 因此，decoding phase 建模的是 single-token inference step，其中输入是一个单向量 <span class="citation" data-cites="dao2023flashattention">[28]</span>。 对于 TinyLlama-1.1B <span class="citation" data-cites="zhang2024tinyllama">[27]</span>、Pythia-410M 和 Gemma-2B <span class="citation" data-cites="team2024gemma">[29]</span> 等 Mobile LLMs，hidden dimension 分别为 1024 和 2048。 类似地，更大的 LLaMA-2 7B 具有一个（<img src="https://latex.codecogs.com/png.latex?8%5Ctimes4096%5Ctimes4096">）projection。 如表中所列，rectangular 与 cubic 之间的小差异来自 micro-kernel tile size（DIM）从最佳 DIM=128 降低到 DIM=64，这是由本地内存限制强制导致的，而不是根本性的低效率。</p>
+</section>
+<section id="sec-attention-heads" class="level3">
+<h3 class="anchored" data-anchor-id="sec-attention-heads">注意力头（碎片化形状）</h3>
+<p>Multi-head attention 会把 embeddings 分成更小、更碎片化的 heads <span class="citation" data-cites="vaswani2017attention">[25]</span>。 这会产生从 tiny experimental shapes（<img src="https://latex.codecogs.com/png.latex?8%5Ctimes32%5Ctimes8">）到标准 BERT-base single heads（<img src="https://latex.codecogs.com/png.latex?128%5Ctimes768%5Ctimes64">）的一系列 rectangular GEMMs。 Fragmented heads 与 cubic equivalent 几乎相同。 这证明 Tempus 能够抵御 narrow dimensions，而这些维度会导致 massive spatial arrays 的资源利用不足。</p>
+</section>
+<section id="sec-feed-forward-networks" class="level3">
+<h3 class="anchored" data-anchor-id="sec-feed-forward-networks">前馈网络（宽形状）</h3>
+<p>Feed-forward network（FFN）会在 up-projections 和 expansions 期间产生“wide”或“tall” rectangular GEMMs。 对于 BERT-Base，<img src="https://latex.codecogs.com/png.latex?128%5Ctimes768%5Ctimes3072"> 的 up-projection 和 <img src="https://latex.codecogs.com/png.latex?768%5Ctimes3072%5Ctimes768"> 的 full expansion 表示 production-scale workloads <span class="citation" data-cites="devlin2018bert koroteev2021bert">[24], [26]</span>。 这些结果确认 Tempus 是 shape-agnostic 的：它能从 rectangular LLM workloads 中提取高 utility，而不会遭遇 spatial accelerators 的体系结构错配。</p>
+</section>
+</section>
+</section>
+<section id="sec-conclusion" class="level1">
+<h1>结论</h1>
+<p>本文介绍 Tempus，这是首个面向 Versal AI Edge VE2302 的 resource-invariant GEMM streaming framework。 通过把 3D MatMul 映射到一个固定 2D array，它只使用 16 个 AIE-ML cores，并通过 algorithmic iteration 达到 607 GOPS。 相较 spatial SOTA（ARIES），Tempus 提供 <img src="https://latex.codecogs.com/png.latex?211.2%5Ctimes"> 更高的 PAU prominence factor，从形式上证明了其面向边缘部署的体系结构优越性。 该框架通过多维 frugality（<img src="https://latex.codecogs.com/png.latex?22.0%5Ctimes"> core、<img src="https://latex.codecogs.com/png.latex?7.1%5Ctimes"> power、<img src="https://latex.codecogs.com/png.latex?6.3%5Ctimes"> I/O）确保可持续性能。 关键的是，resource utilization 在不同工作负载上保持不变，功耗为 <img src="https://latex.codecogs.com/png.latex?10.677"> W。 这种节省为 foundation model inference 所需的非 GEMM kernels（Softmax、Layer-normalization）的 heterogeneous orchestration 保留了 programmable logic。</p>
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">参考文献</h2><div id="refs" class="references csl-bib-body" data-entry-spacing="0">
+<div id="ref-hoffmann2022training" class="csl-entry">
+<div class="csl-left-margin">[1] </div><div class="csl-right-inline"><span class="nocase">J. Hoffmann <em>等</em></span>, <span>《Training compute-optimal large language models》</span>, <em>arXiv preprint arXiv:2203.15556</em>, 卷 10, 2022.</div>
+</div>
+<div id="ref-kaplan2020scaling" class="csl-entry">
+<div class="csl-left-margin">[2] </div><div class="csl-right-inline">J. Kaplan <em>等</em>, <span>《Scaling laws for neural language models》</span>, <em>arXiv preprint arXiv:2001.08361</em>, 2020.</div>
+</div>
+<div id="ref-pearce2024reconciling" class="csl-entry">
+<div class="csl-left-margin">[3] </div><div class="csl-right-inline">T. Pearce 和 J. Song, <span>《Reconciling kaplan and chinchilla scaling laws》</span>, <em>arXiv preprint arXiv:2406.12907</em>, 2024.</div>
+</div>
+<div id="ref-xu2025slim" class="csl-entry">
+<div class="csl-left-margin">[4] </div><div class="csl-right-inline">W. Xu, H. Choi, P. Hsu, S. Yu, 和 T. Simunic, <span>《SLIM: A Heterogeneous Accelerator for Edge Inference of Sparse Large Language Model via Adaptive Thresholding》</span>, <em>ACM Transactions on Embedded Computing Systems</em>, 2025.</div>
+</div>
+<div id="ref-jiang2025comprehensive" class="csl-entry">
+<div class="csl-left-margin">[5] </div><div class="csl-right-inline">F. Jiang <em>等</em>, <span>《A comprehensive survey of large ai models for future communications: Foundations, applications and challenges》</span>, <em>arXiv preprint arXiv:2505.03556</em>, 2025.</div>
+</div>
+<div id="ref-guo2025survey" class="csl-entry">
+<div class="csl-left-margin">[6] </div><div class="csl-right-inline"><span class="nocase">C. Guo <em>等</em></span>, <span>《A survey: Collaborative hardware and software design in the era of large language models》</span>, <em>IEEE Circuits and Systems Magazine</em>, 卷 25, 期 1, 页 35～57, 2025.</div>
+</div>
+<div id="ref-li2025tiny" class="csl-entry">
+<div class="csl-left-margin">[7] </div><div class="csl-right-inline">Y. Li <em>等</em>, <span>《Tiny but Mighty: A Software-Hardware Co-Design Approach for Efficient Multimodal Inference on Battery-Powered Small Devices》</span>, <em>arXiv preprint arXiv:2510.05109</em>, 2025.</div>
+</div>
+<div id="ref-nunez2025sgrace" class="csl-entry">
+<div class="csl-left-margin">[8] </div><div class="csl-right-inline">J. Nunez-Yanez 和 H. M. Jeddi, <span>《Sgrace: scalable architecture for on-device inference and training of graph attention and convolutional networks》</span>, <em>IEEE Transactions on Very Large Scale Integration (VLSI) Systems</em>, 2025.</div>
+</div>
+<div id="ref-grailoo2024heterogeneous" class="csl-entry">
+<div class="csl-left-margin">[9] </div><div class="csl-right-inline">M. Grailoo 和 J. Nunez-Yanez, <span>《Heterogeneous Edge Computing for Molecular Property Prediction with Graph Convolutional Networks》</span>, <em>Electronics</em>, 卷 14, 期 1, 页 101, 2024.</div>
+</div>
+<div id="ref-CHARMtwo" class="csl-entry">
+<div class="csl-left-margin">[10] </div><div class="csl-right-inline">J. Zhuang <em>等</em>, <span>《CHARM 2.0: Composing Heterogeneous Accelerators for Deep Learning on Versal ACAP Architecture》</span>, <em>ACM Transactions on Reconfigurable Technology and Systems</em>, 卷 17, 9月 2024.</div>
+</div>
+<div id="ref-ARIES" class="csl-entry">
+<div class="csl-left-margin">[11] </div><div class="csl-right-inline">J. Zhuang <em>等</em>, <span>《ARIES: An Agile MLIR-Based Compilation Flow for Reconfigurable Devices with AI Engines》</span>, 收入 <em>Proceedings of the 2025 ACM/SIGDA International Symposium on Field Programmable Gate Arrays (FPGA ’25)</em>, 收入 FPGA ’25. Association for Computing Machinery, 2025, 页 92～102.</div>
+</div>
+<div id="ref-AutoMM" class="csl-entry">
+<div class="csl-left-margin">[12] </div><div class="csl-right-inline"><span class="nocase">D. Pal <em>等</em></span>, <span>《Accelerator design with decoupled hardware customizations: benefits and challenges》</span>, 收入 <em>Proceedings of the 59th ACM/IEEE Design Automation Conference (DAC)</em>, ACM, 2022, 页 1351～1354.</div>
+</div>
+<div id="ref-CHARM" class="csl-entry">
+<div class="csl-left-margin">[13] </div><div class="csl-right-inline">J. Zhuang <em>等</em>, <span>《CHARM: Composing Heterogeneous Accelerators for Matrix Multiply on Versal ACAP Architecture》</span>, 收入 <em>Proceedings of the 2023 ACM/SIGDA International Symposium on Field Programmable Gate Arrays</em>, 2023.</div>
+</div>
+<div id="ref-AutoSA" class="csl-entry">
+<div class="csl-left-margin">[14] </div><div class="csl-right-inline">J. Wang, L. Guo, 和 J. Cong, <span>《AutoSA: A Polyhedral Compiler for High-Performance Systolic Arrays on FPGA》</span>, 收入 <em>Proceedings of the 2021 ACM/SIGDA International Symposium on Field Programmable Gate Arrays (FPGA ’21)</em>, ACM, 2021, 页 93～104.</div>
+</div>
+<div id="ref-AMD_Versal_AI_Edge_PSG_2024" class="csl-entry">
+<div class="csl-left-margin">[15] </div><div class="csl-right-inline">AMD, <span>《Versal AI Edge Series Gen 2 Product Selection Guide》</span>, Advanced Micro Devices, Inc., 2024. 载于: <a href="https://www.eetasia.com/wp-content/uploads/sites/2/2024/07/16_versal-ai-edge-gen2-psg.pdf">https://www.eetasia.com/wp-content/uploads/sites/2/2024/07/16_versal-ai-edge-gen2-psg.pdf</a></div>
+</div>
+<div id="ref-AMD_UG1079_2025" class="csl-entry">
+<div class="csl-left-margin">[16] </div><div class="csl-right-inline">AMD, <em>AI Engine Kernel and Graph Programming Guide (UG1079)</em>. Advanced Micro Devices, Inc., 2025. 载于: <a href="https://docs.amd.com/r/en-US/ug1079-ai-engine-kernel-coding">https://docs.amd.com/r/en-US/ug1079-ai-engine-kernel-coding</a></div>
+</div>
+<div id="ref-Xilinx_Versal_AI_Edge_WP518_2021" class="csl-entry">
+<div class="csl-left-margin">[17] </div><div class="csl-right-inline">Xilinx, <span>《ACAP at the Edge with the Versal AI Edge Series》</span>, Xilinx / AMD, WP518, v1.0, 6月 2021. 载于: <a href="https://docs.amd.com/api/khub/documents/Xz0szg2HiN1YFYfaJVXcrQ/content?Ft-Calling-App=ft%2Fturnkey-portal&amp;Ft-Calling-App-Version=4.1.3&amp;filename=wp518-ai-edge-intro.pdf">https://docs.amd.com/api/khub/documents/Xz0szg2HiN1YFYfaJVXcrQ/content?Ft-Calling-App=ft%2Fturnkey-portal&amp;Ft-Calling-App-Version=4.1.3&amp;filename=wp518-ai-edge-intro.pdf</a></div>
+</div>
+<div id="ref-aie4ml" class="csl-entry">
+<div class="csl-left-margin">[18] </div><div class="csl-right-inline">D. Danopoulos <em>等</em>, <span>《AIE4ML: An End-to-End Framework for Compiling Neural Networks for the Next Generation of AMD AI Engines》</span>, <em>arXiv preprint arXiv:2512.15946</em>, 2025.</div>
+</div>
+<div id="ref-GAMA" class="csl-entry">
+<div class="csl-left-margin">[19] </div><div class="csl-right-inline">K. M. Mhatre, E. Taka, 和 A. Arora, <span>《GAMA: High-Performance GEMM Acceleration on AMD Versal ML-Optimized AI Engines》</span>, <em>ArXiv preprint: 2504.09688v3</em>, 2025.</div>
+</div>
+<div id="ref-MaxEVA" class="csl-entry">
+<div class="csl-left-margin">[20] </div><div class="csl-right-inline">E. Taka, A. Arora, K.-C. Wu, 和 D. Marculescu, <span>《MaxEVA: Maximizing the Efficiency of Matrix Multiplication on Versal AI Engine》</span>, <em>arXiv preprint arXiv:2311.04980 [cs]</em>, 11月 2023.</div>
+</div>
+<div id="ref-grailoo2024activation" class="csl-entry">
+<div class="csl-left-margin">[21] </div><div class="csl-right-inline">M. Grailoo, T. Nikoubin, O. Gustafsson, 和 J. Nunez-Yanez, <span>《Activation function integration for accelerating multi-layer graph convolutional neural networks》</span>, 收入 <em>2024 IEEE 17th Dallas Circuits and Systems Conference (DCAS)</em>, IEEE, 2024, 页 1～6.</div>
+</div>
+<div id="ref-AMA" class="csl-entry">
+<div class="csl-left-margin">[22] </div><div class="csl-right-inline">X. Deng, S. Wang, T. Gao, J. Liu, L. Liu, 和 N. Zheng, <span>《AMA: An Analytical Approach to Maximizing the Efficiency of Deep Learning on Versal AI Engine》</span>, 收入 <em>2024 34th International Conference on Field-Programmable Logic and Applications (FPL)</em>, 2024.</div>
+</div>
+<div id="ref-lei2024mapping" class="csl-entry">
+<div class="csl-left-margin">[23] </div><div class="csl-right-inline">J. Lei 和 E. S. Quintana-Ortı́, <span>《Mapping parallel matrix multiplication in gotoblas2 to the amd versal acap for deep learning》</span>, 收入 <em>Proceedings of the 4th Workshop on Performance and Energy Efficiency in Concurrent and Distributed Systems</em>, 2024, 页 1～8.</div>
+</div>
+<div id="ref-devlin2018bert" class="csl-entry">
+<div class="csl-left-margin">[24] </div><div class="csl-right-inline">J. Devlin, M.-W. Chang, K. Lee, 和 K. Toutanova, <span>《<span>BERT</span>: Pre-training of Deep Bidirectional Transformers for Language Understanding》</span>, 收入 <em>Proceedings of the Conference of the North American Chapter of the Association for Computational Linguistics (NAACL-HLT)</em>, 2019.</div>
+</div>
+<div id="ref-vaswani2017attention" class="csl-entry">
+<div class="csl-left-margin">[25] </div><div class="csl-right-inline">A. Vaswani <em>等</em>, <span>《Attention is all you need》</span>, <em>Advances in neural information processing systems</em>, 卷 30, 2017.</div>
+</div>
+<div id="ref-koroteev2021bert" class="csl-entry">
+<div class="csl-left-margin">[26] </div><div class="csl-right-inline">M. V. Koroteev, <span>《BERT: a review of applications in natural language processing and understanding》</span>, <em>arXiv preprint arXiv:2103.11943</em>, 2021.</div>
+</div>
+<div id="ref-zhang2024tinyllama" class="csl-entry">
+<div class="csl-left-margin">[27] </div><div class="csl-right-inline">P. Zhang, G. Zeng, T. Wang, 和 W. Lu, <span>《<span>TinyLlama</span>: An Open-Source Small Language Model》</span>, <em>arXiv preprint arXiv:2401.02385</em>, 2024.</div>
+</div>
+<div id="ref-dao2023flashattention" class="csl-entry">
+<div class="csl-left-margin">[28] </div><div class="csl-right-inline">T. Dao, <span>《Flashattention-2: Faster attention with better parallelism and work partitioning》</span>, <em>arXiv preprint arXiv:2307.08691</em>, 2023.</div>
+</div>
+<div id="ref-team2024gemma" class="csl-entry">
+<div class="csl-left-margin">[29] </div><div class="csl-right-inline">Gemma Team, <span>《Gemma: Open Models Based on Gemini Technology》</span>, <em>arXiv preprint arXiv:2403.08295</em>, 2024.</div>
+</div>
+</div></section></div> ]]></description>
+  <category>编译原理</category>
+  <category>人工智能</category>
+  <guid>https://sadsock.github.io/posts/2026-05-06-tempus-a-temporally-scalable-resource-invariant-gemm-streaming-framework-for-versal-ai-edge.html</guid>
+  <pubDate>Wed, 06 May 2026 00:00:00 GMT</pubDate>
+</item>
 <item>
   <title>Striking the Balance: GEMM Performance Optimization Across Generations of Ryzen™ AI NPUs</title>
   <link>https://sadsock.github.io/posts/2026-05-04-striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus.html</link>
@@ -17234,58 +18481,6 @@ font-style: inherit;">}</span></span></code></pre></div></div>
  ]]></description>
   <category>LLVM</category>
   <guid>https://sadsock.github.io/posts/2020-11-01-write-an-LLVM-backend.html</guid>
-  <pubDate>Sun, 01 Nov 2020 10:38:38 GMT</pubDate>
-</item>
-<item>
-  <title>Write an LLVM Backend(零)：简介</title>
-  <link>https://sadsock.github.io/posts/2020-11-01-write-an-LLVM-backend-0.html</link>
-  <description><![CDATA[ 
-
-
-
-
-<section id="简介" class="level1">
-<h1>简介</h1>
-<p>本文档描述了编写编译器后端的技术， 这些后端将LLVM中间表示（IR）转换为特定机器或其他语言的代码， 这些代码可以是汇编代码也可以是二进制代码（可用于JIT编译器）。</p>
-<p>LLVM的后端是一个平台独立的代码生成器， 它可以为不同类型的目标CPU生成代码， 包括X86、PowerPC、ARM和SPARC。 后端还可以为GPU或Cell处理器的SPU生成代码， 以支持计算内核的执行。</p>
-<p>本文档主要关注<code>llvm/lib/Target</code>目录中的现有示例， 特别是为SPARC平台创建静态编译器(也就是发射汇编码)， 因为SPARC具有相当典型的特征， 比如RISC指令集和常见的调用约定。</p>
-<section id="目标读者" class="level2">
-<h2 class="anchored" data-anchor-id="目标读者">目标读者</h2>
-<p>本文档的受众是需要编写LLVM后端来为特定的硬件或软件平台生成代码的开发者。</p>
-</section>
-<section id="前置知识" class="level2">
-<h2 class="anchored" data-anchor-id="前置知识">前置知识</h2>
-<p>在阅读本文档之前，必须先阅读以下重要文档：</p>
-<ul>
-<li><p><a href="https://releases.llvm.org/11.0.0/docs/LangRef.html">LLVM Language Reference Manual</a>–LLVM汇编语言的参考手册。</p></li>
-<li><p><a href="https://releases.llvm.org/11.0.0/docs/CodeGenerator.html">The LLVM Target-Independent Code Generator</a>– 用于将LLVM内部表示转换为指定平台的机器码的组件（类和代码生成算法）的指南。 特别注意代码生成阶段：指令选择、调度和形成、基于SSA的优化、寄存器分配、Prolog/Epilog代码插入、后期机器代码优化和代码发射。</p></li>
-<li><p><a href="https://releases.llvm.org/11.0.0/docs/TableGen/index.html">TableGen</a>–TableGen（tblgen）应用程序的描述文档， 该程序管理LLVM代码生成所需的特定信息。 TableGen能把目标描述文件（后缀.td）转换成用于代码生成的C++代码。</p></li>
-</ul>
-</section>
-<section id="基本步骤" class="level2">
-<h2 class="anchored" data-anchor-id="基本步骤">基本步骤</h2>
-<p>编写将LLVM IR转换为指定平台的机器码或其他语言的代码的编译器后端，需要以下步骤：</p>
-<ul>
-<li>创建TargetMachine类的子类， 该类描述目标计算机的特征， 这一步可以参考已有后端的TargetMachine类及其头文件； 例如，直接复制SparcTargetMachine.cpp和SparcTargetMachine.h但更改其文件名， 并且更改引用“Sparc”的代码以引用您的代码。</li>
-<li>描述目标平台的寄存器。 使用TableGen从RegisterInfo.td文件生成定义寄存器、寄存器别名和寄存器组的代码。 还可能需要为TargetRegisterInfo的子类编写代码，这些代码代用于支持寄存器的分配以及描述寄存器间的约束。</li>
-<li>描述目标平台的指令集。 使用TableGen从TargetInstrFormats.td和TargetInstrInfo.td文件生成描述目标平台的指令集的代码。 您可能需要手动为TargetInstrInfo的子类编写代码，以描述目标平台支持的某些特殊指令。</li>
-<li>描述指令选择规则，该过程将LLVM IR的有向无环图（DAG）表示转换到目标平台原生指令表示。 使用TableGen根据TargetInstrInfo.td文件从定义的模式来生成支持指令选择的代码， 有时需要手动为XXXISelDAGToDAG.cpp编写代码来完成DAG-to-DAG的转换， 有时还需要手动为XXXISelLowering.cpp文件编写代码来替换不被SelectionDAG原生支持的操作和数据类型。</li>
-<li>编写汇编生成器，汇编生成器将LLVM IR转换为目标计算机的GAS格式。 你需要在TargetInstrInfo.td文件中增加assembly strings。 同时还需要实现AsmPrinter的子类以及TargetAsmInfo的子类， 来实现LLVM IR到汇编的转换。</li>
-<li>（可选）添加对子平台(具有不同功能的变体)的支持。 实现TargetSubtarget的子类， 该类允许您使用<code>-mcpu=</code>和<code>-mattr=</code>命令行选项。</li>
-<li>（可选）添加JIT支持并创建机器码发射器(TargetJITInfo的子类)， 它用于直接将二进制代码发送到内存中。</li>
-</ul>
-<p>在.cpp和.h文件中，首先为这些方法建立占位，然后在以后实现它们。 最初，您可能不知道这些类需要哪些私有成员，哪些类需要子类化。</p>
-</section>
-<section id="准备工作" class="level2">
-<h2 class="anchored" data-anchor-id="准备工作">准备工作</h2>
-
-
-</section>
-</section>
-
- ]]></description>
-  <category>LLVM</category>
-  <guid>https://sadsock.github.io/posts/2020-11-01-write-an-LLVM-backend-0.html</guid>
   <pubDate>Sun, 01 Nov 2020 10:38:38 GMT</pubDate>
 </item>
 </channel>
