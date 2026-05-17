@@ -10,7 +10,793 @@
 <atom:link href="https://sadsock.github.io/index.xml" rel="self" type="application/rss+xml"/>
 <description></description>
 <generator>quarto-1.9.37</generator>
-<lastBuildDate>Wed, 06 May 2026 00:00:00 GMT</lastBuildDate>
+<lastBuildDate>Sun, 17 May 2026 00:00:00 GMT</lastBuildDate>
+<item>
+  <title>拆解华为的快速整数除法</title>
+  <link>https://sadsock.github.io/posts/2026-05-17-magic-number-division-analysis.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<div class="quarto-figure quarto-figure-center">
+<figure class="figure">
+<p><img src="https://sadsock.github.io/assets/magic-number-division-analysis/huawei-fast-integer-division-slide.jpg" class="img-fluid figure-img" style="width:100.0%"></p>
+<figcaption>朋友发来的整数快除幻灯片。</figcaption>
+</figure>
+</div>
+<p>朋友发给我一个幻灯片，让我研究一下华为这个整数除法是什么原理。</p>
+<p>本文将完整梳理该算法的执行步骤、核心代数推导过程，并解答其在底层硬件上的边界设计问题。</p>
+<section id="一算法核心步骤总结" class="level2">
+<h2 class="anchored" data-anchor-id="一算法核心步骤总结">一、算法核心步骤总结</h2>
+<p>该算法将高延迟的除法运算严格拆分为两个阶段：<strong>预计算阶段</strong>（编译期或 Host 端完成）和<strong>运行时阶段</strong>（设备端硬件流水线执行）。</p>
+<section id="预计算阶段仅执行一次" class="level3">
+<h3 class="anchored" data-anchor-id="预计算阶段仅执行一次">1. 预计算阶段（仅执行一次）</h3>
+<p>给定除数 <img src="https://latex.codecogs.com/png.latex?d">（已知常数）和硬件原生位宽 <img src="https://latex.codecogs.com/png.latex?N">（如 32 位），计算出两个关键的编译期常量：</p>
+<ul>
+<li><strong>偏移量 (shift)：</strong> <img src="https://latex.codecogs.com/png.latex?shift%20=%20%5Clceil%20%5Clog_2%20d%20%5Crceil"></li>
+<li><strong>魔法常数 (magic)：</strong> <img src="https://latex.codecogs.com/png.latex?magic%20=%20%5Clfloor%20%5Cfrac%7B2%5EN%20%5Ctimes%20(2%5E%7Bshift%7D%20-%20d)%7D%7Bd%7D%20%5Crfloor%20+%201"></li>
+</ul>
+</section>
+<section id="运行时阶段执行成千上万次" class="level3">
+<h3 class="anchored" data-anchor-id="运行时阶段执行成千上万次">2. 运行时阶段（执行成千上万次）</h3>
+<p>当程序执行 <code>quotient = dividend / d</code> 时，底层硬件只需串行执行三条低延迟的基础指令。其完整公式等价为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?quotient%20=%20(%20((dividend%20%5Ctimes%20magic)%20%5Cgg%20N)%20+%20dividend%20)%20%5Cgg%20shift"></p>
+<ol type="1">
+<li><strong>高位乘法 (<code>mul.hi</code>)：</strong> 即 <img src="https://latex.codecogs.com/png.latex?(dividend%20%5Ctimes%20magic)%20%5Cgg%20N">。提取 64 位乘积的高 32 位。</li>
+<li><strong>加法补偿 (<code>add</code>)：</strong> 将上一步结果 <img src="https://latex.codecogs.com/png.latex?+%20dividend">，补偿因截断而丢失的魔数权重。</li>
+<li><strong>逻辑右移 (<code>shr</code>)：</strong> 将加法结果 <img src="https://latex.codecogs.com/png.latex?%5Cgg%20shift">，得到最终精确的商。</li>
+</ol>
+</section>
+</section>
+<section id="二核心数学原理剖析" class="level2">
+<h2 class="anchored" data-anchor-id="二核心数学原理剖析">二、核心数学原理剖析</h2>
+<p>整数除法的本质是乘以倒数：<img src="https://latex.codecogs.com/png.latex?x%20/%20d%20=%20x%20%5Ctimes%20%5Cfrac%7B1%7D%7Bd%7D">。</p>
+<p>由于整型寄存器无法存储小数 <img src="https://latex.codecogs.com/png.latex?%5Cfrac%7B1%7D%7Bd%7D">，我们需要将其放大 <img src="https://latex.codecogs.com/png.latex?2%5EK"> 倍，使其变成一个整数（即理想魔数 <img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D">），乘完之后再缩小回去（右移 <img src="https://latex.codecogs.com/png.latex?K"> 位）。</p>
+<p>为了保证计算结果在任何情况下都不会偏小（详见文末补充说明），我们必须对放大的倒数进行<strong>向上取整</strong>。因此，我们假设理想魔数 <img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D"> 的定义为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D%20=%20%5Clceil%20%5Cfrac%7B2%5EK%7D%7Bd%7D%20%5Crceil"></p>
+<p>此时，除法运算被近似为： <img src="https://latex.codecogs.com/png.latex?x%20/%20d%20%5Capprox%20%5Cfrac%7Bx%20%5Ctimes%20M_%7Btrue%7D%7D%7B2%5EK%7D"></p>
+<p>既然确立了 <img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D"> 的形式，接下来的核心问题是：<strong>放大倍数（缩放精度） <img src="https://latex.codecogs.com/png.latex?K"> 到底需要多大，才能保证在全定义域下计算绝对正确？</strong></p>
+</section>
+<section id="三精度边界推导为什么-k-的取值必须是-n-shift" class="level2">
+<h2 class="anchored" data-anchor-id="三精度边界推导为什么-k-的取值必须是-n-shift">三、精度边界推导：为什么 <img src="https://latex.codecogs.com/png.latex?K"> 的取值必须是 <img src="https://latex.codecogs.com/png.latex?N%20+%20shift">？</h2>
+<p>令向上取整引入的小数误差为 <img src="https://latex.codecogs.com/png.latex?%5Cepsilon">（<img src="https://latex.codecogs.com/png.latex?0%20%5Cle%20%5Cepsilon%20%3C%201">），则理想魔数可以表示为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D%20=%20%5Cfrac%7B2%5EK%7D%7Bd%7D%20+%20%5Cepsilon"></p>
+<p>对于任意被除数 <img src="https://latex.codecogs.com/png.latex?n">，其实际除法结果可写为商 <img src="https://latex.codecogs.com/png.latex?q"> 和余数 <img src="https://latex.codecogs.com/png.latex?r">（即 <img src="https://latex.codecogs.com/png.latex?n%20=%20q%20%5Ctimes%20d%20+%20r">）。带入我们的近似除法公式中，机器实际计算的中间值为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cfrac%7Bn%20%5Ctimes%20M_%7Btrue%7D%7D%7B2%5EK%7D%20=%20%5Cfrac%7Bn%20%5Ctimes%20(%5Cfrac%7B2%5EK%7D%7Bd%7D%20+%20%5Cepsilon)%7D%7B2%5EK%7D%20=%20%5Cfrac%7Bn%7D%7Bd%7D%20+%20%5Cfrac%7Bn%20%5Ctimes%20%5Cepsilon%7D%7B2%5EK%7D%20=%20q%20+%20%5Cleft(%20%5Cfrac%7Br%7D%7Bd%7D%20+%20%5Cfrac%7Bn%20%5Ctimes%20%5Cepsilon%7D%7B2%5EK%7D%20%5Cright)"></p>
+<p>为了保证最终右移截断（向下取整）后的结果正好等于 <img src="https://latex.codecogs.com/png.latex?q">，必须保证括号内的小数部分在<strong>最极端的最坏情况（Worst-case）</strong>下也严格小于 1。我们寻找极端值：</p>
+<ol type="1">
+<li>最大余数：<img src="https://latex.codecogs.com/png.latex?r%20=%20d%20-%201"></li>
+<li>最大误差：<img src="https://latex.codecogs.com/png.latex?%5Cepsilon%20%5Cto%201"></li>
+<li>最大被除数：<img src="https://latex.codecogs.com/png.latex?n%20%5Cto%202%5EN"></li>
+</ol>
+<p>代入临界条件不等式：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%5Cfrac%7Bd%20-%201%7D%7Bd%7D%20+%20%5Cfrac%7B2%5EN%7D%7B2%5EK%7D%20%3C%201"> <img src="https://latex.codecogs.com/png.latex?1%20-%20%5Cfrac%7B1%7D%7Bd%7D%20+%20%5Cfrac%7B2%5EN%7D%7B2%5EK%7D%20%3C%201"> <img src="https://latex.codecogs.com/png.latex?%5Cfrac%7B2%5EN%7D%7B2%5EK%7D%20%3C%20%5Cfrac%7B1%7D%7Bd%7D"></p>
+<p>两边取倒数并取以 2 为底的对数：</p>
+<p><img src="https://latex.codecogs.com/png.latex?2%5E%7BK%20-%20N%7D%20%3E%20d%20%5Cimplies%20K%20-%20N%20%3E%20%5Clog_2%20d%20%5Cimplies%20K%20%3E%20N%20+%20%5Clog_2%20d"></p>
+<p>由于移位量必须是整数，我们将对 <img src="https://latex.codecogs.com/png.latex?%5Clog_2%20d"> 的向上取整定义为 <code>shift</code>（即 <img src="https://latex.codecogs.com/png.latex?shift%20=%20%5Clceil%20%5Clog_2%20d%20%5Crceil">）。 因此，能压制住全范围被除数误差的<strong>最小安全 <img src="https://latex.codecogs.com/png.latex?K"> 值</strong>为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?K%20=%20N%20+%20shift"></p>
+<p>至此，理想魔数的完整定义变为：<img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D%20=%20%5Clceil%20%5Cfrac%7B2%5E%7BN+shift%7D%7D%7Bd%7D%20%5Crceil">。</p>
+</section>
+<section id="四硬件限制魔数的溢出与截断补偿" class="level2">
+<h2 class="anchored" data-anchor-id="四硬件限制魔数的溢出与截断补偿">四、硬件限制：魔数的溢出与截断补偿</h2>
+<p>明确了 <img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D"> 之后，工程实现上遇到了一个严峻的硬件问题：<strong>它一定需要 33 位（33-bit）来存储。</strong></p>
+<p>根据 <code>shift</code> 的定义，<img src="https://latex.codecogs.com/png.latex?2%5E%7Bshift%7D"> 是刚好大于或等于 <img src="https://latex.codecogs.com/png.latex?d"> 的最小 2 的幂次，必然满足：</p>
+<p><img src="https://latex.codecogs.com/png.latex?1%20%5Cle%20%5Cfrac%7B2%5E%7Bshift%7D%7D%7Bd%7D%20%3C%202"></p>
+<p>带入 <img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D"> 的定义（以位宽 <img src="https://latex.codecogs.com/png.latex?N=32"> 为例）：</p>
+<p><img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D%20=%20%5Clceil%202%5E%7B32%7D%20%5Ctimes%20%5Cfrac%7B2%5E%7Bshift%7D%7D%7Bd%7D%20%5Crceil%20%5Cge%202%5E%7B32%7D"></p>
+<p>在二进制中，<img src="https://latex.codecogs.com/png.latex?2%5E%7B32%7D"> 是一个最高位（第 33 位）为 1 的数。32 位的物理寄存器无法直接存下它。</p>
+<p><strong>截断与补偿策略：</strong> 为了解决溢出，我们将魔数“砍掉最高位”，只存入低 32 位数据，这便是代码中实际使用的 <code>magic</code>：</p>
+<p><img src="https://latex.codecogs.com/png.latex?magic%20=%20M_%7Btrue%7D%20-%202%5E%7B32%7D"></p>
+<p>因为乘数变小了（少了 <img src="https://latex.codecogs.com/png.latex?2%5E%7B32%7D">），所以在运行时阶段的高位乘法后，我们得到的结果比预期少了恰好一个被除数的值。这就是为什么在底层的指令流水线中，必须额外加上一步 <code>+ dividend</code>（加法补偿），用以补回被砍掉的最高位权重。</p>
+</section>
+<section id="五公式推导从理论魔数到工程公式" class="level2">
+<h2 class="anchored" data-anchor-id="五公式推导从理论魔数到工程公式">五、公式推导：从理论魔数到工程公式</h2>
+<p>最后一步，我们需要将理论上表达的 <img src="https://latex.codecogs.com/png.latex?magic%20=%20M_%7Btrue%7D%20-%202%5EN">，转化为仅用标准 32 位整型运算就能在编译期算出的纯显式公式。</p>
+<ul>
+<li><p><strong>Step 1：代入理论定义</strong> <img src="https://latex.codecogs.com/png.latex?magic%20=%20%5Clceil%20%5Cfrac%7B2%5E%7BN+shift%7D%7D%7Bd%7D%20%5Crceil%20-%202%5EN"></p></li>
+<li><p><strong>Step 2：将整数 <img src="https://latex.codecogs.com/png.latex?2%5EN"> 移入向上取整符号内部</strong>（利用 <img src="https://latex.codecogs.com/png.latex?%5Clceil%20X%20%5Crceil%20-%20C%20=%20%5Clceil%20X%20-%20C%20%5Crceil">） <img src="https://latex.codecogs.com/png.latex?magic%20=%20%5Clceil%20%5Cfrac%7B2%5E%7BN+shift%7D%7D%7Bd%7D%20-%202%5EN%20%5Crceil"></p></li>
+<li><p><strong>Step 3：通分合并并提取公因式</strong> <img src="https://latex.codecogs.com/png.latex?magic%20=%20%5Clceil%20%5Cfrac%7B2%5E%7BN+shift%7D%20-%202%5EN%20%5Ctimes%20d%7D%7Bd%7D%20%5Crceil%20=%20%5Clceil%20%5Cfrac%7B2%5EN%20%5Ctimes%20(2%5E%7Bshift%7D%20-%20d)%7D%7Bd%7D%20%5Crceil"></p></li>
+<li><p><strong>Step 4：转换为通用的“向下取整”</strong> 在主流编程语言中，整数除法默认行为是向下取整（Floor <img src="https://latex.codecogs.com/png.latex?%5Clfloor%20%5Cdots%20%5Crfloor">）。对于非整数 <img src="https://latex.codecogs.com/png.latex?X">，有 <img src="https://latex.codecogs.com/png.latex?%5Clceil%20X%20%5Crceil%20=%20%5Clfloor%20X%20%5Crfloor%20+%201">。 因为该算法针对的是非 2 的幂次的除数 <img src="https://latex.codecogs.com/png.latex?d">，括号内结果必有小数，我们得以安全转换： <img src="https://latex.codecogs.com/png.latex?magic%20=%20%5Clfloor%20%5Cfrac%7B2%5EN%20%5Ctimes%20(2%5E%7Bshift%7D%20-%20d)%7D%7Bd%7D%20%5Crfloor%20+%201"></p></li>
+</ul>
+<p>至此，我们得到了与 PPT 完全一致的编译期常量计算公式。</p>
+</section>
+<section id="六补充说明为什么要向上取整而不是向下取整" class="level2">
+<h2 class="anchored" data-anchor-id="六补充说明为什么要向上取整而不是向下取整">六、补充说明：为什么要“向上取整”而不是“向下取整”？</h2>
+<p>在第二节中，我们确立基础模型时，假设了 <img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D%20=%20%5Clceil%202%5EK%20/%20d%20%5Crceil">。为什么必须是 <img src="https://latex.codecogs.com/png.latex?%5Clceil%20%5Cdots%20%5Crceil"> 而不是 <img src="https://latex.codecogs.com/png.latex?%5Clfloor%20%5Cdots%20%5Crfloor">？</p>
+<p><strong>这是出于“宁可多算，绝不少算”的误差控制原则。</strong></p>
+<p>如果使用向下取整：<img src="https://latex.codecogs.com/png.latex?M_%7Btrue%7D%20=%20%5Clfloor%202%5EK%20/%20d%20%5Crfloor">，则估算的倒数严格<strong>小于</strong>真实的 <img src="https://latex.codecogs.com/png.latex?1/d">。 当遇到能被完美整除的情况（例如 <img src="https://latex.codecogs.com/png.latex?x%20=%20d">）时： <img src="https://latex.codecogs.com/png.latex?x%20%5Ctimes%20%5Cfrac%7BM_%7Btrue%7D%7D%7B2%5EK%7D"> 的计算结果就会略微小于 1（例如 <code>0.9999...</code>）。 经过硬件移位操作（本质是向下取整）后，商会被截断成 <code>0</code>，而正确的答案应该是 <code>1</code>。</p>
+<p>只要产生微小的负向误差，就会导致整除边界上的结果全面崩溃。因此，必须使用<strong>向上取整</strong>，引入可控的正向误差 <img src="https://latex.codecogs.com/png.latex?%5Cepsilon">，并在推导缩放精度 <img src="https://latex.codecogs.com/png.latex?K"> 时（第三节）通过提升位数将其彻底压制在安全范围内。</p>
+
+
+</section>
+
+ ]]></description>
+  <category>编译原理</category>
+  <category>体系结构</category>
+  <guid>https://sadsock.github.io/posts/2026-05-17-magic-number-division-analysis.html</guid>
+  <pubDate>Sun, 17 May 2026 00:00:00 GMT</pubDate>
+</item>
+<item>
+  <title>Efficiency, Expressivity, and Extensibility in a Close-to-Metal NPU Programming Interface</title>
+  <link>https://sadsock.github.io/posts/2026-05-14-efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<p>原文版权声明：本文依据公开来源论文 <em>Efficiency, Expressivity, and Extensibility in a Close-to-Metal NPU Programming Interface</em> 进行中文翻译整理，仅供学习与研究使用。 我仅提供翻译与网页整理，不拥有原文版权；原文版权归作者及发布方所有。 转载、分发或用于商业用途时，请遵守原论文及原始发布平台的版权规定。</p>
+<p>原文信息：Erika Hunhoff，Joseph Melber，Kristof Denolf，Andra Bisca，Samuel Bayliss，Stephen Neuendorffer，Jeff Fifield，Jack Lo，Pranathi Vasireddy，Phil James-Roxby，Eric Keller。<em>Efficiency, Expressivity, and Extensibility in a Close-to-Metal NPU Programming Interface</em>。2025 IEEE 论文。</p>
+<p>说明：以下内容按原文句序逐句对应翻译整理。 图注、表注、表格说明、代码清单和参考文献信息尽量保留原貌；作者名、标题、期刊会议信息不翻译。 原文中的术语、接口名、代码标识符和缩写保持原样，便于对照原文。</p>
+<p>作者：Erika Hunhoff；Joseph Melber；Kristof Denolf；Andra Bisca；Samuel Bayliss；Stephen Neuendorffer；Jeff Fifield；Jack Lo；Pranathi Vasireddy；Phil James-Roxby；Eric Keller。</p>
+<p>单位：AMD；University of Colorado at Boulder, USA；Work performed at AMD。</p>
+<section id="sec-abstract" class="level1">
+<h1>摘要</h1>
+<p>神经处理单元（NPU）等加速器在性能和效率之间提供了很有吸引力的平衡，相比通用计算架构更具优势。 然而，有效利用加速器能力并不总是简单：低层编程工具包可能需要开发者付出大量精力，而高层编程工具包又可能抽象掉关键优化特性。 本文旨在提升使用 IRON 的设计者效率，IRON 是一个面向 close-to-metal NPU 性能工程师的工具包。 我们为 IRON 提供了一个更新后的程序员接口，其中包含新的和改进后的编程构造。 新接口加入了用于 placement 和 data transformation 的可扩展特性。 这些贡献从三个方面进行评估：1）效率，分析显示不同设计的代码行数平均减少约 26%，Halstead 指标也随之下降；2）表达力，证明新接口支持 IRON 已支持的广泛特性与模式；3）可扩展性，说明新的 placement 与 tiling 工具可以扩展以适配常见用例。</p>
+</section>
+<section id="sec-introduction" class="level1">
+<h1>I. 引言</h1>
+<p>神经处理单元（NPU）等加速器能够比通用处理器提供更高的性能和效率；然而，有效利用加速器能力并不总是容易 [40]。 一种方法是构建高层框架，由操作与编译器组成，以抽象加速器架构的细节。 这一类面向 NPU 的框架包括 AMD Ryzen™ AI Software [5]、Intel® OpenVINO™ [34] 和 Qualcomm® Neural Processing SDK [38]。 这些平台使开发者能够使用 PyTorch 和 TensorFlow 等常见框架训练并部署机器学习模型。 第二种方法是构建低层工具包和库，支持利用加速器特定特性来创建定制化、优化过的设计。 IRON 就是这类方法的一个例子，它是一个面向 AMD XDNA™ NPU 的 close-to-metal、通用、开源工具包 [28]、[29]、[31]。 这两种方法各自服务于不同但都很重要的目的。</p>
+<p>在低层工具包中，编程接口要在两种诉求之间寻求平衡：一方面要让程序员容易表达意图（设计者效率），另一方面又要暴露实现清晰和精确所需的细粒度硬件能力（复杂性）。 虽然这种张力有一部分是不可避免的，但具体取舍仍然可以通过有意设计接口来调节。 本文详细介绍了对 IRON 的贡献，使设计者能够清楚地表达设计（原则 1：效率），同时不牺牲设计者对低层决策的影响能力（原则 2：表达力）。 这些贡献还使设计者能够创建新的工具来生成设计的部分内容（原则 3：可扩展性）。 本文贡献的核心是一个建立在现有 IRON 编程接口之上的新 API。 这个 API 对 IRON 编程构造进行了改进，提供了一个新的接口来支持面向 placement 的可扩展工具（即把设计构造匹配到物理资源上），并包含一个新的辅助 data transformation 库，同样用于支持自定义扩展。 新 API 与现有 IRON API 共存，并作为开源仓库中的核心编程接口集成到 IRON 中，仓库地址是 <a href="https://github.com/Xilinx/mlir-aie" class="uri">https://github.com/Xilinx/mlir-aie</a>。</p>
+<p>对 IRON 的贡献使用 27 个 IRON 设计进行评估，这些设计从最简单的数据直通到最复杂的边缘检测流式视觉流水线不等。 在表达力方面，使用新 API 可以表达所有评估过的设计，而且与旧版设计实现相比，性能保持一致。 在设计者效率方面，我们发现单行代码（SLOC）平均减少约 26%，并且在所有设计上 Halstead 指标也平均下降。 在可扩展性方面，我们使用新 API 构造了一个自定义 placement 生成器和一个自定义 data transformation 生成器，并考察了自定义扩展的价值。 24 个示例 IRON 设计使用了 placement 工具。 其中 5 个设计，包括一个具有复杂运行时数据移动 tiling 模式的 GEMM 设计，使用了 data transformation 生成器。</p>
+<p>本文其余部分安排如下。 第 II 节给出 NPU 概览。 第 III 节总结 IRON。 第 IV 到 VII 节介绍本文贡献的设计、实现与评估。 第 VIII 节讨论相关工作，第 IX 节给出结论性思考。</p>
+</section>
+<section id="sec-architectural-overview" class="level1">
+<h1>II. AMD XDNA™ NPU 架构概览</h1>
+<p>本节介绍 AMD XDNA™ NPU 架构（第 II-A 节）以及该架构对编程与优化的影响（第 II-B 节）。</p>
+<section id="sec-xdna-architecture" class="level2">
+<h2 class="anchored" data-anchor-id="sec-xdna-architecture">A. AMD XDNA™ NPU 架构</h2>
+<p>AMD XDNA™ 神经处理单元（NPU）由多种类型的 tile 组成，这些 tile 在二维网格中按空间方式排列，并由流式互连连接。 NPU 的设计目标是实现功耗和面积都高效的推理：Ryzen™ 7040 和 8040 SoC 中的 AMD XDNA™ NPU 可提供超过 10 TOPS 的性能；使用 XDNA™ DNN 编程栈时，模型相较片上 x86 处理器可获得 4.3 到 33 倍的每瓦性能提升 [41]。 XDNA™ 2 架构最高可提供 50 TOPS [6]。</p>
+<p>图&nbsp;1 给出了一个简化的架构图；更全面的描述可参见其他资料 [41]。 AI Engine（AIE）tile（也存在于 Versal™ 架构中 [1]、[2]）包含一个 VLIW 向量处理器核心，以及相关的数据存储器、程序存储器、程序计数器、寄存器文件和功能单元 [41]。 Memory tile 提供额外的片上 SRAM scratchpad 存储，而 shim tile（或接口 tile）负责管理外部接口 [41]。 流式 network-on-chip（NoC）支持 tile 之间的点对点数据传输，并可配置为广播或选择性多播。 与带硬件管理缓存的架构不同，NPU 上的片上数据缓存在 scratchpad 中，并采用软件管理的数据移动方式，因此既显式又确定性强 [41]。 Data movement accelerator（DMA）负责异步数据移动，并借助 buffer descriptor（BD）支持 reorder、reshape 和 repeat 模式。<sup>1</sup></p>
+<div id="fig-xdna-npu" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-xdna-npu-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface/fig1-xdna-npu.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-xdna-npu-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;1: AMD XDNA™ NPU 的简化示意图，示例来自 Ryzen™ 7040 处理器 [41]。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-programming-optimization" class="level2">
+<h2 class="anchored" data-anchor-id="sec-programming-optimization">B. 编程与优化的含义</h2>
+<p>虽然在大多数基于缓存的架构中，显式控制数据移动只是一个可选优化，但 NPU 的架构使所有 NPU 设计都必须显式进行数据移动。 显式数据移动可以提高应用延迟和吞吐量的可预测性，并降低功耗 [41]。</p>
+<p>NPU 架构为优化数据移动提供了丰富特性。 利用 memory tile 中的 L2 buffer 可以降低某些应用所需的片外带宽。 借助 NoC 支持的广播复制数据，可以进一步减少片外内存带宽需求。 DMA 支持的即时数据转换可以减少表示一种数据移动模式所需的 DMA 操作数量。 这对于按照算法对数据进行分块，以及为向量化指令组织合适的数据结构都很有用。 这些属性使性能工程师或编译器能够精细调节数据移动。</p>
+<p>NPU 中的存储层次和 AIE 的排列是空间化的。 在 NPU 设计中，计算和数据必须被放置在设备上的明确位置。 NPU 设计也具有时间性。 硬件通过锁以及这些锁与 DMA 操作的集成来支持同步 [41]。 为了让程序员能够精细调节动作在设备上何时以及如何发生，程序员必须能够表达空间和时间两类关系 [27]。</p>
+</section>
+</section>
+<section id="sec-iron" class="level1">
+<h1>III. IRON：面向 NPU 的性能工具包</h1>
+<p>本节总结 IRON，这是一个面向 AMD XDNA™ NPU 的开源编程工具包 [31]。 IRON 为 NPU 设计的空间和时间方面提供了细粒度控制，重点放在数据移动上。</p>
+<section id="sec-iron-overview" class="level2">
+<h2 class="anchored" data-anchor-id="sec-iron-overview">A. IRON 概览</h2>
+<p>IRON 的核心是一个多层中间表示（MLIR）方言，mlir-aie [31]。 MLIR 是一种支持可复用、模块化和领域特定编译器基础设施的技术 [21]，也是面向多种架构（例如加速器）的常见选择 [11]、[44]、[45] 等。 mlir-aie 为 NPU 定义了原语与抽象，重点在于：1）清晰且完整地表达硬件能力；2）简化表达数据移动、同步和设计结构等关键设计组件。 mlir-aie 是 IRON 低层编程接口的核心，并定义了一个 IR，供更高层方言的编译器用来针对 NPU 生成代码。</p>
+<p>IRON 中的抽象通过捕捉常见模式来提供编程便利，但并不会隐藏 NPU 设计的基本特征，包括 placement、显式数据移动、资源限制以及 DMA 支持的复杂访问模式。 IRON 的这些抽象并不针对某个特定应用领域，不过其中一些模式对数字信号处理和机器学习很有用。</p>
+<p>IRON Python API 的核心是通过 MLIR Python bindings [32] 从 mlir-aie 自动生成的。 对这些绑定的定制扩展隐藏了 MLIR 的实现细节，比如常见 Python 类型与 MLIR 类型之间的转换。 IRON 特有的扩展还辅以 mlir-python-extras，这是一个开源库，提供了许多能用来在 Python 中清晰、简洁表达 MLIR 的辅助工具 [26]。 IRON Python API 支持元编程，允许程序员把传统 Python 与由 Python 驱动的 MLIR 操作生成混合在一起使用。</p>
+</section>
+<section id="sec-iron-lifecycle" class="level2">
+<h2 class="anchored" data-anchor-id="sec-iron-lifecycle">B. IRON 设计的生命周期</h2>
+<p>IRON 设计可以使用 IRON Python API 以 Python 编写，也可以使用 mlir-aie 以 MLIR 编写。 如果用 Python 编写，脚本会输出 MLIR assembly。 IRON 设计使用 core block 来指定在设计所用的每个处理器核心上执行的代码。 core block 中的代码可以执行计算、调用外部定义的 kernel，或者两者都做。 外部 kernel 使用 Peano [36] 等工具单独编译。 aiecc 是 IRON 的主编译驱动器，它接受 MLIR assembly 以及任何 kernel 对象文件作为输入，并生成两种工件：一个 binary，包含设计运行所需的程序；以及一组指令，在运行时由 host 处理器加载，用于对 NPU 进行（重新）配置。</p>
+<p>IRON 通过 Xilinx® Runtime（XRT）[47] 执行设计。 IRON 设计通过对生成的 MLIR 做静态分析，以及通过运行时 tracing 做动态分析来调试。 IRON 还提供了配置硬件支持的 tracing 机制的工具 [3]。</p>
+</section>
+<section id="sec-iron-outline" class="level2">
+<h2 class="anchored" data-anchor-id="sec-iron-outline">C. IRON 设计的结构</h2>
+<p>如 图&nbsp;2 所示的 IRON 示例设计中，所有会生成 MLIR 的构造都必须在一个 MLIR context 中创建（第 1 行）。 在设计结束时，使用由该 context 构造出的 module 输出 MLIR（第 29 行）。 设计的第一个逻辑小节是资源声明（第 4-9 行），其中包括物理组件（例如 tile）和会被降低为物理资源的 IRON 抽象（例如 ObjectFifo，参见第 III-D 节）。 类型使用 NumPy [15] 类型表达（第 4-5 行）。</p>
+<p>core block 被声明为带装饰器的函数（第 11 行）。 AIE 获取 tile 尺寸（TH, TW）对应的输入和输出 buffer 的访问权（第 14-15 行）。 同步由 ObjectFifo 控制，这些 buffer 的所有权也由它管理。 AIE 执行逐元素标量加法（第 16-18 行），然后释放每个 buffer（第 19-20 行）。 循环使用 <code>range_</code> 表示，它是 MLIR <code>scf</code> 方言提供的循环结构的 Python 包装 [42]。</p>
+<p>runtime sequence（第 22-28 行）用于把一个子矩阵（tile）数据发送到带 shim tile 端点的 ObjectFifo 中。 这个子矩阵使用根据矩阵和 tile 尺寸计算出来的 sizes 和 strides 进行指定。 输出 tile 也以类似方式接收。 runtime sequence 由声明（<code>shim_dma_single_bd_task</code>）、异步操作（<code>dma_start_task</code>）和同步操作（<code>dma_await_task</code>）混合构成。</p>
+<div id="fig-iron-design" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-iron-design-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<ol type="a">
+<li>原始写法：</li>
+</ol>
+<pre class="text"><code> 1 with mlir_mod_ctx() as ctx:
+ 2   @device(AIEDevice.npu1_1col)
+ 3   def device_body():
+ 4     mty = np.ndarray[(MH, MW), np.dtype[np.int32]]
+ 5     tty = np.ndarray[(TH, TW), np.dtype[np.int32]]
+ 6     shm0 = tile(0, 0)
+ 7     aie2 = tile(0, 2)
+ 8     fi = object_fifo("in", shm0, aie2, 2, tty)
+ 9     fo = object_fifo("out", aie2, shm0, 2, tty)
+10
+11     @core(aie2)
+12     def core_body():
+13       for _ in range_(sys.maxsize):
+14         a = fi.acquire(ObjectFifoPort.Consume, 1)
+15         b = fo.acquire(ObjectFifoPort.Produce, 1)
+16         for i in range_(TH):
+17           for j in range_(TW):
+18             b[i, j] = a[i, j] + 1
+19         fi.release(ObjectFifoPort.Consume, 1)
+20         fo.release(ObjectFifoPort.Produce, 1)
+21
+22     @runtime_sequence(mty, mty)
+23     def sequence(dati, dato):
+24       in_task = shim_dma_single_bd_task(fi, dati,
+25         sizes=[1, 1, TH, TW], strides=[0, 0, MW, 1])
+26       out_task = shim_dma_single_bd_task(fo, dato,
+27         issue_token=True, sizes=[1, 1, TH, TW],
+28         strides=[0, 0, MW, 1])
+29       dma_start_task(in_task, out_task)
+30       dma_await_task(out_task)
+31       dma_free_task(in_task)
+32   print(ctx.module)</code></pre>
+<ol start="2" type="a">
+<li>使用新 API 的写法：</li>
+</ol>
+<pre class="text"><code> 1 mty = np.ndarray[(MH, MW), np.dtype[np.int32]]
+ 2 tty = np.ndarray[(TH, TW), np.dtype[np.int32]]
+ 3 fi = ObjectFifo(tty)
+ 4 fo = ObjectFifo(tty)
+ 5
+ 6 def core_fn(of_in, of_out):
+ 7   a = of_in.acquire(1)
+ 8   b = of_out.acquire(1)
+ 9   for i in range_(TH):
+10     for j in range_(TW):
+11       b[i, j] = a[i, j] + 1
+12   of_in.release(1)
+13   of_out.release(1)
+14 my_worker = Worker(core_fn, fn_args=[fi.cons(), fo.prod()])
+15
+16 rt = Runtime()
+17 with rt.sequence(mty, mty) as (dati, dato):
+18     rt.start(my_worker)
+19     rt.fill(fi.prod(), dati, sizes=[1, 1, TH, TW],
+20             strides=[0, 0, MW, 1])
+21     rt.drain(fo.cons(), dato, sizes=[1, 1, TH, TW],
+22              strides=[0, 0, MW, 1], wait=True)
+23 print(Program(NPU1Col1(), rt).resolve_program(SequentialPlacer()))</code></pre>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-iron-design-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;2: 一个矩阵-标量加法 IRON 设计，分别在没有贡献（a）和有贡献（b）时的写法。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-data-movement" class="level2">
+<h2 class="anchored" data-anchor-id="sec-data-movement">D. IRON 中的数据移动</h2>
+<p>如第 II 节所述，NPU 的一个关键架构组件是显式数据移动。 IRON 支持在不同抽象层次上进行数据移动，但其主要抽象是 <code>ObjectFifo</code>。 <code>ObjectFifo</code> 是一个循环缓冲区，包含可配置数量（深度）的对象，并且在理论上有 dataflow 理论 [9] 的根源。 属于某个 <code>ObjectFifo</code> 的对象共享形状和数据类型，其分配由编译器决定。 对 <code>ObjectFifo</code> 对象的访问通过 <code>ObjectFifo</code> 管理的锁进行协调，访问通过 acquire 和 release 操作被授予与撤销。</p>
+<p><code>ObjectFifo</code> 被设计用于支持广播、滑动窗口、pipeline 平衡、在 L2 中拆分与连接数据，以及 L2 缓冲等常见模式。 在滑动窗口模式中，如果已经获取了 <code>n</code> 个 buffer，调用 <code>acquire(n + 1)</code> 只会再获取一个；类似地，如果已经获取了 <code>m</code> 个 buffer，调用 <code>release(1)</code> 只会释放第一个 buffer，留下最后的 <code>m - 1</code> 个 buffer 仍处于已获取状态。 在 pipeline balancing 模式中，关键路径上的 <code>ObjectFifo</code> 深度可以增加或减少。 在 L2 中拆分和连接数据时，可以使用 <code>link</code> 操作通过共享的 memory tile 端点连接两个 <code>ObjectFifo</code>。 L2 buffering 也同样使用 <code>link</code>。</p>
+</section>
+</section>
+<section id="sec-principles" class="level1">
+<h1>IV. 效率、表达力与可扩展性</h1>
+<p>对 IRON 的扩展是为了在保持设计者表达力的同时提高设计者效率，并为进一步扩展提供路径。</p>
+<p><strong>效率</strong>：我们希望通过允许设计的某些特性在设计者没有选择调优它们时被最小化表达，来实现高效表达。 设计是多面的，性能工程师可以关注许多有趣方面（placement、dataflow、runtime 操作、data tiling、kernel 等）。 并非所有设计都要求在每个方面都具有高细节级别。 我们的贡献旨在让设计者能够高效表达那些并非其关注重点的部分。</p>
+<p><strong>表达力</strong>：我们希望在提升效率的同时不牺牲表达力。 我们对 IRON 的贡献应当允许程序员表达与 IRON 相同的构造，而且使用新贡献编写的设计应当表现出与使用现有 IRON API 编写的设计相同的特征（包括性能）。</p>
+<p><strong>可扩展性</strong>：我们希望在 IRON 中建立路径，使性能工程师，即便他们并不一定也是编译器工程师，也可以用自定义算法和工具生成设计的部分内容。 IRON 对设计的许多方面提供了完全控制，这使它特别适合被用作自动化工具的实验沙盒，这些工具正在为更高层编译器工作流而开发。 我们的贡献旨在支持将自定义扩展集成到设计空间探索、placement、tiling，以及运行时操作结构化等特定关注点上。</p>
+</section>
+<section id="sec-contributions" class="level1">
+<h1>V. 对 IRON 的贡献</h1>
+<p>对 IRON 的贡献围绕一个新 API 组织（第 V-1 节），该 API 包括一个改进版 ObjectFifo API（第 V-2 节）以及面向现有 IRON 设计组件的新构造（第 V-3 节）。 该新 API 还支持一个可扩展的 placement 接口（第 V-4 节），并包含一个用于生成即时 data transformation 的库（第 V-5 节）。</p>
+<section id="sec-creating-distance" class="level2">
+<h2 class="anchored" data-anchor-id="sec-creating-distance">1) 脱离 MLIR 的耦合：Creating Distance from MLIR</h2>
+<p>IRON 设计的结构继承自 MLIR 所要求的结构。 虽然可以使用一些技术来控制和隐藏 context block（例如 mlir-python-extras [26] 提供的那些技术），但如果在创建相应 Python 对象时就立即创建 MLIR 操作，那么这些 Python 对象就会受到与对应 MLIR 操作相同的规则约束。 MLIR 要求一个操作必须是完整的（也就是说，在构造时所有重要信息都已知），并且必须在 MLIR context 中按正确的 placement 实例化。 当然，可以在 Python 中插入和重排 MLIR 操作。 不过，如果把这些技术同时用于 compiler driver 和 Python 编程前端，我们认为这会增加复杂性，并让人类理解 IRON 编程栈变得困难，所以我们把这些技术留给 <code>aiecc</code>。</p>
+<p>MLIR 约束可能与提升 IRON 可用性的目标相冲突。 例如，对 IRON 的一个理想改进，是减少重复信息。 IRON 设计中的重复信息示例包括：<code>ObjectFifo</code> 端点的 placement，以及使用该端点的 core block 的 placement（图 2a 第 8-9 行、第 11 行）；placement 位置本可以只提供一次，而不是两次。 然而，要构造 core block 和 <code>ObjectFifo</code>，两个 Python 构造器都必须在实例化时提供 placement，这就要求重复提供信息。</p>
+<p>为了放宽对位置和信息完整性的要求，我们创建了一个新的顶层 IRON Python API。 新 API 中的 Python 类都继承自一个可解析（resolvable）接口，并把 MLIR 操作的创建延迟到调用其 <code>resolve</code> 函数时。 如果 Python 类没有足够的信息来解析为一个 MLIR 操作，那么 <code>resolve</code> 就会失败。 图 2b 展示了使用新 API 以及相关贡献重写后的图 2a 设计。</p>
+</section>
+<section id="sec-objectfifo" class="level2">
+<h2 class="anchored" data-anchor-id="sec-objectfifo">2) ObjectFifo API</h2>
+<p>延迟解析被用来改进 <code>ObjectFifo</code> API。 <code>ObjectFifo</code> 声明（图 2a 第 8-9 行）可以简洁地重写（图 2b 第 3-4 行）。 <code>ObjectFifo</code> 的默认深度被设为 2（这是因为 ping-pong buffer 很常见）；<code>ObjectFifo</code> 的名字（它会成为 MLIR 标识符）自动生成；<code>ObjectFifo</code> 的端点则由系统推导。</p>
+<p>当 <code>ObjectFifo</code> 被交给某个操作或构造以供使用时，通过调用 <code>prod</code> 获取生产者句柄，或通过调用 <code>cons</code> 获取消费者句柄，会生成 <code>ObjectFifoHandle</code>（图 2b 第 14 行）。 <code>prod</code> 总是返回同一个对象，因为一个 <code>ObjectFifo</code> 只能有一个生产者。 对 <code>cons</code> 的多次调用会生成多个消费者句柄，从而表达广播。 由于句柄知道自己是生产者还是消费者，因此在 <code>acquire</code> 和 <code>release</code> 中就无需再指定 <code>ObjectFifoPort</code>，这进一步减少了冗余（图 2a 第 14-15 行、第 19-20 行 vs.&nbsp;图 2b 第 7-8 行、第 12-13 行）。</p>
+<p>与其把 <code>link</code> 移植到新 API，不如让 <code>ObjectFifoHandle</code> 类提供 <code>forward</code>、<code>split</code> 和 <code>join</code> 方法。 这些方法允许数据跨 tile 前向传递（对 L2 buffering 有用）、跨 tile 拆分（适用于在一个 L2-L3 流中拆分在 L2 中暂存的数据，以节省通道），或者跨 tile 合并（用途相同，但方向相反）。 在解析阶段，这些方法会确保生成所需的 <code>ObjectFifo</code> 和 link。</p>
+</section>
+<section id="sec-worker-runtime-program" class="level2">
+<h2 class="anchored" data-anchor-id="sec-worker-runtime-program">3) Worker、Runtime 和 Program 构造</h2>
+<p>我们引入了一个新构造 <code>Worker</code>（图 2b 第 14 行）。 <code>Worker</code> 的构造方式在很多多线程库中都类似于 thread。 <code>Worker</code> 接受一个要运行的例程（<code>core_fn</code>）以及运行它所需的上下文（<code>fn_args</code>）。 设计 <code>Worker</code> 的一个动机是熟悉性；另一个动机是显式地把任务定义（也就是图 2b 第 6 行的 <code>core_fn</code>）与任务运行配置（也就是传给 <code>Worker</code> 的参数，图 2b 第 14 行）分离开来。 这种模式为元编程提供了清晰路径，因为 <code>fn_args</code> 可以包含任意 Python 值，用来定制 <code>core_fn</code> 所生成的 MLIR。 这种元编程常用于把计算任务适配到不同的数据类型、维度或数据分布。</p>
+<p>新的 <code>Runtime</code> 构造表示运行时序列（图 2b 第 16-20 行）。 <code>Runtime</code> 序列不能表示任意计算，这一点对 IRON 程序员来说可能不太直观，因为它在视觉上与 AIE 在 IRON 设计中执行的命令式块很相似。 <code>Runtime</code> 支持的操作包括：<code>start</code>，表示应当为执行配置一个 worker（图 2b 第 18 行）；<code>fill</code>，表示使用 DMA 操作把来自 L3 buffer 的数据填充到 <code>ObjectFifo</code> 中（图 2b 第 19 行）；以及 <code>drain</code>，表示把 <code>ObjectFifo</code> 中的数据收集到 L3 buffer（图 2b 第 20 行）。 最后一个方法 <code>inline_ops</code> 允许高级设计者向运行时序列插入一个生成任意 MLIR op 的 Python 函数；这大致类似于 C 程序中的 inline assembly。 这种技术支持专门定制配置，并将在未来工作中用于在新 API 中完整支持 tracing 配置。</p>
+<p>为了把这些组件组合成一个设计，新 <code>Program</code> 构造会把一个 <code>Runtime</code> 应用于一个 <code>Device</code> 来创建设计。 设计的 MLIR 由 <code>resolve_program</code> 生成（图 2b 第 21 行）。</p>
+</section>
+<section id="sec-placement-interface" class="level2">
+<h2 class="anchored" data-anchor-id="sec-placement-interface">4) Placement 接口</h2>
+<p>新 API 支持手动 placement 的程序，这满足了表达力的目标。 然而，如果程序员没有提供足够的 placement 信息，<code>resolve_program</code> 就会失败。 如果没有额外扩展，这就意味着所有 IRON 设计都必须是 fully placed 的。 为了同时满足效率和可扩展性的目标，我们构造了一个支持 placement 生成的接口。</p>
+<p>新 IRON API 中属于 <code>Placeable</code> 的对象提供一个 <code>place</code> 方法，该方法接收一个 placement tile 作为参数。 <code>resolve_program</code> 可以选择性地接收一个 <code>Placer</code> 参数（图 2b 第 21 行）。 <code>Placer</code> 必须实现 <code>make_placement</code>。 在 <code>resolve_program</code> 执行期间，会调用 <code>make_placement</code>，从而允许 <code>Placer</code> 在生成 MLIR 之前对所有 <code>Placeable</code> 设计组件调用 <code>place</code>。 该 placement 接口支持部分 placement 的设计，也支持诸如 <code>AnyShim</code>、<code>AnyMemTile</code> 和 <code>AnyComputeTile</code> 这样的 placement hints。 未来工作包括支持为 <code>Placeable</code> 组件添加程序员自定义属性，以支持任意 placement hint。</p>
+<p>placement 接口实现了效率目标（不关心手动 placement 的设计者可以使用并复用 placement 生成器）、表达力目标（更换 <code>Placer</code> 或为某个设计指定部分 placement 都很直接）以及可扩展性目标（用户有一个定义明确的机制来构建新的 <code>Placer</code>）。 图 2b 第 21 行中的 <code>SequentialPlacer</code> 是一个 <code>Placer</code> 的示例，并将在第 VII-C1 节进一步讨论。 <code>Placer</code> API 用 Python 编写，但常见的语言绑定工具可以将其他语言编写的现有 placement 和 design space exploration 工具封装为 <code>Placer</code>。</p>
+</section>
+<section id="sec-taplib" class="level2">
+<h2 class="anchored" data-anchor-id="sec-taplib">5) 即时 Data Transformation 的原语</h2>
+<p>图 2b 中有一个复杂点很突出：sizes 和 strides（第 19-20 行）。 仅仅看 sizes 和 strides 来推理变换可能很困难。 为了解决这个问题，我们创建了 <code>taplib</code>，它包含两个用于表达和推理变换的原语抽象。 <code>TensorAccessPattern</code>（tap）由一组 tensor 维度、sizes、strides 以及 tensor 内部的一个 offset 构成。 <code>TensorAccessSequence</code>（tas）是若干 tap 的集合，这些 tap 的 tensor 维度必须匹配。 考虑一个例子：程序员希望把一个 6 × 4 tensor 切成四个 3 × 2 的、互不重叠的 row-major tile，并选取左上角和右下角两个 tile。 使用 <code>taplib</code>，可以写成如下形式：</p>
+<pre class="text"><code>tap00 = TensorAccessPattern((6, 4), offset=0,
+  sizes=[1, 1, 3, 2], strides=[0, 0, 4, 1])
+tap11 = TensorAccessPattern((6, 4), offset=14,
+  sizes=[1, 1, 3, 2], strides=[0, 0, 4, 1])
+taps0 = TensorAccessSequence.from_taps([tap00, tap11])</code></pre>
+<p><code>taplib</code> 提供了推理 <code>tap</code> 和 <code>tas</code> 的机制，包括用于一维和二维 tensor 的可视化与动画（图&nbsp;3）。 <code>taplib</code> 还支持程序化分析工具。 图&nbsp;3 中展示的图形是使用 <code>taplib</code> 的 access map 生成的。 access count map 是一个 tensor，其中每个元素表示相应元素在原始 tensor 中被某个 tap 或 tas 访问的次数。 access order map 是一个 tensor，其中每个元素表示 tap 或 tas 所定义的访问顺序中的元素级编号。 access map 对于发现 bug 很有用，因为 <code>tap</code> 定义中的逻辑错误可以形式化为：其访问模式在计数或顺序上与程序员意图不一致。 下面的代码片段演示了如何使用 access map 验证 <code>tap00</code> 和 <code>taps0</code> 的特性：</p>
+<pre class="text"><code># Num accessed: Count starts at 0, so highest is 5
+assert tap00.access_order().max() == 3*2 - 1
+# Count of elements accessed by tap00
+assert tap00.access_count().sum() == 3*2
+# Num accessed: Highest count for two tiles is 11
+assert taps0.access_order().max() == 2*(3*2) - 1
+# The tas does not access any element more than once
+assert taps0.access_count().max() == 1</code></pre>
+<p>我们使用 access map 为访问模式定义了一个新的等价性概念。 严格的等价性定义要求两个 tap 的 tensor 维度、sizes、strides 和 offset 都相同。 我们用 <code>access equivalent</code> 这个术语来描述那些生成相同 access order 和 access count map 的 tap。 access equivalence 在 IRON 的语境中很有用，因为 NPU 中的 DMA 单元对 sizes 和 strides 支持的最大维度有不同限制，而且每个维度支持的最大位数也不同。 因此，两个访问模式可能在严格意义上不相等，但却是 access equivalent，其中一个能生成有效的 IRON 设计，而另一个不能。 <code>taplib</code> 允许程序员精确表达这些细节。 新的 IRON API 将 <code>taplib</code> 集成了进来（例如，<code>Runtime</code> 的 <code>fill</code> 和 <code>drain</code> 方法使用 tap 来代替 sizes 和 strides）。</p>
+<div id="fig-taplib-heatmaps" class="quarto-layout-panel">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-taplib-heatmaps-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-taplib-heatmaps" style="flex-basis: 100.0%;justify-content: flex-start;">
+<div id="fig-tap00-heatmap" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-tap00-heatmap-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface/fig3-tap00-heatmap.png" class="img-fluid figure-img" style="width:70.0%" data-ref-parent="fig-taplib-heatmaps">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-tap00-heatmap-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(a) <code>tap00</code> 的可视化热图，分别对应访问顺序（上）和访问计数（下）。
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-taplib-heatmaps" style="flex-basis: 100.0%;justify-content: flex-start;">
+<div id="fig-taps0-heatmap" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-taps0-heatmap-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface/fig3-taps0-heatmap.png" class="img-fluid figure-img" style="width:70.0%" data-ref-parent="fig-taplib-heatmaps">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-taps0-heatmap-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(b) <code>taps0</code> 的可视化热图，分别对应访问顺序（上）和访问计数（下）。
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-taplib-heatmaps-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;3: taplib 生成的热图。
+</figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="sec-implementation" class="level1">
+<h1>VI. 实现</h1>
+<p>我们的贡献用 Python 实现，其中新的顶层 API 约 1,400 行代码（LOC），<code>taplib</code> 额外实现约 560 行 LOC。 这些贡献的有效性在很大程度上不依赖具体实现机制；其中一些贡献未来可以作为 <code>mlir-aie</code> 的一部分集成进去。</p>
+</section>
+<section id="sec-evaluation" class="level1">
+<h1>VII. 评估</h1>
+<p>本文的贡献旨在提升设计者效率（第 VII-A 节）、同时保持同样的表达力（第 VII-B 节），并为进一步扩展提供清晰机制（第 VII-C 节）。 第 VII-B 节与第 VII-C 节在对 IRON 进行贡献之前与之后，对 表&nbsp;1 中概括的 27 个设计进行对比。</p>
+<div style="overflow-x:auto">
+<div id="tbl-evaluation-designs" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-evaluation-designs-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;1: 用于评估 IRON 贡献的 27 个设计（21 个直白的 block 设计，6 个优化过的高级设计）
+</figcaption>
+<div aria-describedby="tbl-evaluation-designs-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 28%">
+<col style="width: 28%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Description</th>
+<th style="text-align: right;">SLOC Before</th>
+<th style="text-align: right;">SLOC After</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Copy (DMA only)</td>
+<td>通过仅 DMA 将数据不改变地传过 NPU。</td>
+<td style="text-align: right;">42</td>
+<td style="text-align: right;">29</td>
+</tr>
+<tr class="even">
+<td>Copy (DMA + kernel)</td>
+<td>通过 DMA 加 kernel 将数据不改变地传过 NPU。</td>
+<td style="text-align: right;">48</td>
+<td style="text-align: right;">39</td>
+</tr>
+<tr class="odd">
+<td>Copy (DMA + external kernel)</td>
+<td>通过 DMA 加外部 kernel 将数据不改变地传过 NPU。</td>
+<td style="text-align: right;">52</td>
+<td style="text-align: right;">42</td>
+</tr>
+<tr class="even">
+<td>MTranspose</td>
+<td>使用 DMA 转置矩阵。</td>
+<td style="text-align: right;">36</td>
+<td style="text-align: right;">28</td>
+</tr>
+<tr class="odd">
+<td>VReduce (add)</td>
+<td>逐元素向量归约（加法）。</td>
+<td style="text-align: right;">50</td>
+<td style="text-align: right;">26</td>
+</tr>
+<tr class="even">
+<td>VReduce (max)</td>
+<td>逐元素向量归约（最大值）。</td>
+<td style="text-align: right;">50</td>
+<td style="text-align: right;">26</td>
+</tr>
+<tr class="odd">
+<td>VReduce (min)</td>
+<td>逐元素向量归约（最小值）。</td>
+<td style="text-align: right;">50</td>
+<td style="text-align: right;">26</td>
+</tr>
+<tr class="even">
+<td>VSOp (add)</td>
+<td>逐元素向量-标量操作（加法）。</td>
+<td style="text-align: right;">49</td>
+<td style="text-align: right;">36</td>
+</tr>
+<tr class="odd">
+<td>VSOp (mul)</td>
+<td>逐元素向量-标量操作（乘法）。</td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">55</td>
+</tr>
+<tr class="even">
+<td>VVOp (add)</td>
+<td>逐元素向量-向量操作（加法）。</td>
+<td style="text-align: right;">56</td>
+<td style="text-align: right;">43</td>
+</tr>
+<tr class="odd">
+<td>VVOp (mul)</td>
+<td>逐元素向量-向量操作（乘法）。</td>
+<td style="text-align: right;">56</td>
+<td style="text-align: right;">43</td>
+</tr>
+<tr class="even">
+<td>VVOp (mod)</td>
+<td>逐元素向量-向量操作（取模）。</td>
+<td style="text-align: right;">56</td>
+<td style="text-align: right;">43</td>
+</tr>
+<tr class="odd">
+<td>VVOp (addKern)</td>
+<td>向量化的 addKern。</td>
+<td style="text-align: right;">94</td>
+<td style="text-align: right;">75</td>
+</tr>
+<tr class="even">
+<td>VVOp (mulKern)</td>
+<td>向量化的 mulKern。</td>
+<td style="text-align: right;">94</td>
+<td style="text-align: right;">76</td>
+</tr>
+<tr class="odd">
+<td>MSAdd</td>
+<td>矩阵中子矩阵的标量加法。</td>
+<td style="text-align: right;">62</td>
+<td style="text-align: right;">43</td>
+</tr>
+<tr class="even">
+<td>MVAdd</td>
+<td>分块的、按行的矩阵-向量加法。</td>
+<td style="text-align: right;">55</td>
+<td style="text-align: right;">44</td>
+</tr>
+<tr class="odd">
+<td>MVMul</td>
+<td>矩阵-向量乘法。</td>
+<td style="text-align: right;">105</td>
+<td style="text-align: right;">69</td>
+</tr>
+<tr class="even">
+<td>VSoftMax</td>
+<td>使用查找表近似实现的 softmax，应用到所有向量元素。</td>
+<td style="text-align: right;">79</td>
+<td style="text-align: right;">58</td>
+</tr>
+<tr class="odd">
+<td>VReLU</td>
+<td>逐元素 ReLU，<code>ReLU(x)=max(0, x)</code>，一种常见的 DNN 激活函数。</td>
+<td style="text-align: right;">76</td>
+<td style="text-align: right;">60</td>
+</tr>
+<tr class="even">
+<td>Conv2d (base)</td>
+<td>2 维卷积。</td>
+<td style="text-align: right;">89</td>
+<td style="text-align: right;">77</td>
+</tr>
+<tr class="odd">
+<td>Conv2d + ReLU</td>
+<td>2 维卷积；第二个设计把 kernel 与 ReLU 融合。</td>
+<td style="text-align: right;">86</td>
+<td style="text-align: right;">73</td>
+</tr>
+<tr class="even">
+<td>GEMM</td>
+<td>矩阵-矩阵乘法。矩阵在与 NPU 内在函数匹配的块中相乘，子块分配给 AIE。</td>
+<td style="text-align: right;">308</td>
+<td style="text-align: right;">279</td>
+</tr>
+<tr class="odd">
+<td>BBlock</td>
+<td>用于 ResNet 等 DNN 的 bottleneck block，使用 3 级流水线实现。</td>
+<td style="text-align: right;">332</td>
+<td style="text-align: right;">245</td>
+</tr>
+<tr class="even">
+<td>ResNetConv2x</td>
+<td>ResNet 中的 Conv2D X 层，由三个 BBlock 组成。</td>
+<td style="text-align: right;">623</td>
+<td style="text-align: right;">414</td>
+</tr>
+<tr class="odd">
+<td>ColorDetect</td>
+<td>以 3 级流水线结构检测图像中的两种颜色。</td>
+<td style="text-align: right;">163</td>
+<td style="text-align: right;">146</td>
+</tr>
+<tr class="even">
+<td>EdgeDetect</td>
+<td>使用 4 级流水线在图像中检测边缘。</td>
+<td style="text-align: right;">198</td>
+<td style="text-align: right;">177</td>
+</tr>
+<tr class="odd">
+<td>ColorThresh</td>
+<td>分块的数据并行颜色阈值检测。</td>
+<td style="text-align: right;">169</td>
+<td style="text-align: right;">81</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<p>表&nbsp;1 记录了每个设计的 SLOC，图&nbsp;4 展示了设计版本之间的百分比下降。 很多设计都包含一定程度的参数解析和验证（这两部分在两版之间是相同的），因此会略微稀释百分比。 即便如此，使用本文贡献编写的 IRON 设计平均需要少 25.53% 的 SLOC，平均每个设计减少 31 行。</p>
+<div id="fig-sloc-decrease" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-sloc-decrease-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface/fig4-sloc-decrease.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sloc-decrease-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;4: 每个设计的平均 SLOC 百分比下降。
+</figcaption>
+</figure>
+</div>
+<section id="sec-efficiency" class="level2">
+<h2 class="anchored" data-anchor-id="sec-efficiency">A. 效率</h2>
+<p>本节把效率分解为两个指标：单行代码（SLOC），它反映简洁性；以及 Halstead 指标，它反映工作量。 这些指标并不完美，但我们认为，评估设计的数量和类型足以让这些结果代表总体趋势。</p>
+<section id="sec-brevity" class="level3">
+<h3 class="anchored" data-anchor-id="sec-brevity">1) 简洁性</h3>
+<p>SLOC 使用 <code>pygount</code> [37] 和 <code>radon</code> [39] 进行测量。 所有设计都通过程序化方式使用 <code>black</code> [20] 格式化。 图&nbsp;4 展示了各设计版本之间的百分比下降，而 表&nbsp;1 记录了每个设计的 SLOC。 许多设计都包含一定程度的参数解析和验证（两版之间相同），这会让百分比略微下降。 即便如此，使用本文贡献编写的 IRON 设计平均少 25.53% 的 SLOC，每个设计平均减少 31 行。</p>
+</section>
+<section id="sec-effort" class="level3">
+<h3 class="anchored" data-anchor-id="sec-effort">2) 工作量</h3>
+<p>我们使用 Halstead 指标，这是一套常见的软件评估指标 [4]、[7]、[12]、[14]，来分析这些示例设计。 Halstead 指标使用从源代码中提取的属性（操作符数量、操作数数量以及两者的计数）来定义 vocabulary 和 effort 等概念 [13]。 对所有设计而言，所有负向 Halstead 指标的平均值（使用 <code>radon</code> [39] 计算）在贡献之后写成的设计中都低于贡献之前写成的设计。 图&nbsp;5 展示了 vocabulary（基于源代码中唯一操作符和操作数数量的度量）以及 effort（旨在反映作为作者、维护者或读者与程序交互所需努力的度量）的计算结果 [14]。 vocabulary 的平均下降为 4.59（平均百分比下降 23.32%），而 effort 的平均下降为 179.97（平均百分比下降 24.82%）。</p>
+<div id="fig-halstead-differences" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-halstead-differences-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface/fig5-halstead-differences.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-halstead-differences-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;5: 每个设计的 Halstead vocabulary（上）与 effort（下）差值。
+</figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="sec-expressivity" class="level2">
+<h2 class="anchored" data-anchor-id="sec-expressivity">B. 表达力</h2>
+<p>本节评估加入贡献后的 IRON 是否与贡献前的 IRON 同样具有表达力。 示例设计，尤其是高级设计，覆盖了 IRON 支持的关键特性与模式。 在 表&nbsp;2 中，<code>L2Mem</code> 指使用 memory tile，而 <code>SharedMem</code> 指 AIE 访问另一个 AIE 的 L1 memory 的能力（从而节省 DMA 通道）。 <code>Tiling</code> 指即时 data transformation。 <code>Broadcast</code>、<code>Split/Join</code>、<code>sliding Window</code> 和 <code>Skip</code> 连接是数据移动特性。 <code>Pipeline</code> 指任务并行的设计；其他设计是数据并行的。 <code>Metaprog</code> 指设计中的元编程。 <code>NPUCols</code> 报告设计需要的 NPU 列数。 贡献后的所有示例 IRON 设计都会产生与对应原始设计相同且正确的输出；这是正确性的第一次检验。 为了进一步分析，我们使用静态 MLIR 分析并测量性能数据。</p>
+<div style="overflow-x:auto">
+<div id="tbl-advanced-features" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-advanced-features-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;2: 高级设计的特征
+</figcaption>
+<div aria-describedby="tbl-advanced-features-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>L2Mem</th>
+<th>SharedMem</th>
+<th>Tiling</th>
+<th>Broadcast</th>
+<th>Split/Join</th>
+<th>Window</th>
+<th>Skip</th>
+<th>Pipeline</th>
+<th>Metaprog</th>
+<th>NPUCols</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GEMM</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>✓</td>
+<td>1-4</td>
+</tr>
+<tr class="even">
+<td>BBlock</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td>ResNetConv2x</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>3</td>
+</tr>
+<tr class="even">
+<td>ColorDetect</td>
+<td>✓</td>
+<td>—</td>
+<td>—</td>
+<td>✓</td>
+<td>—</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td>EdgeDetect</td>
+<td>✓</td>
+<td>—</td>
+<td>—</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td>ColorThresh</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>✓</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<p>为了验证两版相同设计是否以相同方式使用 NPU 特性，我们比较了每个版本生成的 MLIR。 朴素比较会发现，所有设计生成的 MLIR 都不同。 然而，这些差异大多只是声明顺序不同（例如 tile 的声明顺序不同），因此不应影响设计功能。 在控制声明顺序后，27 个设计中的 20 个会生成完全相同的 MLIR。 三个设计（GEMM、MVAdd、MTranspose）使用了不同的运行时 DMA 传输尺寸和 strides，但它们表达的访问模式是 access equivalent，因此在功能上等价。 四个设计（ColorDetect、ResNetConv2x、BBlock、EdgeDetect）使用了一个或多个带广播的 <code>ObjectFifo</code>，而接收者列表发生了重排；这种重排不会导致功能差异。</p>
+<p>为了佐证静态分析，我们记录了每个设计的平均延迟（100 次 warm up 迭代后再进行 1000 次迭代）。 两版设计之间的平均百分比差异约为 3.36%。 27 个设计中有 11 个在使用本文贡献的 IRON 时表现出略高的延迟。 对每一版设计的平均延迟求和后，其百分比差异小于 0.09%，可归因于系统噪声。</p>
+</section>
+<section id="sec-extensibility" class="level2">
+<h2 class="anchored" data-anchor-id="sec-extensibility">C. 可扩展性</h2>
+<p>对 IRON 的贡献包括两个专为扩展而设计的接口：placement 接口和 <code>taplib</code>。 我们之所以把手工 placement 和 data transformation 规范化作为扩展目标，是因为它们既繁琐又容易出错，因此设计者既能从可编程性中获益（可以通过算法生成解决方案），又能在不需要时忽略设计中的这些方面。 在本节中，我们验证使用这些接口构建扩展是可行的。</p>
+<section id="sec-defining-placer" class="level3">
+<h3 class="anchored" data-anchor-id="sec-defining-placer">1) 定义 Placer</h3>
+<p>这个实验的目的有两个：a）展示 <code>Placer</code> 接口可以用于生成可运行的设计；b）展示仅凭 IRON 和 NPU 架构知识，用户就能成功创建一个 <code>Placer</code>。 为此，我们实现了 <code>SequentialPlacer</code>，它只用了 64 行 SLOC，而且只使用了新 IRON API 中的构造。 <code>SequentialPlacer</code> 以类似网格的方式分配 AIE，然后分配 memory tile 和 shim tile，使得 <code>ObjectFifo</code> 端点保持在同一列。 这个 <code>Placer</code> 很基础；它尊重 AIE 阵列的维度约束，但可能因为其他资源约束而生成无效 placement。 在 27 个示例设计中，<code>SequentialPlacer</code> 被 24 个设计用于完整 placement；1 个设计用于部分 placement（BBlock）；另外 2 个设计（ResNetConv2x、GEMM）是完全手工 placement，因为 <code>SequentialPlacer</code> 由于资源分配过量而生成了无效设计。 这说明 <code>Placer</code> API 确实允许构建并应用新的 placer 到 IRON 设计中。</p>
+</section>
+<section id="sec-tap-generators" class="level3">
+<h3 class="anchored" data-anchor-id="sec-tap-generators">2) TensorAccessPattern 生成器</h3>
+<p><code>taplib</code> 原语真正的价值在于，它们可以被生成出来以替代手工编写的 sizes 和 strides。 程序员的意图很难仅从计算 sizes 和 strides 的算术表达式中看出来。 这会影响可读性和可维护性，也会让程序员在每个新设计中都要独自承担构造这类算术的负担。 为了说明 taps 和 tases 如何被生成来服务某一类变换，我们实现了一个示例生成器 <code>TensorTiler2D</code>。 <code>TensorTiler2D</code> 会基于 tile 大小、tile 内按列或按行的元素访问、tile 的分组（例如在一个 tap 中访问多个 tile）、以及 tile 的按列或按行访问来生成 tases。 <code>TensorTiler2D</code> 只用了 277 行 SLOC，并被 5 个设计使用（MSAdd、MVAdd、MVMul、GEMM、MTranspose）。 我们认为，GEMM 设计中 vocabulary 和 effort 的差异主要来自 <code>TensorTiler2D</code>，因为它大幅减少了该设计运行时中的算术量。</p>
+</section>
+</section>
+</section>
+<section id="sec-related-work" class="level1">
+<h1>VIII. 相关工作</h1>
+<p>面向 NPU 的一类框架，包括 AMD Ryzen™ AI Software [5]、Intel® OpenVINO™ [34] 和 Qualcomm® Neural Processing SDK [38]，相比 IRON 提供了更高层的抽象，并且专注于机器学习。 CUDA [10]、OpenCL [33] 和 HLS [35] 在抽象层次上更接近 IRON，但 IRON 专门面向带 AIE 的加速器。 许多带 Python 前端的工作 [8] 都包含运行时代码生成（RCG），通常通过即时编译 [17]、[19]、[44] 实现。 另一些工作提供领域特定语言（DSL）[18] 或嵌入式 DSL（eDSL）[22]、[24]、[30]。 本文关注的是对优化设计的高效表达，而不是 RCG。 <code>Worker</code> 核心函数可以看作是用 <code>mlir-python-extras</code> [26] 提供的 eDSL 编写的。 本文对 IRON 的贡献则关注设计的其他方面，例如 data transformation，以及表示设计结构的构造的细化。 [23]、[25] 提出了一个用于端到端管理 AIE 架构的编程模型，它们与我们的部分目标相同（支持性能调优和元编程），但优先级不同。 我们的工作不涉及 RCG，而 [23]、[25] 则不关注可扩展接口或设计者效率的度量。 [46] 展示了 scratchpad 架构中 DMA transformation 的复杂性；<code>taplib</code> 提供的表达 DMA transformation 的工具可能有助于这方面的进一步研究。 关于用于性能工程师的热图和可视化工具的使用，文献 [43] 作了描述，它使用了类似的术语（access patterns）和技术（基于 tensor 的热图）[43]。 然而，那项工作关注的是缓存架构中访问和移动之间的关系，而 <code>taplib</code> 在 IRON 语境中支持的 access pattern 则是数据移动配置。 文献 [43] 中描述的仿真和建模未来可以作为 IRON 设计的扩展来实现。</p>
+</section>
+<section id="sec-conclusion" class="level1">
+<h1>IX. 结论</h1>
+<p>本文描述、实现并分析了对 IRON 的贡献，这些贡献在不牺牲表达力的前提下提升了设计者效率，并提供了进一步扩展的机制。 这些贡献通过一个新的 API 以及更精炼的编程构造和可扩展接口，成功改变了 27 个示例 IRON 设计的源代码特征，同时保留了功能正确性。 我们观察到，示例设计的 SLOC 平均减少约 26%。 尽管本文的大多数贡献都特定于 IRON，但这项工作提供了一个数据点，说明即便不改变接口的抽象层次，针对加速器微调编程接口的设计，也会显著影响设计特征。</p>
+</section>
+<section id="sec-references" class="level1">
+<h1>参考文献</h1>
+<p>[1] Sagheer Ahmad, Sridhar Subramanian, Vamsi Boppana, Shankar Lakka, Fu-Hing Ho, Tomai Knopp, Juanjo Noguera, Gaurav Singh, and Ralph Wittig. Xilinx first 7nm device: Versal AI Core (VC1902). In 2019 IEEE Hot Chips 31 Symposium (HCS), Cupertino, CA, USA, August 18-20, 2019, pages 1–28. IEEE, 2019.</p>
+<p>[2] AI Engine: Meeting the compute demands of next-generation applications. <a href="https://www.amd.com/en/products/adaptive-socs-and-fpgas/technologies/ai-engine.html" class="uri">https://www.amd.com/en/products/adaptive-socs-and-fpgas/technologies/ai-engine.html</a>. Accessed 5 January 2025.</p>
+<p>[3] AIE-ML trace and profiling. <a href="https://docs.amd.com/r/en-US/am020-versal-aie-ml/AIE-ML-Trace-and-Profiling" class="uri">https://docs.amd.com/r/en-US/am020-versal-aie-ml/AIE-ML-Trace-and-Profiling</a>. Accessed 5 January 2025.</p>
+<p>[4] Mahmoud Alfadel, Armin Kobilica, and Jameleddine Hassine. Evaluation of Halstead and cyclomatic complexity metrics in measuring defect density. In 2017 9th IEEE-GCC Conference and Exhibition (GCCCE), pages 1–9, 2017.</p>
+<p>[5] AMD Ryzen™ AI software. <a href="https://www.amd.com/en/developer/resources/ryzen-ai-software.html" class="uri">https://www.amd.com/en/developer/resources/ryzen-ai-software.html</a>. Accessed 5 January 2025.</p>
+<p>[6] AMD unveils next-gen “Zen 5” Ryzen processors to power advanced AI experiences. <a href="https://www.amd.com/en/newsroom/press-releases/2024-6-2-amd-unveils-next-gen-zen-5-ryzen-processors-to-p.html" class="uri">https://www.amd.com/en/newsroom/press-releases/2024-6-2-amd-unveils-next-gen-zen-5-ryzen-processors-to-p.html</a>, June 2024. Accessed 5 January 2025.</p>
+<p>[7] C. T. Bailey and W. L. Dingee. A software study using Halstead metrics. SIGMETRICS Perform. Eval. Rev., 10(1):189–197, January 1981.</p>
+<p>[8] Oscar Castro, Pierrick Bruneau, Jean-Sebastien Sottet, and Dario Torregrossa. Landscape of high-performance Python to develop data science and machine learning applications. ACM Computing Surveys, 56(3), October 2023.</p>
+<p>[9] Kristof Denolf, Marco Bekooij, Johan Cockx, Diederik Verkest, and Henk Corporaal. Exploiting the expressiveness of cyclo-static dataflow to model multimedia implementations. EURASIP Journal on Advances in Signal Processing, 2007:1–14, 2007.</p>
+<p>[10] Michael Garland, Scott Le Grand, John Nickolls, Joshua Anderson, Jim Hardwick, Scott Morton, Everett Phillips, Yao Zhang, and Vasily Volkov. Parallel computing experiences with CUDA. IEEE Micro, 28(4):13–27, 2008.</p>
+<p>[11] Shikha Goel, Rajesh Kedia, Rijurekha Sen, and M Balakrishnan. EXPRESS: A framework for execution time prediction of concurrent CNNs on Xilinx DPU accelerator. ACM Trans. Embed. Comput. Syst., 24(1), November 2024.</p>
+<p>[12] Nikhil Govil. Applying Halstead software science on different programming languages for analyzing software complexity. In 2020 4th International Conference on Trends in Electronics and Informatics (ICOEI)(48184), pages 939–943, 2020.</p>
+<p>[13] Halstead metrics. <a href="https://radon.readthedocs.io/en/latest/intro.html#halstead-metrics" class="uri">https://radon.readthedocs.io/en/latest/intro.html#halstead-metrics</a>. Accessed 7 January 2025.</p>
+<p>[14] T Hariprasad, G Vidhyagaran, K Seenu, and Chandrasegar Thirumalai. Software complexity analysis using Halstead metrics. In 2017 International Conference on Trends in Electronics and Informatics (ICEI), pages 1109–1113, 2017.</p>
+<p>[15] Charles R. Harris, K. Jarrod Millman, Stefan J. van der Walt, Ralf Gommers, Pauli Virtanen, David Cournapeau, Eric Wieser, Julian Taylor, Sebastian Berg, Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan Hoyer, Marten H. van Kerkwijk, Matthew Brett, Allan Haldane, Jaime Fernandez del Rio, Mark Wiebe, Pearu Peterson, Pierre Gerard-Marchant, Kevin Sheppard, Tyler Reddy, Warren Weckesser, Hameer Abbasi, Christoph Gohlke, and Travis E. Oliphant. Array programming with NumPy. Nature, 585(7825):357–362, September 2020.</p>
+<p>[16] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), June 2016.</p>
+<p>[17] Andreas Klockner, Nicolas Pinto, Yunsup Lee, Bryan Catanzaro, Paul Ivanov, and Ahmed Fasih. PyCUDA and PyOpenCL: A scripting-based approach to GPU run-time code generation. In Proceedings of the 2019 ACM/SIGDA International Symposium on Field-Programmable Gate Arrays, Parallel Computing, pages 157–174. ScienceDirect, 2012.</p>
+<p>[18] Yi-Hsiang Lai, Yuze Chi, Yuwei Hu, Jie Wang, Cody Hao Yu, Yuan Zhou, Jason Cong, and Zhiru Zhang. HeteroCL: A multi-paradigm programming infrastructure for software-defined reconfigurable computing. In Proceedings of the 2019 ACM/SIGDA International Symposium on Field-Programmable Gate Arrays, FPGA ’19, pages 242–251, New York, NY, USA, 2019. Association for Computing Machinery.</p>
+<p>[19] Siu Kwan Lam, Antoine Pitrou, and Stanley Seibert. Numba: a LLVM-based Python JIT compiler. In Proceedings of the Second Workshop on the LLVM Compiler Infrastructure in HPC, LLVM ’15, New York, NY, USA, 2015. Association for Computing Machinery.</p>
+<p>[20] Lukasz Langa and contributors to Black. Black: The uncompromising Python code formatter. <a href="https://github.com/psf/black" class="uri">https://github.com/psf/black</a>. Accessed 5 January 2025.</p>
+<p>[21] Chris Lattner, Mehdi Amini, Uday Bondhugula, Albert Cohen, Andy Davis, Jacques Pienaar, River Riddle, Tatiana Shpeisman, Nicolas Vasilache, and Oleksandr Zinenko. MLIR: Scaling compiler infrastructure for domain specific computation. In 2021 IEEE/ACM International Symposium on Code Generation and Optimization (CGO), pages 2–14, 2021.</p>
+<p>[22] Kevin Lee and Kai-Ting Wang. PyDSL: A Python subset for a better MLIR programming experience (part II). <a href="https://llvm.org/devmtg/2024-10/slides/quicktalks/Wang-PyDSL.pdf" class="uri">https://llvm.org/devmtg/2024-10/slides/quicktalks/Wang-PyDSL.pdf</a>, 2022.</p>
+<p>[23] Maksim Levental. An End-to-End Programming Model for AI Engine Architectures. PhD thesis, University of Chicago, June 2024.</p>
+<p>[24] Maksim Levental, Alok Kamatar, Ryan Chard, Kyle Chard, and Ian Foster. nelli: a lightweight frontend for MLIR, 2023.</p>
+<p>[25] Maksim Levental, Arham Khan, Ryan Chard, Kyle Chard, Stephen Neuendorffer, and Ian Foster. An end-to-end programming model for AI Engine architectures. In Proceedings of the 14th International Symposium on Highly Efficient Accelerators and Reconfigurable Technologies (HEART), HEART ’24, pages 135–136, New York, NY, USA, 2024. Association for Computing Machinery.</p>
+<p>[26] Maksim Levintal. mlir-python-extras. <a href="https://github.com/makslevental/mlir-python-extras" class="uri">https://github.com/makslevental/mlir-python-extras</a>. Accessed 28 December 2024.</p>
+<p>[27] Leibo Liu, Jianfeng Zhu, Zhaoshi Li, Yanan Lu, Yangdong Deng, Jie Han, Shouyi Yin, and Shaojun Wei. A survey of coarse-grained reconfigurable architecture and design: Taxonomy, challenges, and applications. ACM Comput. Surv., 52(6), October 2019.</p>
+<p>[28] Jack Lo, Joseph Melber, Kristof Denolf, Phil James-Roxby, and Samuel Bayliss. Levering MLIR to design for AI Engines on Ryzen™ AI. <a href="https://github.com/Xilinx/mlir-aie/blob/main/docs/conferenceDescriptions/micro24TutorialDescription.md" class="uri">https://github.com/Xilinx/mlir-aie/blob/main/docs/conferenceDescriptions/micro24TutorialDescription.md</a>, April 2024. ACM International Conference on Architectural Support for Programming Languages and Operating Systems (ASPLOS’24) Tutorial.</p>
+<p>[29] Joseph Melber, Kristof Denolf, and Andrew Schmidt. Leveraging the IRON AI Engine API to program the Ryzen™ AI NPU. <a href="https://github.com/Xilinx/mlir-aie/blob/main/docs/conferenceDescriptions/micro24TutorialDescription.md" class="uri">https://github.com/Xilinx/mlir-aie/blob/main/docs/conferenceDescriptions/micro24TutorialDescription.md</a>, Nov 2024. 57th IEEE/ACM International Symposium on Microarchitecture (MICRO’24) Tutorial.</p>
+<p>[30] Jackson Melchert, Keyi Zhang, Yuchen Mei, Mark Horowitz, Christopher Torng, and Priyanka Raina. Canal: A flexible interconnect generator for coarse-grained reconfigurable arrays. IEEE Computer Architecture Letters, 22(1):45–48, 2023.</p>
+<p>[31] mlir-aie: MLIR-based AI Engine toolchain. <a href="https://github.com/Xilinx/mlir-aie" class="uri">https://github.com/Xilinx/mlir-aie</a>. Accessed 5 January 2025.</p>
+<p>[32] MLIR Python bindings. <a href="https://mlir.llvm.org/docs/Bindings/Python/" class="uri">https://mlir.llvm.org/docs/Bindings/Python/</a>. Accessed 28 December 2024.</p>
+<p>[33] Aaftab Munshi. The OpenCL specification. In 2009 IEEE Hot Chips 21 Symposium (HCS), pages 1–314, 2009.</p>
+<p>[34] Intel® distribution of OpenVINO™ toolkit. <a href="https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html" class="uri">https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html</a>. Accessed 8 January 2025.</p>
+<p>[35] Mark Oskin, Frederic T. Chong, and Matthew Farrens. HLS: combining statistical and symbolic simulation to guide microprocessor designs. In Proceedings of the 27th Annual International Symposium on Computer Architecture, ISCA ’00, pages 71–82, New York, NY, USA, 2000. Association for Computing Machinery.</p>
+<p>[36] peano: AI Engine fork of LLVM. <a href="https://github.com/Xilinx/llvm-aie" class="uri">https://github.com/Xilinx/llvm-aie</a>. Accessed 28 December 2024.</p>
+<p>[37] pygount. <a href="https://github.com/roskakori/pygount" class="uri">https://github.com/roskakori/pygount</a>. Accessed 5 January 2025.</p>
+<p>[38] Qualcomm® neural processing SDK for AI. <a href="https://www.qualcomm.com/developer/software/neural-processing-sdk-for-ai" class="uri">https://www.qualcomm.com/developer/software/neural-processing-sdk-for-ai</a>. Accessed 8 Jan 2025.</p>
+<p>[39] radon. <a href="https://github.com/rubik/radon" class="uri">https://github.com/rubik/radon</a>. Accessed 5 January 2025.</p>
+<p>[40] Jonathan Ragan-Kelley. The future of fast code: Giving hardware what it wants. <a href="https://youtu.be/vU3ryvZYlkk?si=Zk-jRdYFqQ3jcbJp" class="uri">https://youtu.be/vU3ryvZYlkk?si=Zk-jRdYFqQ3jcbJp</a>, June 2024. 44th ACM SIGPLAN International Conference on Programming Language Design and Implementation (PLDI’24) Keynote.</p>
+<p>[41] Alejandro Rico, Satyaprakash Pareek, Javier Cabezas, David Clarke, Baris Ozgul, Francisco Barat, Yao Fu, Stephan Munz, Dylan Stuart, Patrick Schlangen, Pedro Duarte, Sneha Date, Indrani Paul, Jian Weng, Sonal Santan, Vinod Kathail, Ashish Sirasao, and Juanjo Noguera. AMD XDNA™ NPU in Ryzen™ AI processors. IEEE Micro, 44(6):73–82, 2024.</p>
+<p>[42] ‘scf’ dialect. <a href="https://mlir.llvm.org/docs/Dialects/SCFDialect/" class="uri">https://mlir.llvm.org/docs/Dialects/SCFDialect/</a>. Accessed 28 December 2024.</p>
+<p>[43] Philipp Schaad, Tal Ben-Nun, and Torsten Hoefler. Boosting performance optimization with interactive data movement visualization. In SC22: International Conference for High Performance Computing, Networking, Storage and Analysis, pages 1–16, 2022.</p>
+<p>[44] Philippe Tillet, H. T. Kung, and David Cox. Triton: an intermediate language and compiler for tiled neural network computations. In Proceedings of the 3rd ACM SIGPLAN International Workshop on Machine Learning and Programming Languages, MAPL 2019, pages 10–19, New York, NY, USA, 2019. Association for Computing Machinery.</p>
+<p>[45] Torch-MLIR. <a href="https://github.com/llvm/torch-mlir" class="uri">https://github.com/llvm/torch-mlir</a>. Accessed 5 January 2025.</p>
+<p>[46] Mingchuan Wu, Ying Liu, Huimin Cui, Qingfu Wei, Quanfeng Li, Limin Li, Fang Lv, Jingling Xue, and Xiaobing Feng. Bandwidth-aware loop tiling for DMA-supported scratchpad memory. In Proceedings of the ACM International Conference on Parallel Architectures and Compilation Techniques, PACT ’20, pages 97–109, New York, NY, USA, 2020. Association for Computing Machinery.</p>
+<p>[47] Xilinx runtime (XRT) architecture. <a href="https://xilinx.github.io/XRT/2024.2/html/index.html" class="uri">https://xilinx.github.io/XRT/2024.2/html/index.html</a>. Accessed 5 January 2025.</p>
+
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">脚注</h2>
+
+<ol>
+<li id="fn1"><p>此处的 DMA 指的是一个物理组件，而不是“直接内存访问”这一动作。↩︎</p></li>
+</ol>
+</section></div> ]]></description>
+  <category>编译原理</category>
+  <category>人工智能</category>
+  <guid>https://sadsock.github.io/posts/2026-05-14-efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface.html</guid>
+  <pubDate>Thu, 14 May 2026 00:00:00 GMT</pubDate>
+</item>
 <item>
   <title>Tempus: A Temporally Scalable Resource-Invariant GEMM Streaming Framework for Versal AI Edge</title>
   <link>https://sadsock.github.io/posts/2026-05-06-tempus-a-temporally-scalable-resource-invariant-gemm-streaming-framework-for-versal-ai-edge.html</link>
@@ -16309,2179 +17095,6 @@ font-style: inherit;">-o</span> test</span></code></pre></div></div>
   <category>LLVM</category>
   <guid>https://sadsock.github.io/posts/2020-12-03-RISCW-0.html</guid>
   <pubDate>Thu, 03 Dec 2020 11:30:38 GMT</pubDate>
-</item>
-<item>
-  <title>TableGen 简介</title>
-  <link>https://sadsock.github.io/posts/2020-11-01-TableGen-Overview.html</link>
-  <description><![CDATA[ 
-
-
-
-
-<section id="简介" class="level1">
-<h1>简介</h1>
-<p>TableGen的目的是帮助开发者开发和维护特定领域的记录。这些记录的数量可能很大，所以它是专门来编写灵活的描述，并提取这些记录的共同特征。这减少了描述的重复量，减少了出错的机会，使构建特定领域的信息更容易。</p>
-<p>TableGen前端解析文件，实例化声明，并将结果交给特定领域的<a href="http://llvm.org/docs/TableGen/index.html#backend">backend</a>进行处理。有关TableGen的详细描述，请参阅 <a href="http://llvm.org/docs/TableGen/ProgRef.html">TableGen Programmer’s Reference</a> 。有关调用TableGen的各种xxx-tblgen命令的详细信息，请参阅<a href="http://llvm.org/docs/CommandGuide/tblgen.html">xxx-tblgen - Target Description to C++ Code</a> 。</p>
-<p>目前TableGen的主要用户有 <a href="http://llvm.org/docs/CodeGenerator.html">The LLVM Target-Independent Code Generator</a>和<a href="https://clang.llvm.org/docs/UsersManual.html#controlling-errors-and-warnings">Clang diagnostics and attributes</a>。</p>
-<p>注意，如果您经常使用TableGen，并且使用emacs或vim，那么您可以在llvm发行版的<code>llvm/utils/emacs</code>和<code>llvm/utils/vim</code>目录中分别找到一个emacs“TableGen mode”和一个vim语言文件。</p>
-</section>
-<section id="tablegen程序" class="level1">
-<h1>TableGen程序</h1>
-<p>TableGen文件由TableGen程序解释：llvm-tblgen在bin下构建目录中。 它没有安装到系统（或您的sysroot设置的位置）中，因为它在LLVM的构建过程之外没有任何用处。</p>
-<section id="运行tablegen" class="level2">
-<h2 class="anchored" data-anchor-id="运行tablegen">运行TableGen</h2>
-<p>TableGen的运行就像其他任何LLVM工具一样。 第一个（可选）参数指定要读取的文件。 如果未指定文件名，则llvm-tblgen从标准输入读取。</p>
-<p>要使用TableGen就必须指定后端，这些后端可以在命令行中选择（输入“ <code>llvm-tblgen -help</code>”获取列表）。例如，要获取特定类型的子类的所有定义的列表(这对于构建这些记录的枚举很有用)，请使用<code>print-enum</code>选项：</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode bash code-with-copy"><code class="sourceCode bash"><span id="cb1-1"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">$</span> llvm-tblgen X86.td <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-print-enums</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-class</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span>Register</span>
-<span id="cb1-2"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">AH,</span> AL, AX, BH, BL, BP, BPL, BX, CH, CL, CX, DH, DI, DIL, DL, DX, EAX, EBP, EBX,</span>
-<span id="cb1-3"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">ECX,</span> EDI, EDX, EFLAGS, EIP, ESI, ESP, FP0, FP1, FP2, FP3, FP4, FP5, FP6, IP,</span>
-<span id="cb1-4"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">MM0,</span> MM1, MM2, MM3, MM4, MM5, MM6, MM7, R10, R10B, R10D, R10W, R11, R11B, R11D,</span>
-<span id="cb1-5"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">R11W,</span> R12, R12B, R12D, R12W, R13, R13B, R13D, R13W, R14, R14B, R14D, R14W, R15,</span>
-<span id="cb1-6"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">R15B,</span> R15D, R15W, R8, R8B, R8D, R8W, R9, R9B, R9D, R9W, RAX, RBP, RBX, RCX, RDI,</span>
-<span id="cb1-7"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">RDX,</span> RIP, RSI, RSP, SI, SIL, SP, SPL, ST0, ST1, ST2, ST3, ST4, ST5, ST6, ST7,</span>
-<span id="cb1-8"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">XMM0,</span> XMM1, XMM10, XMM11, XMM12, XMM13, XMM14, XMM15, XMM2, XMM3, XMM4, XMM5,</span>
-<span id="cb1-9"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">XMM6,</span> XMM7, XMM8, XMM9,</span>
-<span id="cb1-10"></span>
-<span id="cb1-11"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">$</span> llvm-tblgen X86.td <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-print-enums</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">-class</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span>Instruction</span>
-<span id="cb1-12"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">ABS_F,</span> ABS_Fp32, ABS_Fp64, ABS_Fp80, ADC32mi, ADC32mi8, ADC32mr, ADC32ri,</span>
-<span id="cb1-13"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">ADC32ri8,</span> ADC32rm, ADC32rr, ADC64mi32, ADC64mi8, ADC64mr, ADC64ri32, ADC64ri8,</span>
-<span id="cb1-14"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">ADC64rm,</span> ADC64rr, ADD16mi, ADD16mi8, ADD16mr, ADD16ri, ADD16ri8, ADD16rm,</span>
-<span id="cb1-15"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">ADD16rr,</span> ADD32mi, ADD32mi8, ADD32mr, ADD32ri, ADD32ri8, ADD32rm, ADD32rr,</span>
-<span id="cb1-16"><span class="ex" style="color: null;
-background-color: null;
-font-style: inherit;">ADD64mi32,</span> ADD64mi8, ADD64mr, ADD64ri32, ...</span></code></pre></div></div>
-<p>默认后端打印出所有记录。 还有一个通用后端，它将所有记录输出为JSON数据结构，并使用-dump-json选项启用。</p>
-<p>如果您计划使用TableGen，那么您很可能必须编写一个后端来提取您需要的信息并以适当的方式格式化它。可以通过用C++扩展TableGen本身，或者用任何可以处理JSON的语言编写脚本来实现这一点。</p>
-</section>
-<section id="例子" class="level2">
-<h2 class="anchored" data-anchor-id="例子">例子</h2>
-<p>在没有其他参数的情况下，llvm-tblgen 解析指定的文件并输出所有的类，然后输出所有的定义。这是查看各种定义扩展到何种程度的好方法。在 X86.td 文件上运行这个命令会输出以下命令(在撰写本文时) :</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb2-1"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">...</span></span>
-<span id="cb2-2">def ADD32rr <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span>   <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Instruction X86Inst I</span></span>
-<span id="cb2-3">  string Namespace <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"X86"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-4">  dag OutOperandList <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> (outs GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>dst)<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-5">  dag InOperandList <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> (ins GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>src1<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>src2)<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-6">  string AsmString <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"add{l}</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">\t</span><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">{$src2, $dst|$dst, $src2}"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-7">  list<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>dag<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="bu" style="color: null;
-background-color: null;
-font-style: inherit;">Pattern</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> [(set GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>dst<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> (add GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>src1<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>src2))]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-8">  list<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>Register<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> Uses <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> []<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-9">  list<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>Register<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> Defs <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> [EFLAGS]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-10">  list<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>Predicate<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> Predicates <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> []<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-11">  int CodeSize <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">3</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-12">  int AddedComplexity <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-13">  bit isReturn <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-14">  bit isBranch <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-15">  bit isIndirectBranch <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-16">  bit isBarrier <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-17">  bit isCall <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-18">  bit canFoldAsLoad <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-19">  bit mayLoad <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-20">  bit mayStore <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-21">  bit isImplicitDef <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-22">  bit isConvertibleToThreeAddress <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-23">  bit isCommutable <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-24">  bit isTerminator <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-25">  bit isReMaterializable <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-26">  bit isPredicable <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-27">  bit hasDelaySlot <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-28">  bit usesCustomInserter <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-29">  bit hasCtrlDep <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-30">  bit isNotDuplicable <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-31">  bit hasSideEffects <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-32">  InstrItinClass Itinerary <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> NoItinerary<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-33">  string Constraints <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">""</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-34">  string DisableEncoding <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">""</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-35">  bits<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">8</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> Opcode <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb2-36">  Format Form <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> MRMDestReg<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-37">  bits<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">6</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> FormBits <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb2-38">  ImmType ImmT <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> NoImm<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-39">  bits<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">3</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> ImmTypeBits <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb2-40">  bit hasOpSizePrefix <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-41">  bit hasAdSizePrefix <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-42">  bits<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> Prefix <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb2-43">  bit hasREX_WPrefix <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb2-44">  FPFormat FPForm <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">?;</span></span>
-<span id="cb2-45">  bits<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">3</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> FPFormBits <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb2-46"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb2-47"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">...</span></span></code></pre></div></div>
-<p>该定义对应于x86体系结构的32位寄存器-寄存器相加指令。 Def ADD32rr定义了一个名为ADD32rr的记录，行尾的注释表示该定义的父类。 记录体包含TableGen为记录汇编的所有数据，指示该指令是“x86”命名空间的一部分，指示代码生成器如何选择指令的模式，它是双地址指令，具有特定的编码等。记录中信息的内容和语义专用于X86后端，这里仅作为示例。</p>
-<p>正如您所看到的，代码生成器支持的每条指令都需要大量信息，手动指定所有指令将不可维护，容易出错，而且首先要做的事情很累人。因为我们正在使用 TableGen，所有的信息都来自以下定义:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb3-1"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">let</span> Defs <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> [EFLAGS]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb3-2">    isCommutable <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span>                  <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// X = ADD Y,Z --&gt; X = ADD Z,Y</span></span>
-<span id="cb3-3">    isConvertibleToThreeAddress <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span> <span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">in</span> <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Can transform into LEA.</span></span>
-<span id="cb3-4">def ADD32rr  <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> I<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0x01</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> MRMDestReg<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> (outs GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>dst)<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb3-5">                                   (ins GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>src1<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>src2)<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb3-6">                 <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"add{l}</span><span class="sc" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">\t</span><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">{$src2, $dst|$dst, $src2}"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb3-7">                 [(set GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>dst<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> (add GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>src1<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> GR32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:$</span>src2))]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span></code></pre></div></div>
-<p>这个定义使用定制类 I (从定制类 X86Inst 扩展而来) ，这个定制类是在 x86特定的 TableGen 文件中定义的，可以提取了指令共享的公共特性。TableGen 的一个关键特性是，它允许最终用户定义他们在描述其信息时喜欢使用的抽象。</p>
-</section>
-</section>
-<section id="语法" class="level1">
-<h1>语法</h1>
-<p>TableGen的语法类似c++模板，带有内置的类型和约束。此外，TableGen的语法引入了一些自动化概念，如multiclass、foreach、let等。</p>
-<section id="基本概念" class="level2">
-<h2 class="anchored" data-anchor-id="基本概念">基本概念</h2>
-<p>TableGen文件由两个关键部分组成:“类”和“定义”，这两个部分都被认为是“记录”。</p>
-<p><strong>记录</strong> 有一个唯一的名称、一个值列表和一个父类列表。 值列表是TableGen为每条记录构建的主要数据；正是该列表保存了应用程序的特定信息。 此数据的解释留给特定的后端，但结构和格式规则由TableGen负责。</p>
-<p><strong>定义</strong> 是“记录”的具体形式。它通常不包含任何未定义的值，并用“ def”关键字进行标记。</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb4-1">def FeatureFPARMv8 <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> SubtargetFeature<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"fp-armv8"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"HasFPARMv8"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"true"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb4-2">                                      <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Enable ARMv8 FP"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span></code></pre></div></div>
-<p>在此示例中，FeatureFPARMv8是使用某些值初始化的SubtargetFeature记录。 这些类通过关键字class定义在同一文件或其他文件中的。 对大多数平台来说，包含通用类的TableGen文件保存在<code>include/llvm/Target</code>中。</p>
-<p><strong>class</strong> 是用于构建和描述其他记录的抽象记录。这些类使最终用户可以为他们所针对的领域（例如LLVM代码生成器中的“ Register”，“ RegisterClass”和“ Instruction”）构建抽象，提取改领域的公共属性（例如“ FPInst”，用于表示X86后端中的浮点指令）。TableGen会跟踪用于建立定义的所有类，因此后端可以找到特定类的所有定义，例如“instruction”。</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb5-1">class ProcNoItin<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>string Name<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> list<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>SubtargetFeature<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> Features<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span></span>
-<span id="cb5-2">      <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> Processor<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>Name<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> NoItineraries<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> Features<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span></code></pre></div></div>
-<p>在这里，类ProcNoItin通过类型为string的参数名、目标特性列表和硬编码的NoItineraries来特化Processor类。</p>
-<p><strong>multiclass</strong> 一次实例化一组抽象记录。每个实例化都会产生多个TableGen定义。如果一个multiclass继承了另一个multiclass，那么子multiclass中的定义将成为当前multiclass的一部分，就像它们是在当前multiclass中声明的一样。</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode rust code-with-copy"><code class="sourceCode rust"><span id="cb6-1">multiclass ro_signed_pats<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>string T<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> string Rm<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> dag Base<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> dag Offset<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> dag <span class="bu" style="color: null;
-background-color: null;
-font-style: inherit;">Extend</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb6-2">                        dag address<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> ValueType sty<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb6-3">def <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> Pat<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>(<span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">i32</span> (<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">!</span>cast<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>SDNode<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"sextload"</span> # sty) address))<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb6-4">          (<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">!</span>cast<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>Instruction<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"LDRS"</span> # T # <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"w_"</span> # Rm # <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"_RegOffset"</span>)</span>
-<span id="cb6-5">            Base<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> Offset<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="bu" style="color: null;
-background-color: null;
-font-style: inherit;">Extend</span>)<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span>
-<span id="cb6-6"></span>
-<span id="cb6-7">def <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> Pat<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>(<span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">i64</span> (<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">!</span>cast<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>SDNode<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"sextload"</span> # sty) address))<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb6-8">          (<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">!</span>cast<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>Instruction<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span>(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"LDRS"</span> # T # <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"x_"</span> # Rm # <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"_RegOffset"</span>)</span>
-<span id="cb6-9">            Base<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> Offset<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="bu" style="color: null;
-background-color: null;
-font-style: inherit;">Extend</span>)<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span>
-<span id="cb6-10"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb6-11"></span>
-<span id="cb6-12">defm <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> ro_signed_pats<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"B"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> Rm<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> Base<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> Offset<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="bu" style="color: null;
-background-color: null;
-font-style: inherit;">Extend</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb6-13">                      <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">!</span>foreach(decls<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">.</span>pattern<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> address<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb6-14">                               <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">!</span>subst(SHIFT<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> imm_eq0<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> decls<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">.</span>pattern))<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb6-15">                      <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">i8</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span></code></pre></div></div>
-<p>有关TableGen的深入描述，请参阅TableGen的<a href="http://llvm.org/docs/TableGen/ProgRef.html">TableGen Programmer’s Reference</a>。</p>
-</section>
-</section>
-<section id="tablegen后端" class="level1">
-<h1>TableGen后端</h1>
-<p>没有后端，TableGen文件没有实际含义。 运行xxx-tblgen时的默认操作是以文本格式打印信息，但这仅对调试TableGen文件本身有用。 但是，TableGen的功能是将源文件解释为内部表示形式，可以将其生成为所需的任何内容。</p>
-<p>目前TableGen的用法是创建包含表的大型include的文件，您可以直接包含这些文件(如果输出是您正在编码的语言) ，也可以通过包裹include文件的宏进行预处理。</p>
-<p>如果后端已经以C格式打印了表，或者输出仅仅是一列字符串(用于错误和警告消息) ，则可以使用直接输出。如果需要在不同的上下文中使用相同的信息(如指令名) ，则应该使用预处理的输出，因此后端应该打印一个元信息列表，该列表可以形成不同的编译时格式。</p>
-<p>可用后端的列表，请参阅<a href="http://llvm.org/docs/TableGen/BackEnds.html">TableGen BackEnds</a>；有关如何编写和调试新后端的信息，请参阅<a href="http://llvm.org/docs/TableGen/BackGuide.html">TableGen Backend Developer’s Guide</a>。</p>
-</section>
-<section id="tablegen缺陷" class="level1">
-<h1>TableGen缺陷</h1>
-<p>尽管TableGen非常通用，但它有一些已经被多次指出的缺陷。 共同点是，虽然TableGen允许您构建特定于领域的语言，但您创建的最终语言缺乏其他DSL的功能，这反过来又会显著增加TableGen文件的大小和复杂性。</p>
-<p>同时，TableGen允许您通过定制的后端创建基本概念的任何含义，这会扭曲原始设计，使新手很难理解TableGen文件。</p>
-<p>有些人赞成进一步扩展语义，但要确保后端遵守严格的规则。 其他人则建议我们应该改用功能更强大的DSL，这些DSL是为特定目的而设计的，甚至应该重用现有DSL。</p>
-
-
-</section>
-
- ]]></description>
-  <category>LLVM</category>
-  <guid>https://sadsock.github.io/posts/2020-11-01-TableGen-Overview.html</guid>
-  <pubDate>Tue, 03 Nov 2020 11:30:38 GMT</pubDate>
-</item>
-<item>
-  <title>编写LLVM后端</title>
-  <link>https://sadsock.github.io/posts/2020-11-01-write-an-LLVM-backend.html</link>
-  <description><![CDATA[ 
-
-
-
-
-<section id="一-简介" class="level1">
-<h1>一 简介</h1>
-<p>本文档描述了编写编译器后端的技术， 这些后端将LLVM中间表示（IR）转换为特定机器或其他语言的代码， 这些代码可以是汇编代码也可以是二进制代码（可用于JIT编译器）。</p>
-<p>LLVM的后端是一个平台独立的代码生成器， 它可以为不同类型的目标CPU生成代码， 包括X86、PowerPC、ARM和SPARC。 后端还可以为GPU或Cell处理器的SPU生成代码， 以支持计算内核的执行。</p>
-<p>本文档主要关注<code>llvm/lib/Target</code>目录中的现有示例， 特别是为SPARC平台创建静态编译器(也就是发射汇编码)， 因为SPARC具有相当典型的特征， 比如RISC指令集和常见的调用约定。</p>
-<section id="目标读者" class="level2">
-<h2 class="anchored" data-anchor-id="目标读者">目标读者</h2>
-<p>本文档的受众是需要编写LLVM后端来为特定的硬件或软件平台生成代码的开发者。</p>
-</section>
-<section id="前置知识" class="level2">
-<h2 class="anchored" data-anchor-id="前置知识">前置知识</h2>
-<p>在阅读本文档之前，必须先阅读以下重要文档：</p>
-<ul>
-<li><p><a href="https://releases.llvm.org/11.0.0/docs/LangRef.html">LLVM Language Reference Manual</a>–LLVM汇编语言的参考手册。</p></li>
-<li><p><a href="https://releases.llvm.org/11.0.0/docs/CodeGenerator.html">The LLVM Target-Independent Code Generator</a>– 用于将LLVM内部表示转换为指定平台的机器码的组件（类和代码生成算法）的指南。 特别注意代码生成阶段：指令选择、调度和形成、基于SSA的优化、寄存器分配、Prolog/Epilog代码插入、后期机器代码优化和代码发射。</p></li>
-<li><p><a href="https://releases.llvm.org/11.0.0/docs/TableGen/index.html">TableGen</a>–TableGen（tblgen）应用程序的描述文档， 该程序管理LLVM代码生成特定于域的信息。 TableGen处理来自目标描述文件（后缀.td）的输入，并生成可用于代码生成的C++代码。</p></li>
-</ul>
-</section>
-<section id="基本步骤" class="level2">
-<h2 class="anchored" data-anchor-id="基本步骤">基本步骤</h2>
-<p>编写将LLVM IR转换为指定平台的机器码或其他语言的代码的编译器后端，需要以下步骤：</p>
-<ul>
-<li>创建TargetMachine类的子类， 该类描述目标计算机的特征， 这一步可以参考已有后端的TargetMachine类及其头文件； 例如，直接复制SparcTargetMachine.cpp和SparcTargetMachine.h但更改其文件名， 并且更改引用“Sparc”的代码以引用您的代码。</li>
-<li>描述目标平台的寄存器。 使用TableGen从RegisterInfo.td文件生成定义寄存器、寄存器别名和寄存器组的代码。 还可能需要为TargetRegisterInfo的子类编写代码，这些代码代用于支持寄存器的分配以及描述寄存器间的约束。</li>
-<li>描述目标平台的指令集。 使用TableGen从TargetInstrFormats.td和TargetInstrInfo.td文件生成描述目标平台的指令集的代码。 您可能需要手动为TargetInstrInfo的子类编写代码，以描述目标平台支持的某些特殊指令。</li>
-<li>描述指令选择规则，该过程将LLVM IR的有向无环图（DAG）表示转换到目标平台原生指令表示。 使用TableGen根据TargetInstrInfo.td文件从定义的模式来生成支持指令选择的代码， 有时需要手动为XXXISelDAGToDAG.cpp编写代码来完成DAG-to-DAG的转换， 有时还需要手动为XXXISelLowering.cpp文件编写代码来替换不被SelectionDAG原生支持的操作和数据类型。</li>
-<li>编写汇编生成器，汇编生成器将LLVM IR转换为目标计算机的GAS格式。 你需要在TargetInstrInfo.td文件中增加assembly strings。 同时还需要实现AsmPrinter的子类以及TargetAsmInfo的子类， 来实现LLVM IR到汇编的转换。</li>
-<li>（可选）添加对子平台(具有不同功能的变体)的支持。 实现TargetSubtarget的子类， 该类允许您使用<code>-mcpu=</code>和<code>-mattr=</code>命令行选项。</li>
-<li>（可选）添加JIT支持并创建机器码发射器(TargetJITInfo的子类)， 它用于直接将二进制代码发送到内存中。</li>
-</ul>
-<p>在.cpp和.h文件中，首先为这些方法建立占位，然后在以后实现它们。 最初，您可能不知道这些类需要哪些私有成员，哪些类需要子类化。</p>
-</section>
-<section id="准备工作" class="level2">
-<h2 class="anchored" data-anchor-id="准备工作">准备工作</h2>
-<p>要创建实际的编译器后端， 您需要创建和修改一些文件。 这里只讨论必须的操作。 但是要实际使用LLVM的目标独立代码生成器， 您必须执行<a href="https://releases.llvm.org/11.0.0/docs/CodeGenerator.html">LLVM Target-Independent Code Generator</a>中描述的步骤。</p>
-<p>首先，您应该在<code>lib/Target</code>目录下创建一个子目录来保存与您的目标相关的所有文件。 如果目标名为“Dummy”，则创建<code>lib/target/Dummy</code>目录。</p>
-<p>在这个新目录中，创建文件<code>CMakeLists.txt</code>。 最简单的方法是复制另一个目标的<code>CMakeLists.txt</code>文件并对其进行修改。 它至少应该指定<code>LLVM_TARGET_DEFINITIONS</code>变量。 这个库可以作为一个整体命名为<code>LLVMDummy</code>(参见MIPS后端)。 也可以将库拆分为<code>LLVMDummyAsmPrinter</code>和<code>LLVMDummyAsmPrinter</code>， 后者应该在<code>lib/Target/Dummy</code>的子目录中实现(参见PowerPC后端)。</p>
-<p>注意，这两个命名方案都被硬编码到<code>llvm-config</code>中。 使用任何其他命名方案都会迷惑<code>llvm-config</code>， 并在链接<code>llc</code>时产生许多(看起来不相关的)链接器错误。</p>
-<p>要使您的后端能执行实际的工作， 您需要实现<code>TargetMachine</code>的子类。 这个实现通常位于文件<code>lib/Target/DummyTargetMachine.cpp</code>中， <code>lib/Target</code>目录中的其它文件也应该被正确实现。 要使用LLVM的目标独立代码生成器， 您应该像所有机器后端一样： 创建<code>LLVMTargetMachine</code>的子类。（要从头开始创建目标，请创建TargetMachine的子类。）</p>
-<p>要让LLVM真正构建并链接你的后端， 你需要用<code>-DLLVM_EXPERIMENTAL_TARGETS_TO_BUILD=Dummy</code>命令运行cmake。 这将构建您的后端，而不需要将其添加到后端的列表中。</p>
-<p>后端到达稳定版后，可以将其添加到位于主<code>CMakeLists.txt</code>文件的<code>LLVM_ALL_TARGETS</code>变量中。</p>
-</section>
-</section>
-<section id="二-目标机器" class="level1">
-<h1>二 目标机器</h1>
-<p><code>LLVMTargetMachine</code>被设计成实现了目标无关代码生成器的目标的基类。 <code>LLVMTargetMachine</code>类特化为实现了各种虚拟方法的具体目标类。 <code>LLVMTargetMachine</code>在<code>include/llvm/target/TargetMachine.h</code>中定义为<code>TargetMachine</code>的子类。 <code>TargetMachine</code>类(TargetMachine.cpp)还负责处理许多命令行选项。</p>
-<p>要为特定的目标创建<code>LLVMTargetMachine</code>的子类， 首先要复制现有的<code>TargetMachine</code>类的类文件和头文件。 您应该修改您创建的文件的文件名以反映能该目标。 例如，对于<code>SPARC</code>，将文件命名为<code>SparcTargetMachine.h</code>和<code>SparcTargetMachine.cpp</code>。</p>
-<p>对于目标机器XXX， <code>XXXTargetMachine</code>必须实现一系列用于获取后端组件的对象的方法。 这些方法被命名为<code>get * Info</code>， 这些方法可以获取指令集(<code>getInstrInfo</code>)、寄存器(<code>getRegisterInfo</code>)、堆栈布局(<code>getFrameInfo</code>)等信息。 <code>XXXTargetMachine</code>还必须实现<code>getDataLayout</code>方法， 以访问数据特征(如数据类型大小和对齐要求)对象。</p>
-<p>例如，对于SPARC目标， 头文件<code>SparcTargetMachine.h</code>声明了<code>get*Info</code>和<code>getDataLayout</code>等方法的原型， 这些方法的返回值都是<code>SparcTargetMachine</code>类的成员变量。</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb1-1">namespace llvm {</span>
-<span id="cb1-2"></span>
-<span id="cb1-3">class Module<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-4"></span>
-<span id="cb1-5">class SparcTargetMachine : public LLVMTargetMachine {</span>
-<span id="cb1-6">  const DataLayout DataLayout<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;       // Calculates type size &amp; alignment</span></span>
-<span id="cb1-7">  SparcSubtarget Subtarget<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-8">  SparcInstrInfo InstrInfo<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-9">  TargetFrameInfo FrameInfo<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-10"></span>
-<span id="cb1-11"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">protected:</span></span>
-<span id="cb1-12">  virtual const TargetAsmInfo *createTargetAsmInfo() const<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-13"></span>
-<span id="cb1-14"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">public:</span></span>
-<span id="cb1-15">  SparcTargetMachine(const Module &amp;M, const <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">std:</span>:string &amp;FS)<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-16"></span>
-<span id="cb1-17">  virtual const SparcInstrInfo *getInstrInfo() const {return &amp;InstrInfo<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">; }</span></span>
-<span id="cb1-18">  virtual const TargetFrameInfo *getFrameInfo() const {return &amp;FrameInfo<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">; }</span></span>
-<span id="cb1-19">  virtual const TargetSubtarget *getSubtargetImpl() const{return &amp;Subtarget<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">; }</span></span>
-<span id="cb1-20">  virtual const TargetRegisterInfo *getRegisterInfo() const {</span>
-<span id="cb1-21">    return &amp;InstrInfo.getRegisterInfo()<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-22">  }</span>
-<span id="cb1-23">  virtual const DataLayout *getDataLayout() const { return &amp;DataLayout<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">; }</span></span>
-<span id="cb1-24">  static unsigned getModuleMatchQuality(const Module &amp;M)<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-25"></span>
-<span id="cb1-26">  // Pass Pipeline Configuration</span>
-<span id="cb1-27">  virtual bool addInstSelector(PassManagerBase &amp;PM, bool Fast)<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-28">  virtual bool addPreEmitPass(PassManagerBase &amp;PM, bool Fast)<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-29">}<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb1-30"></span>
-<span id="cb1-31">} // <span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">end</span> namespace llvm</span></code></pre></div></div>
-<ul>
-<li><p>getInstrInfo()</p></li>
-<li><p>getRegisterInfo()</p></li>
-<li><p>getFrameInfo()</p></li>
-<li><p>getDataLayout()</p></li>
-<li><p>getSubtargetImpl()</p></li>
-</ul>
-<p>对于某些目标，还需要支持以下方法：</p>
-<ul>
-<li><p>getTargetLowering()</p></li>
-<li><p>getJITInfo()</p></li>
-</ul>
-<p>有些体系结构（如gpu）不支持跳转到任意位置， 使用屏蔽执行来实现分支， 使用包裹循环体的特殊指令来实现循环。 为了避免CFG修改引入不可还原的控制流， 而这些控制流又不被硬件支持， 目标必须在初始化时调用<code>setRequiresStructuredCFG(true)</code>。</p>
-<p>此外，<code>XXXTargetMachine</code>构造函数应该指定一个<code>TargetDescription</code>字符串， 该字符串确定目标机器的数据布局， 包括指针大小、对齐方式和端序等特征。 例如，<code>SparcTargetMachine</code>的构造函数包含以下内容:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2" style="background: #f1f3f5;"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb2-1"><span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">SparcTargetMachine:</span>:SparcTargetMachine(const Module &amp;M, const <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">std:</span>:string &amp;FS)</span>
-<span id="cb2-2">  : DataLayout(<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"E-p:32:32-f128:128:128"</span>),</span>
-<span id="cb2-3">    Subtarget(M, FS), InstrInfo(Subtarget),</span>
-<span id="cb2-4">    FrameInfo(<span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">TargetFrameInfo:</span>:StackGrowsDown, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">8</span>, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>) {</span>
-<span id="cb2-5">}</span></code></pre></div></div>
-<p>连字符分隔TargetDescription字符串的各个部分。</p>
-<ul>
-<li><p>字符串中的大写’e’表示目标数据模型是big-endian，小写’e’表示little-endian。</p></li>
-<li><p>“p:”后面跟着指针信息:大小、ABI对齐和首选对齐。如果”p:“后面只有两个数字，那么第一个值是指针大小，第二个值是ABI和首选对齐方式。</p></li>
-<li><p>然后是表示数字类型对齐的字母：“i”、“f”、“v”或“a”（对应于整数、浮点、向量或 聚合）。“i”、“v”或“a”后跟ABI对齐和首选 对齐。“f”后跟三个值：第一个值表示长双精度的大小，然后是ABI对齐，然后是ABI首选对齐。</p></li>
-</ul>
-</section>
-<section id="三-目标注册" class="level1">
-<h1>三 目标注册</h1>
-<p>您还必须向<code>TargetRegistry</code>注册您的目标， 这是其他LLVM工具在运行时查找和使用您的目标的工具。 <code>TargetRegistry</code>可以直接使用， 但是对于大多数目标来说， 有一些辅助模板可以帮助您完成工作。</p>
-<p>所有目标应该声明一个全局<code>Target</code>对象， 用于在注册期间表示目标。 然后，在目标的<code>TargetInfo</code>库中， 目标应该定义该对象并使用<code>RegisterTarget</code>模板注册目标。 例如，Sparc注册代码如下:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3" style="background: #f1f3f5;"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb3-1">Target <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">llvm:</span>:getTheSparcTarget()<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb3-2"></span>
-<span id="cb3-3">extern <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C"</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">void</span> LLVMInitializeSparcTargetInfo() {</span>
-<span id="cb3-4">  RegisterTarget&lt;<span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">Triple:</span>:sparc, /*HasJIT=*/<span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">false</span>&gt;</span>
-<span id="cb3-5">    X(getTheSparcTarget(), <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"sparc"</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"Sparc"</span>)<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb3-6">}</span></code></pre></div></div>
-<p>这允许<code>TargetRegistry</code>按名称或按目标三元组查找目标。 此外，大多数目标还将注册在单独的库中可用的其他特性。 这些注册步骤是分开的，因为有些客户可能希望只链接目标的某些部分–例如， JIT代码生成器不需要使用汇编打印机。 下面是一个注册Sparc汇编输出器的例子:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb4" style="background: #f1f3f5;"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb4-1">extern <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"C"</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">void</span> LLVMInitializeSparcAsmPrinter() {</span>
-<span id="cb4-2">  RegisterAsmPrinter&lt;SparcAsmPrinter&gt; X(getTheSparcTarget())<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb4-3">}</span></code></pre></div></div>
-<p>更多信息, 请参照“<a href="https://releases.llvm.org/doxygen/TargetRegistry_8h-source.html">llvm/Target/TargetRegistry.h</a>”.</p>
-</section>
-<section id="四-寄存器和寄存器组" class="level1">
-<h1>四 寄存器和寄存器组</h1>
-<p>（译注：本节及后文将原文中Register Set译为寄存器集合，将Register Class根据原文的含义译为寄存器组或Register类。）</p>
-<p>您需要创建一个具体的寄存器描述类，这个类称为XXXRegisterInfo(其中XXX是平台标识符)，它描述了寄存器间的约束并为寄存器分配器提供必要的信息。</p>
-<p>您还需要定义寄存器组来对相关寄存器进行分类。同一寄存器组的寄存器可以被某些指令以相同的方式使用。典型的例子是用于整数、浮点或向量的寄存器组。寄存器分配器允许指令以类似的方式使用同一寄存器组中的任何寄存器。寄存器分配器先给指令分配虚拟寄存器，然后会在寄存器分配阶段分配物理寄存器。</p>
-<p>描述寄存器的大部分代码，包括寄存器定义、寄存器别名和寄存器组，都可以由TableGen工具自动生成。TableGen会根据开发者编写的xxxRegisterinfo.td文件，生成XXXGenRegisterInfo.h.inc和XXXGenRegisterInfo.inc文件。XXXRegisterInfo的实现过程中的一些代码需要手工编码。</p>
-<section id="定义寄存器" class="level2">
-<h2 class="anchored" data-anchor-id="定义寄存器">4.1 定义寄存器</h2>
-<p>XXXRegisterinfo.td文件通常以目标机器的寄存器定义开始。Register类(在Target.td中定义)用于为每个寄存器定义一个对象。字符串n就是寄存器的名称。基本的Register对象不包含子寄存器，也没有指定别名。</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb5-1"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">class</span> Register<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>string n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb5-2">  string Namespace <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">""</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb5-3">  string AsmName <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb5-4">  string Name <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb5-5">  <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">int</span> SpillSize <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb5-6">  <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">int</span> SpillAlignment <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb5-7">  list<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>Register<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> Aliases <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[];</span></span>
-<span id="cb5-8">  list<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>Register<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> SubRegs <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[];</span></span>
-<span id="cb5-9">  list<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">int</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> DwarfNumbers <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[];</span></span>
-<span id="cb5-10"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">}</span></span></code></pre></div></div>
-<p>例如，X86RegisterInfo.td文件使用Register类定义寄存器。比如：</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb6-1">def AL <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> Register<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"AL"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;,</span> DwarfRegNum<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;[</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">]&gt;;</span></span></code></pre></div></div>
-<p>这行代码定义了寄存器AL并使用DwarfRegNum为其赋值，gcc，gdb或其他调试信息工具用该值来识别寄存器。对于AL寄存器来说，DwarfRegNum使用了一个由3个值组成的数组，用来表示3 种不同的模式：第一个值是用于X86-64，第二个值用于X86-32中的异常处理（exception handling），第三个是通用值。-1表示gcc的值未定义，-2表示寄存器在该模式下是非法的。</p>
-<p>根据X86RegisterInfo.td文件的描述，TableGen会在X86GenRegisterInfo.inc文件中生成以下代码：</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb7" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb7-1"><span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">static</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">unsigned</span> GR8<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[]</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span> X86<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>AL<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">...</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb7-2"></span>
-<span id="cb7-3"><span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">unsigned</span> AL_AliasSet<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[]</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span> X86<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>AX<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> X86<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>EAX<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> X86<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>RAX<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb7-4"></span>
-<span id="cb7-5"><span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> TargetRegisterDesc RegisterDescriptors<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[]</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb7-6">  <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">...</span></span>
-<span id="cb7-7"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"AL"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"AL"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> AL_AliasSet<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> Empty_SubRegsSet<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> Empty_SubRegsSet<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> AL_SuperRegsSet <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">},</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">...</span></span></code></pre></div></div>
-<p>根据register info文件，TableGen为每个寄存器生成一个TargetRegisterDesc对象。TargetRegisterDesc在<code>include/llvm/Target/Target.h</code>中被定义，包含以下字段：</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb8-1"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">struct</span> TargetRegisterDesc <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb8-2">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">char</span>     <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span>AsmName<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span>      <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Assembly language name for the register</span></span>
-<span id="cb8-3">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">char</span>     <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span>Name<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span>         <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Printable name for the reg (for debugging)</span></span>
-<span id="cb8-4">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">unsigned</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span>AliasSet<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span>     <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Register Alias Set</span></span>
-<span id="cb8-5">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">unsigned</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span>SubRegs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span>      <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Sub-register set</span></span>
-<span id="cb8-6">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">unsigned</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span>ImmSubRegs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span>   <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Immediate sub-register set</span></span>
-<span id="cb8-7">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">unsigned</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span>SuperRegs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span>    <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Super-register set</span></span>
-<span id="cb8-8"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span></code></pre></div></div>
-<p>TableGen使用名称(TargetRegisterDesc的AsmName和Name字段)以及寄存器间的关系(TargetRegisterDesc的其他字段)来定义寄存器。在这个示例中，寄存器“AX”、“ EAX”和“RAX”为彼此的别名，TableGen为这个寄存器别名集生成一个以null结尾的数组(AL_aliasset)。</p>
-<p>Register类通常用作更复杂类的基类。在Target.td中，Register类是RegisterWithSubRegs类的基类，该类用于定义需要在SubRegs列表中指定子寄存器的寄存器，如下所示</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb9-1"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">class</span> RegisterWithSubRegs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>string n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> list<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>Register<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> subregs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> Register<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb9-2">  let SubRegs <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> subregs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb9-3"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">}</span></span></code></pre></div></div>
-<p>SparcRegisterInfo.td为SPARC定义了额外的寄存器类：register类的子类SparcReg和其进一步的子类：Ri、Rf和Rd。SPARC的寄存器由5位ID号标识，这是这些子类的一个共同特性。“let”表达式可以覆盖最初在父类中定义的值（例如Rd类中的subgros字段）。</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb10-1"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">class</span> SparcReg<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>string n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> Register<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb10-2">  field bits<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">5</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> Num<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb10-3">  let Namespace <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"SP"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb10-4"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb10-5"><span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Ri - 32-bit integer registers</span></span>
-<span id="cb10-6"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">class</span> Ri<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>bits<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">5</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> num<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> string n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span></span>
-<span id="cb10-7">SparcReg<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb10-8">  let Num <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> num<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb10-9"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb10-10"><span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Rf - 32-bit floating-point registers</span></span>
-<span id="cb10-11"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">class</span> Rf<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>bits<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">5</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> num<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> string n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span></span>
-<span id="cb10-12">SparcReg<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb10-13">  let Num <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> num<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb10-14"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">}</span></span>
-<span id="cb10-15"><span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Rd - Slots in the FP register file for 64-bit floating-point values.</span></span>
-<span id="cb10-16"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">class</span> Rd<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>bits<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span><span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">5</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> num<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> string n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> list<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>Register<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> subregs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> SparcReg<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>n<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb10-17">  let Num <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> num<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb10-18">  let SubRegs <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> subregs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb10-19"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">}</span></span></code></pre></div></div>
-<p>SparcRegisterInfo.td文件利用Register类的子类来定义寄存器，例如</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb11" style="background: #f1f3f5;"><pre class="sourceCode python code-with-copy"><code class="sourceCode python"><span id="cb11-1"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">def</span> G0 : Ri<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"G0"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span>, DwarfRegNum<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>[<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span>
-<span id="cb11-2"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">def</span> G1 : Ri<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"G1"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span>, DwarfRegNum<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>[<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span>
-<span id="cb11-3">...</span>
-<span id="cb11-4"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">def</span> F0 : Rf<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"F0"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span>, DwarfRegNum<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>[<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">32</span>]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span>
-<span id="cb11-5"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">def</span> F1 : Rf<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"F1"</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span>, DwarfRegNum<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>[<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">33</span>]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span>
-<span id="cb11-6">...</span>
-<span id="cb11-7"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">def</span> D0 : Rd<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"F0"</span>, [F0, F1]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span>, DwarfRegNum<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>[<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">32</span>]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span>
-<span id="cb11-8"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">def</span> D1 : Rd<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">2</span>, <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"F2"</span>, [F2, F3]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;</span>, DwarfRegNum<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&lt;</span>[<span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">34</span>]<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">&gt;;</span></span></code></pre></div></div>
-<p>上面显示的最后两个寄存器(D0和D1)是双精度浮点寄存器，它们是单精度浮点子寄存器对的别名。除了别名之外，子寄存器和父寄存器的关系也定义在TargetRegisterDesc的某些字段中。</p>
-</section>
-<section id="定义寄存器组" class="level2">
-<h2 class="anchored" data-anchor-id="定义寄存器组">4.2 定义寄存器组</h2>
-<p><code>RegisterClass</code>类（在Target.td中指定）用于定义一个对象， 该对象表示一组相关的寄存器， 还定义了寄存器的默认分配顺序。 使用<code>Target.td</code>的目标描述文件<code>XXXRegisterInfo.td</code>可以使用以下类构造寄存器组：</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb12" style="background: #f1f3f5;"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb12-1">class RegisterClass&lt;string namespace,</span>
-<span id="cb12-2">list&lt;ValueType&gt; regTypes, int alignment, dag regList&gt; {</span>
-<span id="cb12-3">  string Namespace = namespace<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb12-4">  list&lt;ValueType&gt; RegTypes = regTypes<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb12-5">  int Size = <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span><span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;  // spill size, in bits; zero lets tblgen pick the size</span></span>
-<span id="cb12-6">  int Alignment = alignment<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb12-7"></span>
-<span id="cb12-8">  // CopyCost is the cost of copying a value between two registers</span>
-<span id="cb12-9">  // <span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">default</span> value <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span> means a single instruction</span>
-<span id="cb12-10">  // A negative value means copying is extremely expensive <span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">or</span> impossible</span>
-<span id="cb12-11">  int CopyCost = <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span><span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb12-12">  dag MemberList = regList<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb12-13"></span>
-<span id="cb12-14">  // for register classes that are subregisters of this class</span>
-<span id="cb12-15">  list&lt;RegisterClass&gt; SubRegClassList = []<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb12-16"></span>
-<span id="cb12-17">  code MethodProtos = [{}]<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;  // to insert arbitrary code</span></span>
-<span id="cb12-18">  code MethodBodies = [{}]<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb12-19">}</span></code></pre></div></div>
-<p>要定义<code>RegisterClass</code>，请使用以下4个参数:</p>
-<ul>
-<li><p>第一个参数定义了命名空间的名称。</p></li>
-<li><p>第二个参数是寄存器类型的列表，寄存器的类型定义在文件<code>include/llvm/CodeGen/ValueTypes.td</code>中。 已定义的值包括整数类型(<code>i16</code>、<code>i32</code>和<code>i1</code>(布尔值))、浮点类型(<code>f32</code>、<code>f64</code>)和向量类型(例如，<code>v8i16</code>表示<code>8xi16</code>向量)。 <code>RegisterClass</code>中的所有寄存器必须具有相同的<code>ValueType</code>， 但有些寄存器可以不同的配置存储向量数据。 例如，一个能够处理128位向量的寄存器也能处理16个8位整数元素，8个16位整数，4个32位整数，等等。</p></li>
-<li><p>第三个参数指定寄存器数据在<code>load</code>或<code>save</code>时所需的对齐方式。</p></li>
-<li><p>最后一个参数<code>regList</code>指定这个集合包含的寄存器。 如果没有指定寄存器的分配顺序， 那么<code>regList</code>还暗含了寄存器的分配顺序。 除了简单地用<code>(add R0，R1，...)</code>列出寄存器之外， 还可以用更高级的集合操作符。 更多信息，请参见<code>include/llvm/Target/Target.td</code>。</p></li>
-</ul>
-<p>在<code>SparcRegisterInfo.td</code>中， 定义了三个<code>RegisterClass</code>对象：<code>FPReg</code>，<code>DFPReg</code>和<code>IntReg</code>。 对于所有三个寄存器类，第一个参数都是使用字符串“ SP”定义名称空间。 <code>FPRegs</code>定义了一组32个单精度浮点寄存器（F0至F31）。 <code>DFPRegs</code>定义了一组16个双精度寄存器（D0-D15）。</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb13" style="background: #f1f3f5;"><pre class="sourceCode llvm code-with-copy"><code class="sourceCode llvm"><span id="cb13-1">// F0, F1, F2, ..., F31</span>
-<span id="cb13-2">def FPRegs : RegisterClass&lt;<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"SP"</span>, [f32], <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">32</span>, (sequence <span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"F%u"</span>, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">0</span>, <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">31</span>)&gt;<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb13-3"></span>
-<span id="cb13-4">def DFPRegs : RegisterClass&lt;<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"SP"</span>, [f64], <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">64</span>,</span>
-<span id="cb13-5">                            (<span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">add</span> D0, D1, D2, D3, D4, D5, D6, D7, D8,</span>
-<span id="cb13-6">                                 D9, D10, D11, D12, D13, D14, D15)&gt;<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb13-7"></span>
-<span id="cb13-8">def IntRegs : RegisterClass&lt;<span class="st" style="color: #20794D;
-background-color: null;
-font-style: inherit;">"SP"</span>, [<span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">i32</span>], <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">32</span>,</span>
-<span id="cb13-9">    (<span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">add</span> L0, L1, L2, L3, L4, L5, L6, L7,</span>
-<span id="cb13-10">         I0, I1, I2, I3, I4, I5,</span>
-<span id="cb13-11">         O0, O1, O2, O3, O4, O5, O7,</span>
-<span id="cb13-12">         G1,</span>
-<span id="cb13-13">         // Non-allocatable <span class="fu" style="color: #4758AB;
-background-color: null;
-font-style: inherit;">regs:</span></span>
-<span id="cb13-14">         G2, G3, G4,</span>
-<span id="cb13-15">         O6,        // stack ptr</span>
-<span id="cb13-16">         I6,        // frame ptr</span>
-<span id="cb13-17">         I7,        // return address</span>
-<span id="cb13-18">         G0,        // <span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">constant</span> zero</span>
-<span id="cb13-19">         G5, G6, G7 // reserved for kernel</span>
-<span id="cb13-20">    )&gt;<span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span></code></pre></div></div>
-<p>TableGen将<code>SparcRegisterInfo.td</code>编译成多个输出文件， 这些输出文件将会被包含在您编写的其他源代码中。 <code>SparcRegisterInfo.td</code>被编译成<code>SparcGenRegisterInfo.h.inc</code>， 这个文件将被包含在实现SPARC寄存器的头文件<code>SparcRegisterInfo.h</code>中。 <code>SparcGenRegisterInfo.h.inc</code>定义了一个名为<code>SparcGenRegisterInfo</code>的新结构， 该结构继承<code>TargetRegisterInfo</code>， 还根据预定义的寄存器集（<code>DFPRegsClass</code>，<code>FPRegsClass</code>和<code>IntRegsClass</code>）来指定类型。</p>
-<p><code>Sparcregisterinfo.td</code>还会生成<code>SparcGenRegisterInfo.inc</code>文件， 它被包含在文件<code>SparcRegisterInfo.cpp</code>的底部， 该文件用于实现Sparc的寄存器。 下面只显示生成的整数寄存器和关联的寄存器集， <code>IntRegs</code>中寄存器的顺序同目标描述文件中<code>IntRegs</code>定义的顺序一致。</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb14" style="background: #f1f3f5;"><pre class="sourceCode cpp code-with-copy"><code class="sourceCode cpp"><span id="cb14-1"><span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// IntRegs Register Class...</span></span>
-<span id="cb14-2"><span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">static</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> <span class="dt" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">unsigned</span> IntRegs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[]</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb14-3">  SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>L0<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>L1<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>L2<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>L3<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>L4<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>L5<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb14-4">  SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>L6<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>L7<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>I0<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>I1<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>I2<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>I3<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb14-5">  SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>I4<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>I5<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>O0<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>O1<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>O2<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>O3<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb14-6">  SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>O4<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>O5<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>O7<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>G1<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>G2<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>G3<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb14-7">  SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>G4<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>O6<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>I6<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>I7<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>G0<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>G5<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb14-8">  SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>G6<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> SP<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>G7<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb14-9"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb14-10"></span>
-<span id="cb14-11"><span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// IntRegsVTs Register Class Value Types...</span></span>
-<span id="cb14-12"><span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">static</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> MVT<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>ValueType IntRegsVTs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[]</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb14-13">  MVT<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>i32<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> MVT<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>Other</span>
-<span id="cb14-14"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb14-15"></span>
-<span id="cb14-16"><span class="kw" style="color: #003B4F;
-background-color: null;
-font-weight: bold;
-font-style: inherit;">namespace</span> SP <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span>   <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// Register class instances</span></span>
-<span id="cb14-17">  DFPRegsClass    DFPRegsRegClass<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb14-18">  FPRegsClass     FPRegsRegClass<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb14-19">  IntRegsClass    IntRegsRegClass<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">;</span></span>
-<span id="cb14-20"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">...</span></span>
-<span id="cb14-21">  <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// IntRegs Sub-register Classes...</span></span>
-<span id="cb14-22">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">static</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> TargetRegisterClass<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> IntRegsSubRegClasses <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[]</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb14-23">    NULL</span>
-<span id="cb14-24">  <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb14-25"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">...</span></span>
-<span id="cb14-26">  <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// IntRegs Super-register Classes..</span></span>
-<span id="cb14-27">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">static</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> TargetRegisterClass<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> IntRegsSuperRegClasses <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[]</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb14-28">    NULL</span>
-<span id="cb14-29">  <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb14-30"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">...</span></span>
-<span id="cb14-31">  <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// IntRegs Register Class sub-classes...</span></span>
-<span id="cb14-32">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">static</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> TargetRegisterClass<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> IntRegsSubclasses <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[]</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb14-33">    NULL</span>
-<span id="cb14-34">  <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb14-35"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">...</span></span>
-<span id="cb14-36">  <span class="co" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">// IntRegs Register Class super-classes...</span></span>
-<span id="cb14-37">  <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">static</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> TargetRegisterClass<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">*</span> <span class="at" style="color: #657422;
-background-color: null;
-font-style: inherit;">const</span> IntRegsSuperclasses <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">[]</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">=</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{</span></span>
-<span id="cb14-38">    NULL</span>
-<span id="cb14-39">  <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">};</span></span>
-<span id="cb14-40"></span>
-<span id="cb14-41">  IntRegsClass<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">::</span>IntRegsClass<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">()</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">:</span> TargetRegisterClass<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">(</span>IntRegsRegClassID<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb14-42">    IntRegsVTs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> IntRegsSubclasses<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> IntRegsSuperclasses<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> IntRegsSubRegClasses<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span></span>
-<span id="cb14-43">    IntRegsSuperRegClasses<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">4</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">1</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> IntRegs<span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">,</span> IntRegs <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">+</span> <span class="dv" style="color: #AD0000;
-background-color: null;
-font-style: inherit;">32</span><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">)</span> <span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">{}</span></span>
-<span id="cb14-44"><span class="op" style="color: #5E5E5E;
-background-color: null;
-font-style: inherit;">}</span></span></code></pre></div></div>
-<p>寄存器分配器将避免使用保留寄存器， 并且被调用方保存的寄存器在所有易失性寄存器被使用之前都不会被使用。 这通常已经足够好了， 但在某些情况下， 可能需要提供自定义分配命令。</p>
-</section>
-<section id="实现targetregisterinfo的子类" class="level2">
-<h2 class="anchored" data-anchor-id="实现targetregisterinfo的子类">4.3 实现TargetRegisterInfo的子类</h2>
-<p>最后一步是手工编写<code>XXXRegisterInfo</code>的部分代码， 它实现了文件<code>TargetRegisterInfo.h</code>描述的接口（请参见<code>TargetRegisterInfo</code>类）。 如果不实现这些接口，这些接口将返回<code>0</code>、<code>NULL</code>或<code>false</code>。 下面是为实现SPARC而在文件<code>SparcRegisterInfo.cpp</code>中手工编写函数列表:</p>
-<ul>
-<li><p><code>getCalleeSavedRegs</code> —- 返回被叫方保存的寄存器列表，按被叫方所需的堆栈帧偏移量顺序。</p></li>
-<li><p><code>getReservedRegs</code> —- 返回物理寄存器索引的集合，指示特定寄存器是否不可用。</p></li>
-<li><p><code>hasFP</code> —- 返回一个布尔值，指示函数是否应具有专用的帧指针寄存器。</p></li>
-<li><p><code>eliminateCallFramePseudoInstr</code> —- 如果使用调用帧设置或销毁伪指令，则可以调用此命令来消除它们。</p></li>
-<li><p><code>excludeFrameIndex</code> – 从能使用抽象帧索引的指令中删除抽象帧索引。</p></li>
-<li><p><code>emitPrologue</code> – 在函数中插入Prologue代码。</p></li>
-<li><p><code>emitEpilogue</code> – 在函数中插入Epilogue代码。</p></li>
-</ul>
-</section>
-</section>
-<section id="五-指令集" class="level1">
-<h1>五 指令集</h1>
-<p>在代码生成的早期阶段， LLVM IR代码被转换为Selection DAG， 节点是<code>SDNode</code>类的实例， <code>SDNode</code>类包含目标指令， 具有操作码、操作数、类型要求和操作属性。 例如，操作是否是可交换的，是否需要从内存加载数据。 文件<code>include/llvm/CodeGen/SelectionDAGNodes.h</code>（ISD命名空间中的NodeType枚举）描述了节点的各种类型。</p>
-<section id="指令操作数映射" class="level2">
-<h2 class="anchored" data-anchor-id="指令操作数映射">指令操作数映射</h2>
-<section id="指令操作数名称映射" class="level3">
-<h3 class="anchored" data-anchor-id="指令操作数名称映射">指令操作数名称映射</h3>
-</section>
-<section id="指令操作数类型" class="level3">
-<h3 class="anchored" data-anchor-id="指令操作数类型">指令操作数类型</h3>
-</section>
-</section>
-<section id="指令调度" class="level2">
-<h2 class="anchored" data-anchor-id="指令调度">指令调度</h2>
-</section>
-<section id="指令关系映射" class="level2">
-<h2 class="anchored" data-anchor-id="指令关系映射">指令关系映射</h2>
-</section>
-<section id="实现targetstrinfo的子类" class="level2">
-<h2 class="anchored" data-anchor-id="实现targetstrinfo的子类">实现TargetStrInfo的子类</h2>
-</section>
-<section id="分支折叠与if转换" class="level2">
-<h2 class="anchored" data-anchor-id="分支折叠与if转换">分支折叠与If转换</h2>
-</section>
-</section>
-<section id="六-指令选择器" class="level1">
-<h1>六 指令选择器</h1>
-<section id="选择合法化阶段" class="level2">
-<h2 class="anchored" data-anchor-id="选择合法化阶段">选择合法化阶段</h2>
-<section id="推广" class="level3">
-<h3 class="anchored" data-anchor-id="推广">推广</h3>
-</section>
-<section id="展开" class="level3">
-<h3 class="anchored" data-anchor-id="展开">展开</h3>
-</section>
-<section id="定制" class="level3">
-<h3 class="anchored" data-anchor-id="定制">定制</h3>
-</section>
-<section id="合法的" class="level3">
-<h3 class="anchored" data-anchor-id="合法的">合法的</h3>
-</section>
-</section>
-<section id="调用约定" class="level2">
-<h2 class="anchored" data-anchor-id="调用约定">调用约定</h2>
-</section>
-</section>
-<section id="七-装配式打印机" class="level1">
-<h1>七 装配式打印机</h1>
-</section>
-<section id="八-子目标支持" class="level1">
-<h1>八 子目标支持</h1>
-</section>
-<section id="九-jit支持" class="level1">
-<h1>九 JIT支持</h1>
-<section id="机器码发射器" class="level2">
-<h2 class="anchored" data-anchor-id="机器码发射器">机器码发射器</h2>
-</section>
-<section id="目标jit信息" class="level2">
-<h2 class="anchored" data-anchor-id="目标jit信息">目标JIT信息</h2>
-
-
-</section>
-</section>
-
- ]]></description>
-  <category>LLVM</category>
-  <guid>https://sadsock.github.io/posts/2020-11-01-write-an-LLVM-backend.html</guid>
-  <pubDate>Sun, 01 Nov 2020 10:38:38 GMT</pubDate>
 </item>
 </channel>
 </rss>

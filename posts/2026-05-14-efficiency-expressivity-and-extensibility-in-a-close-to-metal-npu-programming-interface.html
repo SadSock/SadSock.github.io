@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="zh-Hans" xml:lang="zh-Hans"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.9.37">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="keywords" content="编译原理, 人工智能">
+<meta name="description" content="原文：Efficiency, Expressivity, and Extensibility in a Close-to-Metal NPU Programming Interface">
+
+<title>Efficiency, Expressivity, and Extensibility in a Close-to-Metal NPU Programming Interface – 悲催的袜子</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+</style>
+
+
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-7f8f88aac4f3542376d5c11b86a4c14d.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-90b6b260ef21813d1137019f5a682d9d.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "没有结果",
+    "search-matching-documents-text": "匹配的文档",
+    "search-copy-link-title": "复制搜索链接",
+    "search-hide-matches-text": "隐藏其它匹配结果",
+    "search-more-match-text": "更多匹配结果",
+    "search-more-matches-text": "更多匹配结果",
+    "search-clear-button-title": "清除",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "取消",
+    "search-submit-button-title": "提交",
+    "search-label": "搜索"
+  }
+}</script>
+
+
+<link rel="stylesheet" href="../styles.css">
+</head>
+
+<body class="nav-fixed quarto-light">
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">悲催的袜子</span>
+    </a>
+  </div>
+            <div id="quarto-search" class="" title="搜索"></div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" role="menu" aria-expanded="false" aria-label="展开或折叠导航栏" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../index.html"> 
+<span class="menu-text">主页</span></a>
+  </li>  
+  <li class="nav-item">
+    <a class="nav-link" href="../about.html"> 
+<span class="menu-text">关于</span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+</div>
+      </div> <!-- /container-fluid -->
+    </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">该页面内容</h2>
+   
+  <ul>
+  <li><a href="#sec-abstract" id="toc-sec-abstract" class="nav-link active" data-scroll-target="#sec-abstract">摘要</a></li>
+  <li><a href="#sec-introduction" id="toc-sec-introduction" class="nav-link" data-scroll-target="#sec-introduction">I. 引言</a></li>
+  <li><a href="#sec-architectural-overview" id="toc-sec-architectural-overview" class="nav-link" data-scroll-target="#sec-architectural-overview">II. AMD XDNA™ NPU 架构概览</a>
+  <ul class="collapse">
+  <li><a href="#sec-xdna-architecture" id="toc-sec-xdna-architecture" class="nav-link" data-scroll-target="#sec-xdna-architecture">A. AMD XDNA™ NPU 架构</a></li>
+  <li><a href="#sec-programming-optimization" id="toc-sec-programming-optimization" class="nav-link" data-scroll-target="#sec-programming-optimization">B. 编程与优化的含义</a></li>
+  </ul></li>
+  <li><a href="#sec-iron" id="toc-sec-iron" class="nav-link" data-scroll-target="#sec-iron">III. IRON：面向 NPU 的性能工具包</a>
+  <ul class="collapse">
+  <li><a href="#sec-iron-overview" id="toc-sec-iron-overview" class="nav-link" data-scroll-target="#sec-iron-overview">A. IRON 概览</a></li>
+  <li><a href="#sec-iron-lifecycle" id="toc-sec-iron-lifecycle" class="nav-link" data-scroll-target="#sec-iron-lifecycle">B. IRON 设计的生命周期</a></li>
+  <li><a href="#sec-iron-outline" id="toc-sec-iron-outline" class="nav-link" data-scroll-target="#sec-iron-outline">C. IRON 设计的结构</a></li>
+  <li><a href="#sec-data-movement" id="toc-sec-data-movement" class="nav-link" data-scroll-target="#sec-data-movement">D. IRON 中的数据移动</a></li>
+  </ul></li>
+  <li><a href="#sec-principles" id="toc-sec-principles" class="nav-link" data-scroll-target="#sec-principles">IV. 效率、表达力与可扩展性</a></li>
+  <li><a href="#sec-contributions" id="toc-sec-contributions" class="nav-link" data-scroll-target="#sec-contributions">V. 对 IRON 的贡献</a>
+  <ul class="collapse">
+  <li><a href="#sec-creating-distance" id="toc-sec-creating-distance" class="nav-link" data-scroll-target="#sec-creating-distance">1) 脱离 MLIR 的耦合：Creating Distance from MLIR</a></li>
+  <li><a href="#sec-objectfifo" id="toc-sec-objectfifo" class="nav-link" data-scroll-target="#sec-objectfifo">2) ObjectFifo API</a></li>
+  <li><a href="#sec-worker-runtime-program" id="toc-sec-worker-runtime-program" class="nav-link" data-scroll-target="#sec-worker-runtime-program">3) Worker、Runtime 和 Program 构造</a></li>
+  <li><a href="#sec-placement-interface" id="toc-sec-placement-interface" class="nav-link" data-scroll-target="#sec-placement-interface">4) Placement 接口</a></li>
+  <li><a href="#sec-taplib" id="toc-sec-taplib" class="nav-link" data-scroll-target="#sec-taplib">5) 即时 Data Transformation 的原语</a></li>
+  </ul></li>
+  <li><a href="#sec-implementation" id="toc-sec-implementation" class="nav-link" data-scroll-target="#sec-implementation">VI. 实现</a></li>
+  <li><a href="#sec-evaluation" id="toc-sec-evaluation" class="nav-link" data-scroll-target="#sec-evaluation">VII. 评估</a>
+  <ul class="collapse">
+  <li><a href="#sec-efficiency" id="toc-sec-efficiency" class="nav-link" data-scroll-target="#sec-efficiency">A. 效率</a>
+  <ul class="collapse">
+  <li><a href="#sec-brevity" id="toc-sec-brevity" class="nav-link" data-scroll-target="#sec-brevity">1) 简洁性</a></li>
+  <li><a href="#sec-effort" id="toc-sec-effort" class="nav-link" data-scroll-target="#sec-effort">2) 工作量</a></li>
+  </ul></li>
+  <li><a href="#sec-expressivity" id="toc-sec-expressivity" class="nav-link" data-scroll-target="#sec-expressivity">B. 表达力</a></li>
+  <li><a href="#sec-extensibility" id="toc-sec-extensibility" class="nav-link" data-scroll-target="#sec-extensibility">C. 可扩展性</a>
+  <ul class="collapse">
+  <li><a href="#sec-defining-placer" id="toc-sec-defining-placer" class="nav-link" data-scroll-target="#sec-defining-placer">1) 定义 Placer</a></li>
+  <li><a href="#sec-tap-generators" id="toc-sec-tap-generators" class="nav-link" data-scroll-target="#sec-tap-generators">2) TensorAccessPattern 生成器</a></li>
+  </ul></li>
+  </ul></li>
+  <li><a href="#sec-related-work" id="toc-sec-related-work" class="nav-link" data-scroll-target="#sec-related-work">VIII. 相关工作</a></li>
+  <li><a href="#sec-conclusion" id="toc-sec-conclusion" class="nav-link" data-scroll-target="#sec-conclusion">IX. 结论</a></li>
+  <li><a href="#sec-references" id="toc-sec-references" class="nav-link" data-scroll-target="#sec-references">参考文献</a></li>
+  </ul>
+</nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">Efficiency, Expressivity, and Extensibility in a Close-to-Metal NPU Programming Interface</h1>
+  <div class="quarto-categories">
+    <div class="quarto-category">编译原理</div>
+    <div class="quarto-category">人工智能</div>
+  </div>
+  </div>
+
+<div>
+  <div class="description">
+    原文：Efficiency, Expressivity, and Extensibility in a Close-to-Metal NPU Programming Interface
+  </div>
+</div>
+
+
+<div class="quarto-title-meta">
+
+    
+    <div>
+    <div class="quarto-title-meta-heading">发布于</div>
+    <div class="quarto-title-meta-contents">
+      <p class="date">2026年5月14日</p>
+    </div>
+  </div>
+  
+    
+  </div>
+  
+
+<div>
+  <div class="keywords">
+    <div class="block-title">关键词</div>
+    <p>编译原理, 人工智能</p>
+  </div>
+</div>
+
+</header>
+
+
+<p>原文版权声明：本文依据公开来源论文 <em>Efficiency, Expressivity, and Extensibility in a Close-to-Metal NPU Programming Interface</em> 进行中文翻译整理，仅供学习与研究使用。 我仅提供翻译与网页整理，不拥有原文版权；原文版权归作者及发布方所有。 转载、分发或用于商业用途时，请遵守原论文及原始发布平台的版权规定。</p>
+<p>原文信息：Erika Hunhoff，Joseph Melber，Kristof Denolf，Andra Bisca，Samuel Bayliss，Stephen Neuendorffer，Jeff Fifield，Jack Lo，Pranathi Vasireddy，Phil James-Roxby，Eric Keller。<em>Efficiency, Expressivity, and Extensibility in a Close-to-Metal NPU Programming Interface</em>。2025 IEEE 论文。</p>
+<p>说明：以下内容按原文句序逐句对应翻译整理。 图注、表注、表格说明、代码清单和参考文献信息尽量保留原貌；作者名、标题、期刊会议信息不翻译。 原文中的术语、接口名、代码标识符和缩写保持原样，便于对照原文。</p>
+<p>作者：Erika Hunhoff；Joseph Melber；Kristof Denolf；Andra Bisca；Samuel Bayliss；Stephen Neuendorffer；Jeff Fifield；Jack Lo；Pranathi Vasireddy；Phil James-Roxby；Eric Keller。</p>
+<p>单位：AMD；University of Colorado at Boulder, USA；Work performed at AMD。</p>
+<section id="sec-abstract" class="level1">
+<h1>摘要</h1>
+<p>神经处理单元（NPU）等加速器在性能和效率之间提供了很有吸引力的平衡，相比通用计算架构更具优势。 然而，有效利用加速器能力并不总是简单：低层编程工具包可能需要开发者付出大量精力，而高层编程工具包又可能抽象掉关键优化特性。 本文旨在提升使用 IRON 的设计者效率，IRON 是一个面向 close-to-metal NPU 性能工程师的工具包。 我们为 IRON 提供了一个更新后的程序员接口，其中包含新的和改进后的编程构造。 新接口加入了用于 placement 和 data transformation 的可扩展特性。 这些贡献从三个方面进行评估：1）效率，分析显示不同设计的代码行数平均减少约 26%，Halstead 指标也随之下降；2）表达力，证明新接口支持 IRON 已支持的广泛特性与模式；3）可扩展性，说明新的 placement 与 tiling 工具可以扩展以适配常见用例。</p>
+</section>
+<section id="sec-introduction" class="level1">
+<h1>I. 引言</h1>
+<p>神经处理单元（NPU）等加速器能够比通用处理器提供更高的性能和效率；然而，有效利用加速器能力并不总是容易 [40]。 一种方法是构建高层框架，由操作与编译器组成，以抽象加速器架构的细节。 这一类面向 NPU 的框架包括 AMD Ryzen™ AI Software [5]、Intel® OpenVINO™ [34] 和 Qualcomm® Neural Processing SDK [38]。 这些平台使开发者能够使用 PyTorch 和 TensorFlow 等常见框架训练并部署机器学习模型。 第二种方法是构建低层工具包和库，支持利用加速器特定特性来创建定制化、优化过的设计。 IRON 就是这类方法的一个例子，它是一个面向 AMD XDNA™ NPU 的 close-to-metal、通用、开源工具包 [28]、[29]、[31]。 这两种方法各自服务于不同但都很重要的目的。</p>
+<p>在低层工具包中，编程接口要在两种诉求之间寻求平衡：一方面要让程序员容易表达意图（设计者效率），另一方面又要暴露实现清晰和精确所需的细粒度硬件能力（复杂性）。 虽然这种张力有一部分是不可避免的，但具体取舍仍然可以通过有意设计接口来调节。 本文详细介绍了对 IRON 的贡献，使设计者能够清楚地表达设计（原则 1：效率），同时不牺牲设计者对低层决策的影响能力（原则 2：表达力）。 这些贡献还使设计者能够创建新的工具来生成设计的部分内容（原则 3：可扩展性）。 本文贡献的核心是一个建立在现有 IRON 编程接口之上的新 API。 这个 API 对 IRON 编程构造进行了改进，提供了一个新的接口来支持面向 placement 的可扩展工具（即把设计构造匹配到物理资源上），并包含一个新的辅助 data transformation 库，同样用于支持自定义扩展。 新 API 与现有 IRON API 共存，并作为开源仓库中的核心编程接口集成到 IRON 中，仓库地址是 <a href="https://github.com/Xilinx/mlir-aie" class="uri">https://github.com/Xilinx/mlir-aie</a>。</p>
+<p>对 IRON 的贡献使用 27 个 IRON 设计进行评估，这些设计从最简单的数据直通到最复杂的边缘检测流式视觉流水线不等。 在表达力方面，使用新 API 可以表达所有评估过的设计，而且与旧版设计实现相比，性能保持一致。 在设计者效率方面，我们发现单行代码（SLOC）平均减少约 26%，并且在所有设计上 Halstead 指标也平均下降。 在可扩展性方面，我们使用新 API 构造了一个自定义 placement 生成器和一个自定义 data transformation 生成器，并考察了自定义扩展的价值。 24 个示例 IRON 设计使用了 placement 工具。 其中 5 个设计，包括一个具有复杂运行时数据移动 tiling 模式的 GEMM 设计，使用了 data transformation 生成器。</p>
+<p>本文其余部分安排如下。 第 II 节给出 NPU 概览。 第 III 节总结 IRON。 第 IV 到 VII 节介绍本文贡献的设计、实现与评估。 第 VIII 节讨论相关工作，第 IX 节给出结论性思考。</p>
+</section>
+<section id="sec-architectural-overview" class="level1">
+<h1>II. AMD XDNA™ NPU 架构概览</h1>
+<p>本节介绍 AMD XDNA™ NPU 架构（第 II-A 节）以及该架构对编程与优化的影响（第 II-B 节）。</p>
+<section id="sec-xdna-architecture" class="level2">
+<h2 class="anchored" data-anchor-id="sec-xdna-architecture">A. AMD XDNA™ NPU 架构</h2>
+<p>AMD XDNA™ 神经处理单元（NPU）由多种类型的 tile 组成，这些 tile 在二维网格中按空间方式排列，并由流式互连连接。 NPU 的设计目标是实现功耗和面积都高效的推理：Ryzen™ 7040 和 8040 SoC 中的 AMD XDNA™ NPU 可提供超过 10 TOPS 的性能；使用 XDNA™ DNN 编程栈时，模型相较片上 x86 处理器可获得 4.3 到 33 倍的每瓦性能提升 [41]。 XDNA™ 2 架构最高可提供 50 TOPS [6]。</p>
+<p><a href="#fig-xdna-npu" class="quarto-xref">图&nbsp;1</a> 给出了一个简化的架构图；更全面的描述可参见其他资料 [41]。 AI Engine（AIE）tile（也存在于 Versal™ 架构中 [1]、[2]）包含一个 VLIW 向量处理器核心，以及相关的数据存储器、程序存储器、程序计数器、寄存器文件和功能单元 [41]。 Memory tile 提供额外的片上 SRAM scratchpad 存储，而 shim tile（或接口 tile）负责管理外部接口 [41]。 流式 network-on-chip（NoC）支持 tile 之间的点对点数据传输，并可配置为广播或选择性多播。 与带硬件管理缓存的架构不同，NPU 上的片上数据缓存在 scratchpad 中，并采用软件管理的数据移动方式，因此既显式又确定性强 [41]。 Data movement accelerator（DMA）负责异步数据移动，并借助 buffer descriptor（BD）支持 reorder、reshape 和 repeat 模式。<a href="#fn1" class="footnote-ref" id="fnref1" role="doc-noteref"><sup>1</sup></a></p>
+<div id="fig-xdna-npu" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-xdna-npu-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface/fig1-xdna-npu.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-xdna-npu-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;1: AMD XDNA™ NPU 的简化示意图，示例来自 Ryzen™ 7040 处理器 [41]。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-programming-optimization" class="level2">
+<h2 class="anchored" data-anchor-id="sec-programming-optimization">B. 编程与优化的含义</h2>
+<p>虽然在大多数基于缓存的架构中，显式控制数据移动只是一个可选优化，但 NPU 的架构使所有 NPU 设计都必须显式进行数据移动。 显式数据移动可以提高应用延迟和吞吐量的可预测性，并降低功耗 [41]。</p>
+<p>NPU 架构为优化数据移动提供了丰富特性。 利用 memory tile 中的 L2 buffer 可以降低某些应用所需的片外带宽。 借助 NoC 支持的广播复制数据，可以进一步减少片外内存带宽需求。 DMA 支持的即时数据转换可以减少表示一种数据移动模式所需的 DMA 操作数量。 这对于按照算法对数据进行分块，以及为向量化指令组织合适的数据结构都很有用。 这些属性使性能工程师或编译器能够精细调节数据移动。</p>
+<p>NPU 中的存储层次和 AIE 的排列是空间化的。 在 NPU 设计中，计算和数据必须被放置在设备上的明确位置。 NPU 设计也具有时间性。 硬件通过锁以及这些锁与 DMA 操作的集成来支持同步 [41]。 为了让程序员能够精细调节动作在设备上何时以及如何发生，程序员必须能够表达空间和时间两类关系 [27]。</p>
+</section>
+</section>
+<section id="sec-iron" class="level1">
+<h1>III. IRON：面向 NPU 的性能工具包</h1>
+<p>本节总结 IRON，这是一个面向 AMD XDNA™ NPU 的开源编程工具包 [31]。 IRON 为 NPU 设计的空间和时间方面提供了细粒度控制，重点放在数据移动上。</p>
+<section id="sec-iron-overview" class="level2">
+<h2 class="anchored" data-anchor-id="sec-iron-overview">A. IRON 概览</h2>
+<p>IRON 的核心是一个多层中间表示（MLIR）方言，mlir-aie [31]。 MLIR 是一种支持可复用、模块化和领域特定编译器基础设施的技术 [21]，也是面向多种架构（例如加速器）的常见选择 [11]、[44]、[45] 等。 mlir-aie 为 NPU 定义了原语与抽象，重点在于：1）清晰且完整地表达硬件能力；2）简化表达数据移动、同步和设计结构等关键设计组件。 mlir-aie 是 IRON 低层编程接口的核心，并定义了一个 IR，供更高层方言的编译器用来针对 NPU 生成代码。</p>
+<p>IRON 中的抽象通过捕捉常见模式来提供编程便利，但并不会隐藏 NPU 设计的基本特征，包括 placement、显式数据移动、资源限制以及 DMA 支持的复杂访问模式。 IRON 的这些抽象并不针对某个特定应用领域，不过其中一些模式对数字信号处理和机器学习很有用。</p>
+<p>IRON Python API 的核心是通过 MLIR Python bindings [32] 从 mlir-aie 自动生成的。 对这些绑定的定制扩展隐藏了 MLIR 的实现细节，比如常见 Python 类型与 MLIR 类型之间的转换。 IRON 特有的扩展还辅以 mlir-python-extras，这是一个开源库，提供了许多能用来在 Python 中清晰、简洁表达 MLIR 的辅助工具 [26]。 IRON Python API 支持元编程，允许程序员把传统 Python 与由 Python 驱动的 MLIR 操作生成混合在一起使用。</p>
+</section>
+<section id="sec-iron-lifecycle" class="level2">
+<h2 class="anchored" data-anchor-id="sec-iron-lifecycle">B. IRON 设计的生命周期</h2>
+<p>IRON 设计可以使用 IRON Python API 以 Python 编写，也可以使用 mlir-aie 以 MLIR 编写。 如果用 Python 编写，脚本会输出 MLIR assembly。 IRON 设计使用 core block 来指定在设计所用的每个处理器核心上执行的代码。 core block 中的代码可以执行计算、调用外部定义的 kernel，或者两者都做。 外部 kernel 使用 Peano [36] 等工具单独编译。 aiecc 是 IRON 的主编译驱动器，它接受 MLIR assembly 以及任何 kernel 对象文件作为输入，并生成两种工件：一个 binary，包含设计运行所需的程序；以及一组指令，在运行时由 host 处理器加载，用于对 NPU 进行（重新）配置。</p>
+<p>IRON 通过 Xilinx® Runtime（XRT）[47] 执行设计。 IRON 设计通过对生成的 MLIR 做静态分析，以及通过运行时 tracing 做动态分析来调试。 IRON 还提供了配置硬件支持的 tracing 机制的工具 [3]。</p>
+</section>
+<section id="sec-iron-outline" class="level2">
+<h2 class="anchored" data-anchor-id="sec-iron-outline">C. IRON 设计的结构</h2>
+<p>如 <a href="#fig-iron-design" class="quarto-xref">图&nbsp;2</a> 所示的 IRON 示例设计中，所有会生成 MLIR 的构造都必须在一个 MLIR context 中创建（第 1 行）。 在设计结束时，使用由该 context 构造出的 module 输出 MLIR（第 29 行）。 设计的第一个逻辑小节是资源声明（第 4-9 行），其中包括物理组件（例如 tile）和会被降低为物理资源的 IRON 抽象（例如 ObjectFifo，参见第 III-D 节）。 类型使用 NumPy [15] 类型表达（第 4-5 行）。</p>
+<p>core block 被声明为带装饰器的函数（第 11 行）。 AIE 获取 tile 尺寸（TH, TW）对应的输入和输出 buffer 的访问权（第 14-15 行）。 同步由 ObjectFifo 控制，这些 buffer 的所有权也由它管理。 AIE 执行逐元素标量加法（第 16-18 行），然后释放每个 buffer（第 19-20 行）。 循环使用 <code>range_</code> 表示，它是 MLIR <code>scf</code> 方言提供的循环结构的 Python 包装 [42]。</p>
+<p>runtime sequence（第 22-28 行）用于把一个子矩阵（tile）数据发送到带 shim tile 端点的 ObjectFifo 中。 这个子矩阵使用根据矩阵和 tile 尺寸计算出来的 sizes 和 strides 进行指定。 输出 tile 也以类似方式接收。 runtime sequence 由声明（<code>shim_dma_single_bd_task</code>）、异步操作（<code>dma_start_task</code>）和同步操作（<code>dma_await_task</code>）混合构成。</p>
+<div id="fig-iron-design" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-iron-design-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<ol type="a">
+<li>原始写法：</li>
+</ol>
+<pre class="text"><code> 1 with mlir_mod_ctx() as ctx:
+ 2   @device(AIEDevice.npu1_1col)
+ 3   def device_body():
+ 4     mty = np.ndarray[(MH, MW), np.dtype[np.int32]]
+ 5     tty = np.ndarray[(TH, TW), np.dtype[np.int32]]
+ 6     shm0 = tile(0, 0)
+ 7     aie2 = tile(0, 2)
+ 8     fi = object_fifo("in", shm0, aie2, 2, tty)
+ 9     fo = object_fifo("out", aie2, shm0, 2, tty)
+10
+11     @core(aie2)
+12     def core_body():
+13       for _ in range_(sys.maxsize):
+14         a = fi.acquire(ObjectFifoPort.Consume, 1)
+15         b = fo.acquire(ObjectFifoPort.Produce, 1)
+16         for i in range_(TH):
+17           for j in range_(TW):
+18             b[i, j] = a[i, j] + 1
+19         fi.release(ObjectFifoPort.Consume, 1)
+20         fo.release(ObjectFifoPort.Produce, 1)
+21
+22     @runtime_sequence(mty, mty)
+23     def sequence(dati, dato):
+24       in_task = shim_dma_single_bd_task(fi, dati,
+25         sizes=[1, 1, TH, TW], strides=[0, 0, MW, 1])
+26       out_task = shim_dma_single_bd_task(fo, dato,
+27         issue_token=True, sizes=[1, 1, TH, TW],
+28         strides=[0, 0, MW, 1])
+29       dma_start_task(in_task, out_task)
+30       dma_await_task(out_task)
+31       dma_free_task(in_task)
+32   print(ctx.module)</code></pre>
+<ol start="2" type="a">
+<li>使用新 API 的写法：</li>
+</ol>
+<pre class="text"><code> 1 mty = np.ndarray[(MH, MW), np.dtype[np.int32]]
+ 2 tty = np.ndarray[(TH, TW), np.dtype[np.int32]]
+ 3 fi = ObjectFifo(tty)
+ 4 fo = ObjectFifo(tty)
+ 5
+ 6 def core_fn(of_in, of_out):
+ 7   a = of_in.acquire(1)
+ 8   b = of_out.acquire(1)
+ 9   for i in range_(TH):
+10     for j in range_(TW):
+11       b[i, j] = a[i, j] + 1
+12   of_in.release(1)
+13   of_out.release(1)
+14 my_worker = Worker(core_fn, fn_args=[fi.cons(), fo.prod()])
+15
+16 rt = Runtime()
+17 with rt.sequence(mty, mty) as (dati, dato):
+18     rt.start(my_worker)
+19     rt.fill(fi.prod(), dati, sizes=[1, 1, TH, TW],
+20             strides=[0, 0, MW, 1])
+21     rt.drain(fo.cons(), dato, sizes=[1, 1, TH, TW],
+22              strides=[0, 0, MW, 1], wait=True)
+23 print(Program(NPU1Col1(), rt).resolve_program(SequentialPlacer()))</code></pre>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-iron-design-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;2: 一个矩阵-标量加法 IRON 设计，分别在没有贡献（a）和有贡献（b）时的写法。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="sec-data-movement" class="level2">
+<h2 class="anchored" data-anchor-id="sec-data-movement">D. IRON 中的数据移动</h2>
+<p>如第 II 节所述，NPU 的一个关键架构组件是显式数据移动。 IRON 支持在不同抽象层次上进行数据移动，但其主要抽象是 <code>ObjectFifo</code>。 <code>ObjectFifo</code> 是一个循环缓冲区，包含可配置数量（深度）的对象，并且在理论上有 dataflow 理论 [9] 的根源。 属于某个 <code>ObjectFifo</code> 的对象共享形状和数据类型，其分配由编译器决定。 对 <code>ObjectFifo</code> 对象的访问通过 <code>ObjectFifo</code> 管理的锁进行协调，访问通过 acquire 和 release 操作被授予与撤销。</p>
+<p><code>ObjectFifo</code> 被设计用于支持广播、滑动窗口、pipeline 平衡、在 L2 中拆分与连接数据，以及 L2 缓冲等常见模式。 在滑动窗口模式中，如果已经获取了 <code>n</code> 个 buffer，调用 <code>acquire(n + 1)</code> 只会再获取一个；类似地，如果已经获取了 <code>m</code> 个 buffer，调用 <code>release(1)</code> 只会释放第一个 buffer，留下最后的 <code>m - 1</code> 个 buffer 仍处于已获取状态。 在 pipeline balancing 模式中，关键路径上的 <code>ObjectFifo</code> 深度可以增加或减少。 在 L2 中拆分和连接数据时，可以使用 <code>link</code> 操作通过共享的 memory tile 端点连接两个 <code>ObjectFifo</code>。 L2 buffering 也同样使用 <code>link</code>。</p>
+</section>
+</section>
+<section id="sec-principles" class="level1">
+<h1>IV. 效率、表达力与可扩展性</h1>
+<p>对 IRON 的扩展是为了在保持设计者表达力的同时提高设计者效率，并为进一步扩展提供路径。</p>
+<p><strong>效率</strong>：我们希望通过允许设计的某些特性在设计者没有选择调优它们时被最小化表达，来实现高效表达。 设计是多面的，性能工程师可以关注许多有趣方面（placement、dataflow、runtime 操作、data tiling、kernel 等）。 并非所有设计都要求在每个方面都具有高细节级别。 我们的贡献旨在让设计者能够高效表达那些并非其关注重点的部分。</p>
+<p><strong>表达力</strong>：我们希望在提升效率的同时不牺牲表达力。 我们对 IRON 的贡献应当允许程序员表达与 IRON 相同的构造，而且使用新贡献编写的设计应当表现出与使用现有 IRON API 编写的设计相同的特征（包括性能）。</p>
+<p><strong>可扩展性</strong>：我们希望在 IRON 中建立路径，使性能工程师，即便他们并不一定也是编译器工程师，也可以用自定义算法和工具生成设计的部分内容。 IRON 对设计的许多方面提供了完全控制，这使它特别适合被用作自动化工具的实验沙盒，这些工具正在为更高层编译器工作流而开发。 我们的贡献旨在支持将自定义扩展集成到设计空间探索、placement、tiling，以及运行时操作结构化等特定关注点上。</p>
+</section>
+<section id="sec-contributions" class="level1">
+<h1>V. 对 IRON 的贡献</h1>
+<p>对 IRON 的贡献围绕一个新 API 组织（第 V-1 节），该 API 包括一个改进版 ObjectFifo API（第 V-2 节）以及面向现有 IRON 设计组件的新构造（第 V-3 节）。 该新 API 还支持一个可扩展的 placement 接口（第 V-4 节），并包含一个用于生成即时 data transformation 的库（第 V-5 节）。</p>
+<section id="sec-creating-distance" class="level2">
+<h2 class="anchored" data-anchor-id="sec-creating-distance">1) 脱离 MLIR 的耦合：Creating Distance from MLIR</h2>
+<p>IRON 设计的结构继承自 MLIR 所要求的结构。 虽然可以使用一些技术来控制和隐藏 context block（例如 mlir-python-extras [26] 提供的那些技术），但如果在创建相应 Python 对象时就立即创建 MLIR 操作，那么这些 Python 对象就会受到与对应 MLIR 操作相同的规则约束。 MLIR 要求一个操作必须是完整的（也就是说，在构造时所有重要信息都已知），并且必须在 MLIR context 中按正确的 placement 实例化。 当然，可以在 Python 中插入和重排 MLIR 操作。 不过，如果把这些技术同时用于 compiler driver 和 Python 编程前端，我们认为这会增加复杂性，并让人类理解 IRON 编程栈变得困难，所以我们把这些技术留给 <code>aiecc</code>。</p>
+<p>MLIR 约束可能与提升 IRON 可用性的目标相冲突。 例如，对 IRON 的一个理想改进，是减少重复信息。 IRON 设计中的重复信息示例包括：<code>ObjectFifo</code> 端点的 placement，以及使用该端点的 core block 的 placement（图 2a 第 8-9 行、第 11 行）；placement 位置本可以只提供一次，而不是两次。 然而，要构造 core block 和 <code>ObjectFifo</code>，两个 Python 构造器都必须在实例化时提供 placement，这就要求重复提供信息。</p>
+<p>为了放宽对位置和信息完整性的要求，我们创建了一个新的顶层 IRON Python API。 新 API 中的 Python 类都继承自一个可解析（resolvable）接口，并把 MLIR 操作的创建延迟到调用其 <code>resolve</code> 函数时。 如果 Python 类没有足够的信息来解析为一个 MLIR 操作，那么 <code>resolve</code> 就会失败。 图 2b 展示了使用新 API 以及相关贡献重写后的图 2a 设计。</p>
+</section>
+<section id="sec-objectfifo" class="level2">
+<h2 class="anchored" data-anchor-id="sec-objectfifo">2) ObjectFifo API</h2>
+<p>延迟解析被用来改进 <code>ObjectFifo</code> API。 <code>ObjectFifo</code> 声明（图 2a 第 8-9 行）可以简洁地重写（图 2b 第 3-4 行）。 <code>ObjectFifo</code> 的默认深度被设为 2（这是因为 ping-pong buffer 很常见）；<code>ObjectFifo</code> 的名字（它会成为 MLIR 标识符）自动生成；<code>ObjectFifo</code> 的端点则由系统推导。</p>
+<p>当 <code>ObjectFifo</code> 被交给某个操作或构造以供使用时，通过调用 <code>prod</code> 获取生产者句柄，或通过调用 <code>cons</code> 获取消费者句柄，会生成 <code>ObjectFifoHandle</code>（图 2b 第 14 行）。 <code>prod</code> 总是返回同一个对象，因为一个 <code>ObjectFifo</code> 只能有一个生产者。 对 <code>cons</code> 的多次调用会生成多个消费者句柄，从而表达广播。 由于句柄知道自己是生产者还是消费者，因此在 <code>acquire</code> 和 <code>release</code> 中就无需再指定 <code>ObjectFifoPort</code>，这进一步减少了冗余（图 2a 第 14-15 行、第 19-20 行 vs.&nbsp;图 2b 第 7-8 行、第 12-13 行）。</p>
+<p>与其把 <code>link</code> 移植到新 API，不如让 <code>ObjectFifoHandle</code> 类提供 <code>forward</code>、<code>split</code> 和 <code>join</code> 方法。 这些方法允许数据跨 tile 前向传递（对 L2 buffering 有用）、跨 tile 拆分（适用于在一个 L2-L3 流中拆分在 L2 中暂存的数据，以节省通道），或者跨 tile 合并（用途相同，但方向相反）。 在解析阶段，这些方法会确保生成所需的 <code>ObjectFifo</code> 和 link。</p>
+</section>
+<section id="sec-worker-runtime-program" class="level2">
+<h2 class="anchored" data-anchor-id="sec-worker-runtime-program">3) Worker、Runtime 和 Program 构造</h2>
+<p>我们引入了一个新构造 <code>Worker</code>（图 2b 第 14 行）。 <code>Worker</code> 的构造方式在很多多线程库中都类似于 thread。 <code>Worker</code> 接受一个要运行的例程（<code>core_fn</code>）以及运行它所需的上下文（<code>fn_args</code>）。 设计 <code>Worker</code> 的一个动机是熟悉性；另一个动机是显式地把任务定义（也就是图 2b 第 6 行的 <code>core_fn</code>）与任务运行配置（也就是传给 <code>Worker</code> 的参数，图 2b 第 14 行）分离开来。 这种模式为元编程提供了清晰路径，因为 <code>fn_args</code> 可以包含任意 Python 值，用来定制 <code>core_fn</code> 所生成的 MLIR。 这种元编程常用于把计算任务适配到不同的数据类型、维度或数据分布。</p>
+<p>新的 <code>Runtime</code> 构造表示运行时序列（图 2b 第 16-20 行）。 <code>Runtime</code> 序列不能表示任意计算，这一点对 IRON 程序员来说可能不太直观，因为它在视觉上与 AIE 在 IRON 设计中执行的命令式块很相似。 <code>Runtime</code> 支持的操作包括：<code>start</code>，表示应当为执行配置一个 worker（图 2b 第 18 行）；<code>fill</code>，表示使用 DMA 操作把来自 L3 buffer 的数据填充到 <code>ObjectFifo</code> 中（图 2b 第 19 行）；以及 <code>drain</code>，表示把 <code>ObjectFifo</code> 中的数据收集到 L3 buffer（图 2b 第 20 行）。 最后一个方法 <code>inline_ops</code> 允许高级设计者向运行时序列插入一个生成任意 MLIR op 的 Python 函数；这大致类似于 C 程序中的 inline assembly。 这种技术支持专门定制配置，并将在未来工作中用于在新 API 中完整支持 tracing 配置。</p>
+<p>为了把这些组件组合成一个设计，新 <code>Program</code> 构造会把一个 <code>Runtime</code> 应用于一个 <code>Device</code> 来创建设计。 设计的 MLIR 由 <code>resolve_program</code> 生成（图 2b 第 21 行）。</p>
+</section>
+<section id="sec-placement-interface" class="level2">
+<h2 class="anchored" data-anchor-id="sec-placement-interface">4) Placement 接口</h2>
+<p>新 API 支持手动 placement 的程序，这满足了表达力的目标。 然而，如果程序员没有提供足够的 placement 信息，<code>resolve_program</code> 就会失败。 如果没有额外扩展，这就意味着所有 IRON 设计都必须是 fully placed 的。 为了同时满足效率和可扩展性的目标，我们构造了一个支持 placement 生成的接口。</p>
+<p>新 IRON API 中属于 <code>Placeable</code> 的对象提供一个 <code>place</code> 方法，该方法接收一个 placement tile 作为参数。 <code>resolve_program</code> 可以选择性地接收一个 <code>Placer</code> 参数（图 2b 第 21 行）。 <code>Placer</code> 必须实现 <code>make_placement</code>。 在 <code>resolve_program</code> 执行期间，会调用 <code>make_placement</code>，从而允许 <code>Placer</code> 在生成 MLIR 之前对所有 <code>Placeable</code> 设计组件调用 <code>place</code>。 该 placement 接口支持部分 placement 的设计，也支持诸如 <code>AnyShim</code>、<code>AnyMemTile</code> 和 <code>AnyComputeTile</code> 这样的 placement hints。 未来工作包括支持为 <code>Placeable</code> 组件添加程序员自定义属性，以支持任意 placement hint。</p>
+<p>placement 接口实现了效率目标（不关心手动 placement 的设计者可以使用并复用 placement 生成器）、表达力目标（更换 <code>Placer</code> 或为某个设计指定部分 placement 都很直接）以及可扩展性目标（用户有一个定义明确的机制来构建新的 <code>Placer</code>）。 图 2b 第 21 行中的 <code>SequentialPlacer</code> 是一个 <code>Placer</code> 的示例，并将在第 VII-C1 节进一步讨论。 <code>Placer</code> API 用 Python 编写，但常见的语言绑定工具可以将其他语言编写的现有 placement 和 design space exploration 工具封装为 <code>Placer</code>。</p>
+</section>
+<section id="sec-taplib" class="level2">
+<h2 class="anchored" data-anchor-id="sec-taplib">5) 即时 Data Transformation 的原语</h2>
+<p>图 2b 中有一个复杂点很突出：sizes 和 strides（第 19-20 行）。 仅仅看 sizes 和 strides 来推理变换可能很困难。 为了解决这个问题，我们创建了 <code>taplib</code>，它包含两个用于表达和推理变换的原语抽象。 <code>TensorAccessPattern</code>（tap）由一组 tensor 维度、sizes、strides 以及 tensor 内部的一个 offset 构成。 <code>TensorAccessSequence</code>（tas）是若干 tap 的集合，这些 tap 的 tensor 维度必须匹配。 考虑一个例子：程序员希望把一个 6 × 4 tensor 切成四个 3 × 2 的、互不重叠的 row-major tile，并选取左上角和右下角两个 tile。 使用 <code>taplib</code>，可以写成如下形式：</p>
+<pre class="text"><code>tap00 = TensorAccessPattern((6, 4), offset=0,
+  sizes=[1, 1, 3, 2], strides=[0, 0, 4, 1])
+tap11 = TensorAccessPattern((6, 4), offset=14,
+  sizes=[1, 1, 3, 2], strides=[0, 0, 4, 1])
+taps0 = TensorAccessSequence.from_taps([tap00, tap11])</code></pre>
+<p><code>taplib</code> 提供了推理 <code>tap</code> 和 <code>tas</code> 的机制，包括用于一维和二维 tensor 的可视化与动画（<a href="#fig-taplib-heatmaps" class="quarto-xref">图&nbsp;3</a>）。 <code>taplib</code> 还支持程序化分析工具。 <a href="#fig-taplib-heatmaps" class="quarto-xref">图&nbsp;3</a> 中展示的图形是使用 <code>taplib</code> 的 access map 生成的。 access count map 是一个 tensor，其中每个元素表示相应元素在原始 tensor 中被某个 tap 或 tas 访问的次数。 access order map 是一个 tensor，其中每个元素表示 tap 或 tas 所定义的访问顺序中的元素级编号。 access map 对于发现 bug 很有用，因为 <code>tap</code> 定义中的逻辑错误可以形式化为：其访问模式在计数或顺序上与程序员意图不一致。 下面的代码片段演示了如何使用 access map 验证 <code>tap00</code> 和 <code>taps0</code> 的特性：</p>
+<pre class="text"><code># Num accessed: Count starts at 0, so highest is 5
+assert tap00.access_order().max() == 3*2 - 1
+# Count of elements accessed by tap00
+assert tap00.access_count().sum() == 3*2
+# Num accessed: Highest count for two tiles is 11
+assert taps0.access_order().max() == 2*(3*2) - 1
+# The tas does not access any element more than once
+assert taps0.access_count().max() == 1</code></pre>
+<p>我们使用 access map 为访问模式定义了一个新的等价性概念。 严格的等价性定义要求两个 tap 的 tensor 维度、sizes、strides 和 offset 都相同。 我们用 <code>access equivalent</code> 这个术语来描述那些生成相同 access order 和 access count map 的 tap。 access equivalence 在 IRON 的语境中很有用，因为 NPU 中的 DMA 单元对 sizes 和 strides 支持的最大维度有不同限制，而且每个维度支持的最大位数也不同。 因此，两个访问模式可能在严格意义上不相等，但却是 access equivalent，其中一个能生成有效的 IRON 设计，而另一个不能。 <code>taplib</code> 允许程序员精确表达这些细节。 新的 IRON API 将 <code>taplib</code> 集成了进来（例如，<code>Runtime</code> 的 <code>fill</code> 和 <code>drain</code> 方法使用 tap 来代替 sizes 和 strides）。</p>
+<div id="fig-taplib-heatmaps" class="quarto-layout-panel">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-taplib-heatmaps-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-taplib-heatmaps" style="flex-basis: 100.0%;justify-content: flex-start;">
+<div id="fig-tap00-heatmap" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-tap00-heatmap-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface/fig3-tap00-heatmap.png" class="img-fluid figure-img" style="width:70.0%" data-ref-parent="fig-taplib-heatmaps">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-tap00-heatmap-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(a) <code>tap00</code> 的可视化热图，分别对应访问顺序（上）和访问计数（下）。
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<div class="quarto-layout-row">
+<div class="quarto-layout-cell-subref quarto-layout-cell" data-ref-parent="fig-taplib-heatmaps" style="flex-basis: 100.0%;justify-content: flex-start;">
+<div id="fig-taps0-heatmap" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-taps0-heatmap-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface/fig3-taps0-heatmap.png" class="img-fluid figure-img" style="width:70.0%" data-ref-parent="fig-taplib-heatmaps">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-taps0-heatmap-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(b) <code>taps0</code> 的可视化热图，分别对应访问顺序（上）和访问计数（下）。
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-taplib-heatmaps-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;3: taplib 生成的热图。
+</figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="sec-implementation" class="level1">
+<h1>VI. 实现</h1>
+<p>我们的贡献用 Python 实现，其中新的顶层 API 约 1,400 行代码（LOC），<code>taplib</code> 额外实现约 560 行 LOC。 这些贡献的有效性在很大程度上不依赖具体实现机制；其中一些贡献未来可以作为 <code>mlir-aie</code> 的一部分集成进去。</p>
+</section>
+<section id="sec-evaluation" class="level1">
+<h1>VII. 评估</h1>
+<p>本文的贡献旨在提升设计者效率（第 VII-A 节）、同时保持同样的表达力（第 VII-B 节），并为进一步扩展提供清晰机制（第 VII-C 节）。 第 VII-B 节与第 VII-C 节在对 IRON 进行贡献之前与之后，对 <a href="#tbl-evaluation-designs" class="quarto-xref">表&nbsp;1</a> 中概括的 27 个设计进行对比。</p>
+<div style="overflow-x:auto">
+<div id="tbl-evaluation-designs" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-evaluation-designs-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;1: 用于评估 IRON 贡献的 27 个设计（21 个直白的 block 设计，6 个优化过的高级设计）
+</figcaption>
+<div aria-describedby="tbl-evaluation-designs-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 21%">
+<col style="width: 21%">
+<col style="width: 28%">
+<col style="width: 28%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>Description</th>
+<th style="text-align: right;">SLOC Before</th>
+<th style="text-align: right;">SLOC After</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>Copy (DMA only)</td>
+<td>通过仅 DMA 将数据不改变地传过 NPU。</td>
+<td style="text-align: right;">42</td>
+<td style="text-align: right;">29</td>
+</tr>
+<tr class="even">
+<td>Copy (DMA + kernel)</td>
+<td>通过 DMA 加 kernel 将数据不改变地传过 NPU。</td>
+<td style="text-align: right;">48</td>
+<td style="text-align: right;">39</td>
+</tr>
+<tr class="odd">
+<td>Copy (DMA + external kernel)</td>
+<td>通过 DMA 加外部 kernel 将数据不改变地传过 NPU。</td>
+<td style="text-align: right;">52</td>
+<td style="text-align: right;">42</td>
+</tr>
+<tr class="even">
+<td>MTranspose</td>
+<td>使用 DMA 转置矩阵。</td>
+<td style="text-align: right;">36</td>
+<td style="text-align: right;">28</td>
+</tr>
+<tr class="odd">
+<td>VReduce (add)</td>
+<td>逐元素向量归约（加法）。</td>
+<td style="text-align: right;">50</td>
+<td style="text-align: right;">26</td>
+</tr>
+<tr class="even">
+<td>VReduce (max)</td>
+<td>逐元素向量归约（最大值）。</td>
+<td style="text-align: right;">50</td>
+<td style="text-align: right;">26</td>
+</tr>
+<tr class="odd">
+<td>VReduce (min)</td>
+<td>逐元素向量归约（最小值）。</td>
+<td style="text-align: right;">50</td>
+<td style="text-align: right;">26</td>
+</tr>
+<tr class="even">
+<td>VSOp (add)</td>
+<td>逐元素向量-标量操作（加法）。</td>
+<td style="text-align: right;">49</td>
+<td style="text-align: right;">36</td>
+</tr>
+<tr class="odd">
+<td>VSOp (mul)</td>
+<td>逐元素向量-标量操作（乘法）。</td>
+<td style="text-align: right;">64</td>
+<td style="text-align: right;">55</td>
+</tr>
+<tr class="even">
+<td>VVOp (add)</td>
+<td>逐元素向量-向量操作（加法）。</td>
+<td style="text-align: right;">56</td>
+<td style="text-align: right;">43</td>
+</tr>
+<tr class="odd">
+<td>VVOp (mul)</td>
+<td>逐元素向量-向量操作（乘法）。</td>
+<td style="text-align: right;">56</td>
+<td style="text-align: right;">43</td>
+</tr>
+<tr class="even">
+<td>VVOp (mod)</td>
+<td>逐元素向量-向量操作（取模）。</td>
+<td style="text-align: right;">56</td>
+<td style="text-align: right;">43</td>
+</tr>
+<tr class="odd">
+<td>VVOp (addKern)</td>
+<td>向量化的 addKern。</td>
+<td style="text-align: right;">94</td>
+<td style="text-align: right;">75</td>
+</tr>
+<tr class="even">
+<td>VVOp (mulKern)</td>
+<td>向量化的 mulKern。</td>
+<td style="text-align: right;">94</td>
+<td style="text-align: right;">76</td>
+</tr>
+<tr class="odd">
+<td>MSAdd</td>
+<td>矩阵中子矩阵的标量加法。</td>
+<td style="text-align: right;">62</td>
+<td style="text-align: right;">43</td>
+</tr>
+<tr class="even">
+<td>MVAdd</td>
+<td>分块的、按行的矩阵-向量加法。</td>
+<td style="text-align: right;">55</td>
+<td style="text-align: right;">44</td>
+</tr>
+<tr class="odd">
+<td>MVMul</td>
+<td>矩阵-向量乘法。</td>
+<td style="text-align: right;">105</td>
+<td style="text-align: right;">69</td>
+</tr>
+<tr class="even">
+<td>VSoftMax</td>
+<td>使用查找表近似实现的 softmax，应用到所有向量元素。</td>
+<td style="text-align: right;">79</td>
+<td style="text-align: right;">58</td>
+</tr>
+<tr class="odd">
+<td>VReLU</td>
+<td>逐元素 ReLU，<code>ReLU(x)=max(0, x)</code>，一种常见的 DNN 激活函数。</td>
+<td style="text-align: right;">76</td>
+<td style="text-align: right;">60</td>
+</tr>
+<tr class="even">
+<td>Conv2d (base)</td>
+<td>2 维卷积。</td>
+<td style="text-align: right;">89</td>
+<td style="text-align: right;">77</td>
+</tr>
+<tr class="odd">
+<td>Conv2d + ReLU</td>
+<td>2 维卷积；第二个设计把 kernel 与 ReLU 融合。</td>
+<td style="text-align: right;">86</td>
+<td style="text-align: right;">73</td>
+</tr>
+<tr class="even">
+<td>GEMM</td>
+<td>矩阵-矩阵乘法。矩阵在与 NPU 内在函数匹配的块中相乘，子块分配给 AIE。</td>
+<td style="text-align: right;">308</td>
+<td style="text-align: right;">279</td>
+</tr>
+<tr class="odd">
+<td>BBlock</td>
+<td>用于 ResNet 等 DNN 的 bottleneck block，使用 3 级流水线实现。</td>
+<td style="text-align: right;">332</td>
+<td style="text-align: right;">245</td>
+</tr>
+<tr class="even">
+<td>ResNetConv2x</td>
+<td>ResNet 中的 Conv2D X 层，由三个 BBlock 组成。</td>
+<td style="text-align: right;">623</td>
+<td style="text-align: right;">414</td>
+</tr>
+<tr class="odd">
+<td>ColorDetect</td>
+<td>以 3 级流水线结构检测图像中的两种颜色。</td>
+<td style="text-align: right;">163</td>
+<td style="text-align: right;">146</td>
+</tr>
+<tr class="even">
+<td>EdgeDetect</td>
+<td>使用 4 级流水线在图像中检测边缘。</td>
+<td style="text-align: right;">198</td>
+<td style="text-align: right;">177</td>
+</tr>
+<tr class="odd">
+<td>ColorThresh</td>
+<td>分块的数据并行颜色阈值检测。</td>
+<td style="text-align: right;">169</td>
+<td style="text-align: right;">81</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<p><a href="#tbl-evaluation-designs" class="quarto-xref">表&nbsp;1</a> 记录了每个设计的 SLOC，<a href="#fig-sloc-decrease" class="quarto-xref">图&nbsp;4</a> 展示了设计版本之间的百分比下降。 很多设计都包含一定程度的参数解析和验证（这两部分在两版之间是相同的），因此会略微稀释百分比。 即便如此，使用本文贡献编写的 IRON 设计平均需要少 25.53% 的 SLOC，平均每个设计减少 31 行。</p>
+<div id="fig-sloc-decrease" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-sloc-decrease-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface/fig4-sloc-decrease.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-sloc-decrease-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;4: 每个设计的平均 SLOC 百分比下降。
+</figcaption>
+</figure>
+</div>
+<section id="sec-efficiency" class="level2">
+<h2 class="anchored" data-anchor-id="sec-efficiency">A. 效率</h2>
+<p>本节把效率分解为两个指标：单行代码（SLOC），它反映简洁性；以及 Halstead 指标，它反映工作量。 这些指标并不完美，但我们认为，评估设计的数量和类型足以让这些结果代表总体趋势。</p>
+<section id="sec-brevity" class="level3">
+<h3 class="anchored" data-anchor-id="sec-brevity">1) 简洁性</h3>
+<p>SLOC 使用 <code>pygount</code> [37] 和 <code>radon</code> [39] 进行测量。 所有设计都通过程序化方式使用 <code>black</code> [20] 格式化。 <a href="#fig-sloc-decrease" class="quarto-xref">图&nbsp;4</a> 展示了各设计版本之间的百分比下降，而 <a href="#tbl-evaluation-designs" class="quarto-xref">表&nbsp;1</a> 记录了每个设计的 SLOC。 许多设计都包含一定程度的参数解析和验证（两版之间相同），这会让百分比略微下降。 即便如此，使用本文贡献编写的 IRON 设计平均少 25.53% 的 SLOC，每个设计平均减少 31 行。</p>
+</section>
+<section id="sec-effort" class="level3">
+<h3 class="anchored" data-anchor-id="sec-effort">2) 工作量</h3>
+<p>我们使用 Halstead 指标，这是一套常见的软件评估指标 [4]、[7]、[12]、[14]，来分析这些示例设计。 Halstead 指标使用从源代码中提取的属性（操作符数量、操作数数量以及两者的计数）来定义 vocabulary 和 effort 等概念 [13]。 对所有设计而言，所有负向 Halstead 指标的平均值（使用 <code>radon</code> [39] 计算）在贡献之后写成的设计中都低于贡献之前写成的设计。 <a href="#fig-halstead-differences" class="quarto-xref">图&nbsp;5</a> 展示了 vocabulary（基于源代码中唯一操作符和操作数数量的度量）以及 effort（旨在反映作为作者、维护者或读者与程序交互所需努力的度量）的计算结果 [14]。 vocabulary 的平均下降为 4.59（平均百分比下降 23.32%），而 effort 的平均下降为 179.97（平均百分比下降 24.82%）。</p>
+<div id="fig-halstead-differences" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-halstead-differences-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="../assets/efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface/fig5-halstead-differences.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-halstead-differences-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;5: 每个设计的 Halstead vocabulary（上）与 effort（下）差值。
+</figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="sec-expressivity" class="level2">
+<h2 class="anchored" data-anchor-id="sec-expressivity">B. 表达力</h2>
+<p>本节评估加入贡献后的 IRON 是否与贡献前的 IRON 同样具有表达力。 示例设计，尤其是高级设计，覆盖了 IRON 支持的关键特性与模式。 在 <a href="#tbl-advanced-features" class="quarto-xref">表&nbsp;2</a> 中，<code>L2Mem</code> 指使用 memory tile，而 <code>SharedMem</code> 指 AIE 访问另一个 AIE 的 L1 memory 的能力（从而节省 DMA 通道）。 <code>Tiling</code> 指即时 data transformation。 <code>Broadcast</code>、<code>Split/Join</code>、<code>sliding Window</code> 和 <code>Skip</code> 连接是数据移动特性。 <code>Pipeline</code> 指任务并行的设计；其他设计是数据并行的。 <code>Metaprog</code> 指设计中的元编程。 <code>NPUCols</code> 报告设计需要的 NPU 列数。 贡献后的所有示例 IRON 设计都会产生与对应原始设计相同且正确的输出；这是正确性的第一次检验。 为了进一步分析，我们使用静态 MLIR 分析并测量性能数据。</p>
+<div style="overflow-x:auto">
+<div id="tbl-advanced-features" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-advanced-features-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;2: 高级设计的特征
+</figcaption>
+<div aria-describedby="tbl-advanced-features-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+<col style="width: 9%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Name</th>
+<th>L2Mem</th>
+<th>SharedMem</th>
+<th>Tiling</th>
+<th>Broadcast</th>
+<th>Split/Join</th>
+<th>Window</th>
+<th>Skip</th>
+<th>Pipeline</th>
+<th>Metaprog</th>
+<th>NPUCols</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>GEMM</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>✓</td>
+<td>1-4</td>
+</tr>
+<tr class="even">
+<td>BBlock</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td>ResNetConv2x</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>3</td>
+</tr>
+<tr class="even">
+<td>ColorDetect</td>
+<td>✓</td>
+<td>—</td>
+<td>—</td>
+<td>✓</td>
+<td>—</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>1</td>
+</tr>
+<tr class="odd">
+<td>EdgeDetect</td>
+<td>✓</td>
+<td>—</td>
+<td>—</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>✓</td>
+<td>✓</td>
+<td>—</td>
+<td>1</td>
+</tr>
+<tr class="even">
+<td>ColorThresh</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>—</td>
+<td>✓</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+<td>✓</td>
+<td>1</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</div>
+<p>为了验证两版相同设计是否以相同方式使用 NPU 特性，我们比较了每个版本生成的 MLIR。 朴素比较会发现，所有设计生成的 MLIR 都不同。 然而，这些差异大多只是声明顺序不同（例如 tile 的声明顺序不同），因此不应影响设计功能。 在控制声明顺序后，27 个设计中的 20 个会生成完全相同的 MLIR。 三个设计（GEMM、MVAdd、MTranspose）使用了不同的运行时 DMA 传输尺寸和 strides，但它们表达的访问模式是 access equivalent，因此在功能上等价。 四个设计（ColorDetect、ResNetConv2x、BBlock、EdgeDetect）使用了一个或多个带广播的 <code>ObjectFifo</code>，而接收者列表发生了重排；这种重排不会导致功能差异。</p>
+<p>为了佐证静态分析，我们记录了每个设计的平均延迟（100 次 warm up 迭代后再进行 1000 次迭代）。 两版设计之间的平均百分比差异约为 3.36%。 27 个设计中有 11 个在使用本文贡献的 IRON 时表现出略高的延迟。 对每一版设计的平均延迟求和后，其百分比差异小于 0.09%，可归因于系统噪声。</p>
+</section>
+<section id="sec-extensibility" class="level2">
+<h2 class="anchored" data-anchor-id="sec-extensibility">C. 可扩展性</h2>
+<p>对 IRON 的贡献包括两个专为扩展而设计的接口：placement 接口和 <code>taplib</code>。 我们之所以把手工 placement 和 data transformation 规范化作为扩展目标，是因为它们既繁琐又容易出错，因此设计者既能从可编程性中获益（可以通过算法生成解决方案），又能在不需要时忽略设计中的这些方面。 在本节中，我们验证使用这些接口构建扩展是可行的。</p>
+<section id="sec-defining-placer" class="level3">
+<h3 class="anchored" data-anchor-id="sec-defining-placer">1) 定义 Placer</h3>
+<p>这个实验的目的有两个：a）展示 <code>Placer</code> 接口可以用于生成可运行的设计；b）展示仅凭 IRON 和 NPU 架构知识，用户就能成功创建一个 <code>Placer</code>。 为此，我们实现了 <code>SequentialPlacer</code>，它只用了 64 行 SLOC，而且只使用了新 IRON API 中的构造。 <code>SequentialPlacer</code> 以类似网格的方式分配 AIE，然后分配 memory tile 和 shim tile，使得 <code>ObjectFifo</code> 端点保持在同一列。 这个 <code>Placer</code> 很基础；它尊重 AIE 阵列的维度约束，但可能因为其他资源约束而生成无效 placement。 在 27 个示例设计中，<code>SequentialPlacer</code> 被 24 个设计用于完整 placement；1 个设计用于部分 placement（BBlock）；另外 2 个设计（ResNetConv2x、GEMM）是完全手工 placement，因为 <code>SequentialPlacer</code> 由于资源分配过量而生成了无效设计。 这说明 <code>Placer</code> API 确实允许构建并应用新的 placer 到 IRON 设计中。</p>
+</section>
+<section id="sec-tap-generators" class="level3">
+<h3 class="anchored" data-anchor-id="sec-tap-generators">2) TensorAccessPattern 生成器</h3>
+<p><code>taplib</code> 原语真正的价值在于，它们可以被生成出来以替代手工编写的 sizes 和 strides。 程序员的意图很难仅从计算 sizes 和 strides 的算术表达式中看出来。 这会影响可读性和可维护性，也会让程序员在每个新设计中都要独自承担构造这类算术的负担。 为了说明 taps 和 tases 如何被生成来服务某一类变换，我们实现了一个示例生成器 <code>TensorTiler2D</code>。 <code>TensorTiler2D</code> 会基于 tile 大小、tile 内按列或按行的元素访问、tile 的分组（例如在一个 tap 中访问多个 tile）、以及 tile 的按列或按行访问来生成 tases。 <code>TensorTiler2D</code> 只用了 277 行 SLOC，并被 5 个设计使用（MSAdd、MVAdd、MVMul、GEMM、MTranspose）。 我们认为，GEMM 设计中 vocabulary 和 effort 的差异主要来自 <code>TensorTiler2D</code>，因为它大幅减少了该设计运行时中的算术量。</p>
+</section>
+</section>
+</section>
+<section id="sec-related-work" class="level1">
+<h1>VIII. 相关工作</h1>
+<p>面向 NPU 的一类框架，包括 AMD Ryzen™ AI Software [5]、Intel® OpenVINO™ [34] 和 Qualcomm® Neural Processing SDK [38]，相比 IRON 提供了更高层的抽象，并且专注于机器学习。 CUDA [10]、OpenCL [33] 和 HLS [35] 在抽象层次上更接近 IRON，但 IRON 专门面向带 AIE 的加速器。 许多带 Python 前端的工作 [8] 都包含运行时代码生成（RCG），通常通过即时编译 [17]、[19]、[44] 实现。 另一些工作提供领域特定语言（DSL）[18] 或嵌入式 DSL（eDSL）[22]、[24]、[30]。 本文关注的是对优化设计的高效表达，而不是 RCG。 <code>Worker</code> 核心函数可以看作是用 <code>mlir-python-extras</code> [26] 提供的 eDSL 编写的。 本文对 IRON 的贡献则关注设计的其他方面，例如 data transformation，以及表示设计结构的构造的细化。 [23]、[25] 提出了一个用于端到端管理 AIE 架构的编程模型，它们与我们的部分目标相同（支持性能调优和元编程），但优先级不同。 我们的工作不涉及 RCG，而 [23]、[25] 则不关注可扩展接口或设计者效率的度量。 [46] 展示了 scratchpad 架构中 DMA transformation 的复杂性；<code>taplib</code> 提供的表达 DMA transformation 的工具可能有助于这方面的进一步研究。 关于用于性能工程师的热图和可视化工具的使用，文献 [43] 作了描述，它使用了类似的术语（access patterns）和技术（基于 tensor 的热图）[43]。 然而，那项工作关注的是缓存架构中访问和移动之间的关系，而 <code>taplib</code> 在 IRON 语境中支持的 access pattern 则是数据移动配置。 文献 [43] 中描述的仿真和建模未来可以作为 IRON 设计的扩展来实现。</p>
+</section>
+<section id="sec-conclusion" class="level1">
+<h1>IX. 结论</h1>
+<p>本文描述、实现并分析了对 IRON 的贡献，这些贡献在不牺牲表达力的前提下提升了设计者效率，并提供了进一步扩展的机制。 这些贡献通过一个新的 API 以及更精炼的编程构造和可扩展接口，成功改变了 27 个示例 IRON 设计的源代码特征，同时保留了功能正确性。 我们观察到，示例设计的 SLOC 平均减少约 26%。 尽管本文的大多数贡献都特定于 IRON，但这项工作提供了一个数据点，说明即便不改变接口的抽象层次，针对加速器微调编程接口的设计，也会显著影响设计特征。</p>
+</section>
+<section id="sec-references" class="level1">
+<h1>参考文献</h1>
+<p>[1] Sagheer Ahmad, Sridhar Subramanian, Vamsi Boppana, Shankar Lakka, Fu-Hing Ho, Tomai Knopp, Juanjo Noguera, Gaurav Singh, and Ralph Wittig. Xilinx first 7nm device: Versal AI Core (VC1902). In 2019 IEEE Hot Chips 31 Symposium (HCS), Cupertino, CA, USA, August 18-20, 2019, pages 1–28. IEEE, 2019.</p>
+<p>[2] AI Engine: Meeting the compute demands of next-generation applications. <a href="https://www.amd.com/en/products/adaptive-socs-and-fpgas/technologies/ai-engine.html" class="uri">https://www.amd.com/en/products/adaptive-socs-and-fpgas/technologies/ai-engine.html</a>. Accessed 5 January 2025.</p>
+<p>[3] AIE-ML trace and profiling. <a href="https://docs.amd.com/r/en-US/am020-versal-aie-ml/AIE-ML-Trace-and-Profiling" class="uri">https://docs.amd.com/r/en-US/am020-versal-aie-ml/AIE-ML-Trace-and-Profiling</a>. Accessed 5 January 2025.</p>
+<p>[4] Mahmoud Alfadel, Armin Kobilica, and Jameleddine Hassine. Evaluation of Halstead and cyclomatic complexity metrics in measuring defect density. In 2017 9th IEEE-GCC Conference and Exhibition (GCCCE), pages 1–9, 2017.</p>
+<p>[5] AMD Ryzen™ AI software. <a href="https://www.amd.com/en/developer/resources/ryzen-ai-software.html" class="uri">https://www.amd.com/en/developer/resources/ryzen-ai-software.html</a>. Accessed 5 January 2025.</p>
+<p>[6] AMD unveils next-gen “Zen 5” Ryzen processors to power advanced AI experiences. <a href="https://www.amd.com/en/newsroom/press-releases/2024-6-2-amd-unveils-next-gen-zen-5-ryzen-processors-to-p.html" class="uri">https://www.amd.com/en/newsroom/press-releases/2024-6-2-amd-unveils-next-gen-zen-5-ryzen-processors-to-p.html</a>, June 2024. Accessed 5 January 2025.</p>
+<p>[7] C. T. Bailey and W. L. Dingee. A software study using Halstead metrics. SIGMETRICS Perform. Eval. Rev., 10(1):189–197, January 1981.</p>
+<p>[8] Oscar Castro, Pierrick Bruneau, Jean-Sebastien Sottet, and Dario Torregrossa. Landscape of high-performance Python to develop data science and machine learning applications. ACM Computing Surveys, 56(3), October 2023.</p>
+<p>[9] Kristof Denolf, Marco Bekooij, Johan Cockx, Diederik Verkest, and Henk Corporaal. Exploiting the expressiveness of cyclo-static dataflow to model multimedia implementations. EURASIP Journal on Advances in Signal Processing, 2007:1–14, 2007.</p>
+<p>[10] Michael Garland, Scott Le Grand, John Nickolls, Joshua Anderson, Jim Hardwick, Scott Morton, Everett Phillips, Yao Zhang, and Vasily Volkov. Parallel computing experiences with CUDA. IEEE Micro, 28(4):13–27, 2008.</p>
+<p>[11] Shikha Goel, Rajesh Kedia, Rijurekha Sen, and M Balakrishnan. EXPRESS: A framework for execution time prediction of concurrent CNNs on Xilinx DPU accelerator. ACM Trans. Embed. Comput. Syst., 24(1), November 2024.</p>
+<p>[12] Nikhil Govil. Applying Halstead software science on different programming languages for analyzing software complexity. In 2020 4th International Conference on Trends in Electronics and Informatics (ICOEI)(48184), pages 939–943, 2020.</p>
+<p>[13] Halstead metrics. <a href="https://radon.readthedocs.io/en/latest/intro.html#halstead-metrics" class="uri">https://radon.readthedocs.io/en/latest/intro.html#halstead-metrics</a>. Accessed 7 January 2025.</p>
+<p>[14] T Hariprasad, G Vidhyagaran, K Seenu, and Chandrasegar Thirumalai. Software complexity analysis using Halstead metrics. In 2017 International Conference on Trends in Electronics and Informatics (ICEI), pages 1109–1113, 2017.</p>
+<p>[15] Charles R. Harris, K. Jarrod Millman, Stefan J. van der Walt, Ralf Gommers, Pauli Virtanen, David Cournapeau, Eric Wieser, Julian Taylor, Sebastian Berg, Nathaniel J. Smith, Robert Kern, Matti Picus, Stephan Hoyer, Marten H. van Kerkwijk, Matthew Brett, Allan Haldane, Jaime Fernandez del Rio, Mark Wiebe, Pearu Peterson, Pierre Gerard-Marchant, Kevin Sheppard, Tyler Reddy, Warren Weckesser, Hameer Abbasi, Christoph Gohlke, and Travis E. Oliphant. Array programming with NumPy. Nature, 585(7825):357–362, September 2020.</p>
+<p>[16] Kaiming He, Xiangyu Zhang, Shaoqing Ren, and Jian Sun. Deep residual learning for image recognition. In Proceedings of the IEEE Conference on Computer Vision and Pattern Recognition (CVPR), June 2016.</p>
+<p>[17] Andreas Klockner, Nicolas Pinto, Yunsup Lee, Bryan Catanzaro, Paul Ivanov, and Ahmed Fasih. PyCUDA and PyOpenCL: A scripting-based approach to GPU run-time code generation. In Proceedings of the 2019 ACM/SIGDA International Symposium on Field-Programmable Gate Arrays, Parallel Computing, pages 157–174. ScienceDirect, 2012.</p>
+<p>[18] Yi-Hsiang Lai, Yuze Chi, Yuwei Hu, Jie Wang, Cody Hao Yu, Yuan Zhou, Jason Cong, and Zhiru Zhang. HeteroCL: A multi-paradigm programming infrastructure for software-defined reconfigurable computing. In Proceedings of the 2019 ACM/SIGDA International Symposium on Field-Programmable Gate Arrays, FPGA ’19, pages 242–251, New York, NY, USA, 2019. Association for Computing Machinery.</p>
+<p>[19] Siu Kwan Lam, Antoine Pitrou, and Stanley Seibert. Numba: a LLVM-based Python JIT compiler. In Proceedings of the Second Workshop on the LLVM Compiler Infrastructure in HPC, LLVM ’15, New York, NY, USA, 2015. Association for Computing Machinery.</p>
+<p>[20] Lukasz Langa and contributors to Black. Black: The uncompromising Python code formatter. <a href="https://github.com/psf/black" class="uri">https://github.com/psf/black</a>. Accessed 5 January 2025.</p>
+<p>[21] Chris Lattner, Mehdi Amini, Uday Bondhugula, Albert Cohen, Andy Davis, Jacques Pienaar, River Riddle, Tatiana Shpeisman, Nicolas Vasilache, and Oleksandr Zinenko. MLIR: Scaling compiler infrastructure for domain specific computation. In 2021 IEEE/ACM International Symposium on Code Generation and Optimization (CGO), pages 2–14, 2021.</p>
+<p>[22] Kevin Lee and Kai-Ting Wang. PyDSL: A Python subset for a better MLIR programming experience (part II). <a href="https://llvm.org/devmtg/2024-10/slides/quicktalks/Wang-PyDSL.pdf" class="uri">https://llvm.org/devmtg/2024-10/slides/quicktalks/Wang-PyDSL.pdf</a>, 2022.</p>
+<p>[23] Maksim Levental. An End-to-End Programming Model for AI Engine Architectures. PhD thesis, University of Chicago, June 2024.</p>
+<p>[24] Maksim Levental, Alok Kamatar, Ryan Chard, Kyle Chard, and Ian Foster. nelli: a lightweight frontend for MLIR, 2023.</p>
+<p>[25] Maksim Levental, Arham Khan, Ryan Chard, Kyle Chard, Stephen Neuendorffer, and Ian Foster. An end-to-end programming model for AI Engine architectures. In Proceedings of the 14th International Symposium on Highly Efficient Accelerators and Reconfigurable Technologies (HEART), HEART ’24, pages 135–136, New York, NY, USA, 2024. Association for Computing Machinery.</p>
+<p>[26] Maksim Levintal. mlir-python-extras. <a href="https://github.com/makslevental/mlir-python-extras" class="uri">https://github.com/makslevental/mlir-python-extras</a>. Accessed 28 December 2024.</p>
+<p>[27] Leibo Liu, Jianfeng Zhu, Zhaoshi Li, Yanan Lu, Yangdong Deng, Jie Han, Shouyi Yin, and Shaojun Wei. A survey of coarse-grained reconfigurable architecture and design: Taxonomy, challenges, and applications. ACM Comput. Surv., 52(6), October 2019.</p>
+<p>[28] Jack Lo, Joseph Melber, Kristof Denolf, Phil James-Roxby, and Samuel Bayliss. Levering MLIR to design for AI Engines on Ryzen™ AI. <a href="https://github.com/Xilinx/mlir-aie/blob/main/docs/conferenceDescriptions/micro24TutorialDescription.md" class="uri">https://github.com/Xilinx/mlir-aie/blob/main/docs/conferenceDescriptions/micro24TutorialDescription.md</a>, April 2024. ACM International Conference on Architectural Support for Programming Languages and Operating Systems (ASPLOS’24) Tutorial.</p>
+<p>[29] Joseph Melber, Kristof Denolf, and Andrew Schmidt. Leveraging the IRON AI Engine API to program the Ryzen™ AI NPU. <a href="https://github.com/Xilinx/mlir-aie/blob/main/docs/conferenceDescriptions/micro24TutorialDescription.md" class="uri">https://github.com/Xilinx/mlir-aie/blob/main/docs/conferenceDescriptions/micro24TutorialDescription.md</a>, Nov 2024. 57th IEEE/ACM International Symposium on Microarchitecture (MICRO’24) Tutorial.</p>
+<p>[30] Jackson Melchert, Keyi Zhang, Yuchen Mei, Mark Horowitz, Christopher Torng, and Priyanka Raina. Canal: A flexible interconnect generator for coarse-grained reconfigurable arrays. IEEE Computer Architecture Letters, 22(1):45–48, 2023.</p>
+<p>[31] mlir-aie: MLIR-based AI Engine toolchain. <a href="https://github.com/Xilinx/mlir-aie" class="uri">https://github.com/Xilinx/mlir-aie</a>. Accessed 5 January 2025.</p>
+<p>[32] MLIR Python bindings. <a href="https://mlir.llvm.org/docs/Bindings/Python/" class="uri">https://mlir.llvm.org/docs/Bindings/Python/</a>. Accessed 28 December 2024.</p>
+<p>[33] Aaftab Munshi. The OpenCL specification. In 2009 IEEE Hot Chips 21 Symposium (HCS), pages 1–314, 2009.</p>
+<p>[34] Intel® distribution of OpenVINO™ toolkit. <a href="https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html" class="uri">https://www.intel.com/content/www/us/en/developer/tools/openvino-toolkit/overview.html</a>. Accessed 8 January 2025.</p>
+<p>[35] Mark Oskin, Frederic T. Chong, and Matthew Farrens. HLS: combining statistical and symbolic simulation to guide microprocessor designs. In Proceedings of the 27th Annual International Symposium on Computer Architecture, ISCA ’00, pages 71–82, New York, NY, USA, 2000. Association for Computing Machinery.</p>
+<p>[36] peano: AI Engine fork of LLVM. <a href="https://github.com/Xilinx/llvm-aie" class="uri">https://github.com/Xilinx/llvm-aie</a>. Accessed 28 December 2024.</p>
+<p>[37] pygount. <a href="https://github.com/roskakori/pygount" class="uri">https://github.com/roskakori/pygount</a>. Accessed 5 January 2025.</p>
+<p>[38] Qualcomm® neural processing SDK for AI. <a href="https://www.qualcomm.com/developer/software/neural-processing-sdk-for-ai" class="uri">https://www.qualcomm.com/developer/software/neural-processing-sdk-for-ai</a>. Accessed 8 Jan 2025.</p>
+<p>[39] radon. <a href="https://github.com/rubik/radon" class="uri">https://github.com/rubik/radon</a>. Accessed 5 January 2025.</p>
+<p>[40] Jonathan Ragan-Kelley. The future of fast code: Giving hardware what it wants. <a href="https://youtu.be/vU3ryvZYlkk?si=Zk-jRdYFqQ3jcbJp" class="uri">https://youtu.be/vU3ryvZYlkk?si=Zk-jRdYFqQ3jcbJp</a>, June 2024. 44th ACM SIGPLAN International Conference on Programming Language Design and Implementation (PLDI’24) Keynote.</p>
+<p>[41] Alejandro Rico, Satyaprakash Pareek, Javier Cabezas, David Clarke, Baris Ozgul, Francisco Barat, Yao Fu, Stephan Munz, Dylan Stuart, Patrick Schlangen, Pedro Duarte, Sneha Date, Indrani Paul, Jian Weng, Sonal Santan, Vinod Kathail, Ashish Sirasao, and Juanjo Noguera. AMD XDNA™ NPU in Ryzen™ AI processors. IEEE Micro, 44(6):73–82, 2024.</p>
+<p>[42] ‘scf’ dialect. <a href="https://mlir.llvm.org/docs/Dialects/SCFDialect/" class="uri">https://mlir.llvm.org/docs/Dialects/SCFDialect/</a>. Accessed 28 December 2024.</p>
+<p>[43] Philipp Schaad, Tal Ben-Nun, and Torsten Hoefler. Boosting performance optimization with interactive data movement visualization. In SC22: International Conference for High Performance Computing, Networking, Storage and Analysis, pages 1–16, 2022.</p>
+<p>[44] Philippe Tillet, H. T. Kung, and David Cox. Triton: an intermediate language and compiler for tiled neural network computations. In Proceedings of the 3rd ACM SIGPLAN International Workshop on Machine Learning and Programming Languages, MAPL 2019, pages 10–19, New York, NY, USA, 2019. Association for Computing Machinery.</p>
+<p>[45] Torch-MLIR. <a href="https://github.com/llvm/torch-mlir" class="uri">https://github.com/llvm/torch-mlir</a>. Accessed 5 January 2025.</p>
+<p>[46] Mingchuan Wu, Ying Liu, Huimin Cui, Qingfu Wei, Quanfeng Li, Limin Li, Fang Lv, Jingling Xue, and Xiaobing Feng. Bandwidth-aware loop tiling for DMA-supported scratchpad memory. In Proceedings of the ACM International Conference on Parallel Architectures and Compilation Techniques, PACT ’20, pages 97–109, New York, NY, USA, 2020. Association for Computing Machinery.</p>
+<p>[47] Xilinx runtime (XRT) architecture. <a href="https://xilinx.github.io/XRT/2024.2/html/index.html" class="uri">https://xilinx.github.io/XRT/2024.2/html/index.html</a>. Accessed 5 January 2025.</p>
+
+
+</section>
+
+
+<div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document" role="doc-endnotes"><h2 class="anchored quarto-appendix-heading">脚注</h2>
+
+<ol>
+<li id="fn1"><p>此处的 DMA 指的是一个物理组件，而不是“直接内存访问”这一动作。<a href="#fnref1" class="footnote-back" role="doc-backlink">↩︎</a></p></li>
+</ol>
+</section></div></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "已复制");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "已复制");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/sadsock\.github\.io");
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+</div> <!-- /content -->
+<footer class="footer">
+  <div class="nav-footer">
+    <div class="nav-footer-left">
+<p>© 2026 SadSock</p>
+</div>   
+    <div class="nav-footer-center">
+      &nbsp;
+    </div>
+    <div class="nav-footer-right">
+      &nbsp;
+    </div>
+  </div>
+</footer>
+
+
+
+
+</body></html>

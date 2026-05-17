@@ -2,6 +2,8 @@
   {
     "listing": "/index.html",
     "items": [
+      "/posts/2026-05-17-magic-number-division-analysis.html",
+      "/posts/2026-05-14-efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface.html",
       "/posts/2026-05-06-tempus-a-temporally-scalable-resource-invariant-gemm-streaming-framework-for-versal-ai-edge.html",
       "/posts/2026-05-04-striking-the-balance-gemm-performance-optimization-across-generations-of-ryzen-ai-npus.html",
       "/posts/2026-04-28-autoppa-automated-circuit-ppa-optimization-via-contrastive-code-based-rule-library-learning.html",
