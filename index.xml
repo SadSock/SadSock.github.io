@@ -10,7 +10,998 @@
 <atom:link href="https://sadsock.github.io/index.xml" rel="self" type="application/rss+xml"/>
 <description></description>
 <generator>quarto-1.9.37</generator>
-<lastBuildDate>Sun, 17 May 2026 00:00:00 GMT</lastBuildDate>
+<lastBuildDate>Wed, 20 May 2026 00:00:00 GMT</lastBuildDate>
+<item>
+  <title>Search Your Block Floating Point Scales!</title>
+  <link>https://sadsock.github.io/posts/2026-05-20-search-your-block-floating-point-scales.html</link>
+  <description><![CDATA[ 
+
+
+
+
+<p>原文版权声明：本文依据公开来源论文 <em>Search Your Block Floating Point Scales!</em> 进行中文翻译整理，仅供学习与研究使用。 我仅提供翻译与网页整理，不拥有原文版权；原文版权归作者及发布方所有。 转载、分发或用于商业用途时，请遵守原论文及原始发布平台的版权规定。</p>
+<p>原文信息：Tanmaey Gupta，Hayden Prairie，Xiaoxia Wu，Reyna Abhyankar，Qingyang Wu，Austin Silveria，Pragaash Ponnusamy，Jue Wang，Ben Athiwaratkun，Leon Song，Tri Dao，Daniel Y. Fu，Chris De Sa。<em>Search Your Block Floating Point Scales!</em>。arXiv:2605.12464v1。</p>
+<p>说明：以下内容按原文句序逐句对应翻译整理。 图注、表注、表格说明、算法和参考文献信息尽量保留原貌；作者名、标题、期刊会议信息不翻译。 原文中的 LaTeX 样式宏已展开为普通可移植写法，代码和算法中的标识符保持原样。</p>
+<p>作者：Tanmaey Gupta；Hayden Prairie；Xiaoxia Wu；Reyna Abhyankar；Qingyang Wu；Austin Silveria；Pragaash Ponnusamy；Jue Wang；Ben Athiwaratkun；Leon Song；Tri Dao；Daniel Y. Fu；Chris De Sa。</p>
+<p>单位：Cornell University, Ithaca, NY, USA；University of California San Diego, La Jolla, CA, USA；Princeton University, Princeton, NJ, USA；Together AI, USA。</p>
+<section id="sec-abstract" class="level1">
+<h1>摘要</h1>
+<p>量化已经成为优化生成式模型推理效率的标准技术，因为它能够支持更快的低精度计算并减少内存传输。 近期，GPU 加速器已经对 microscaling Block Floating Point（BFP）格式提供了一级支持。 标准 BFP 算法通常根据块内绝对值最大的元素来固定选择 scale。 我们观察到，这种 scale 选择在量化误差上并不一定最优。 在本文中，我们提出 <code>ScaleSearch</code>，一种用于选择这些 scale 因子的替代策略。 <code>ScaleSearch</code> 可以与现有量化方法集成，例如 Post Training Quantization 和低精度 attention。 此外，我们还提出 <code>ScaleSearchAttention</code>，一种基于 NVFP4 的加速 attention 算法，它使用 <code>ScaleSearch</code> 并结合改造后的先前技术，以确保因果语言建模几乎没有性能损失。 实验表明，<code>ScaleSearch</code> 在 NVFP4 上可将量化误差降低 27%，并让 Qwen3-8B 在 MATH500 上的语言模型 PTQ 最多提升 15 个点；而 <code>ScaleSearchAttention</code> 则让 Llama 3.1 70B 的 Wikitext-2 困惑度最多下降 0.77。 这些方法在提升量化精度的同时，整体性能与基线保持接近。</p>
+</section>
+<section id="sec-intro" class="level1">
+<h1>1 引言</h1>
+<p>量化在优化生成式模型的推理效率中扮演关键角色，不过要在极低比特宽度下维持精度并不容易。 Block Floating Point（BFP）格式近期相较于定点和浮点格式更受关注，因为它在动态范围、内存效率与计算吞吐之间提供了平衡的折中。 近期进展进一步提高了低比特宽度 BFP 格式的算法精度和硬件支持。 特别是，NVIDIA 的 Blackwell 架构通过 NVFP4 和 MXFP4 microscaling 格式引入了快速 FP4 运算，使得 Tensor Cores 可以直接执行 4-bit 矩阵乘法；与 B200 GPU 上的 FP8 计算相比，其吞吐高 2 倍，而在 B300 上则高 3 倍。 关键问题在于如何最有效地利用这些格式来优化机器学习模型。</p>
+<div id="fig-scale-search" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-scale-search-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/search-your-block-floating-point-scales/ScaleSearch.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-scale-search-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;1: <code>ScaleSearch</code> 会搜索能使块量化误差最小的 block scale。
+</figcaption>
+</figure>
+</div>
+<p>无论是研究框架还是生产框架（例如 TensorRT、vLLM），现有 BFP 实现 <span class="citation" data-cites="tensorrt kwon2023vllm shared_exponents msfp bfp1 quant_survey svdquant">[1], [2], [3], [4], [5], [6], [7]</span> 主要都依赖一个合理的基线：块 scale 由每个块中的最大绝对值决定，以便把数值映射到低精度格式可表示的范围内。 我们观察到，这种做法并不一定最优，而其他 scale 选择可以降低量化误差。</p>
+<p>在本文中，我们提出一个替代方案 <code>ScaleSearch</code>（见图 图&nbsp;1）。 近期的 microscaling BFP 格式，如 NVFP4，引入了更精细的 E4M3 浮点 block scale，因此可以对 scale 进行更细粒度的调优。 基于这一观察，<code>ScaleSearch</code> 通过搜索最优 block scale 来最小化给定分布的量化误差。 <code>ScaleSearch</code> 是架构无关的，可以集成到多种量化流水线中。 我们展示了它在权重的 Post-Training Quantization（PTQ）以及低精度 attention 计算中的收益。</p>
+<p>此外，我们把 FP4 优化扩展到 attention 机制和 KV cache。 由于其二次复杂度，这两部分主导了推理时的内存与计算开销 <span class="citation" data-cites="fa1">[8]</span>。 尽管近期工作已经探索了在 PTQ 和 QAT 中对权重与激活进行 FP4 量化，甚至进行了几乎没有精度损失的全 FP4 训练 <span class="citation" data-cites="fp4train1 fp4train2 fp4train3 blackwell_infer">[9], [10], [11], [12]</span>，原生 FP4 的 attention 和 KV cache 压缩仍然研究不足。 为此，我们提出 <code>ScaleSearchAttention</code>，它扩展了 <code>ScaleSearch</code>，使得 NVFP4 可以用于因果语言建模中的 KV cache 和 attention 量化。 我们利用 <code>ScaleSearch</code> 为 attention 中的 query、key、value 以及 FlashAttention 中的部分 attention matrix 选择 scale 值。 <code>ScaleSearchAttention</code> 使得 <code>QK^T</code> 和 <code>PV</code> 矩阵乘法可以直接使用快速的 NVFP4 Tensor Core 运算，而无需反量化。 为实现几乎为零的模型精度退化，<code>ScaleSearchAttention</code> 进一步结合了 Incoherence Processing 和矩阵分解，以减少 Q 和 K 的离群值及其平均幅值，从而降低量化误差。 我们还采用了 attention-sink-aware 的 mixed-precision cache，其中前几个 token 以及最近的 token 以全精度存储，并在生成足够多 token 后再量化为 NVFP4。</p>
+<p>我们在三种常见 FP4 量化设置上评估 <code>ScaleSearch</code>：权重 PTQ、用于扩散模型生成和因果语言建模的低精度 attention。 对于权重 PTQ，<code>ScaleSearch</code> 在 Qwen3-8B 的 MATH500 上把性能最多提升 15 个点。 对于 FP4 attention，<code>ScaleSearch</code> 在 Mochi 生成的视频评测 VQA-t 上相较 SageAttention3 提升了 14 个点。 <code>ScaleSearchAttention</code> 将 Llama 3.1 70B 的 Wikitext-2 困惑度从 3.4 降到 2.6348，并将 Llama 3.1 8B Instruct 模型在 GPQA Diamond 测试基准上的准确率提升 5 个点。 本文提出的方法在给出量化精度提升的同时，整体性能与基线保持接近。 <code>ScaleSearch</code> 在从 FP32 到 NVFP4 的量化过程中只带来 1.74x 的额外开销，并且实现了 SageAttention3 注意力吞吐的 98.3%。</p>
+<p>总的来说，我们在本文中做出如下贡献：</p>
+<ol type="1">
+<li><p>我们提出 <code>ScaleSearch</code>，一种用于 Block Floating Point 量化的 scale 搜索算法，它通过在相邻的可表示 scale 中做探索，最小化 block 级量化误差。 我们的分析主要基于 NVFP4 的 E4M3 格式，在这种格式下，不同于传统的 max-scaling，<code>ScaleSearch</code> 利用了 block scale 的尾数分辨率来选择能得到最低均方误差的 quantizer。 我们证明，<code>ScaleSearch</code> 在高斯合成数据上可以把量化误差降低 26%，并且能够无缝集成到现有的 PTQ 和 attention 工作流中，持续提升量化模型的性能。</p></li>
+<li><p>我们提出 <code>ScaleSearchAttention</code>，一种协同优化的 FP4 attention 机制，它可以直接在 Tensor Cores 上用 NVFP4 精度执行 (QK^T) 和 (PV) 两个矩阵乘法，而无需任何反量化开销，并以紧凑的 4.5-bit NVFP4 格式存储 KV cache。 <code>ScaleSearchAttention</code> 结合了 <code>ScaleSearch</code> 和其他改造过的量化技术，使端到端 FP4 推理在保持几乎零精度退化的同时成为可能。</p></li>
+<li><p>我们在大规模语言模型上进行了系统实验，以评估 <code>ScaleSearch</code> 和 <code>ScaleSearchAttention</code> 的有效性。 结果表明，相比 SageAttention3 等先前 FP4 基线，我们的方法在语言和扩散模型上都能在 perplexity 和基准准确率方面持续带来收益。</p></li>
+</ol>
+<p>该框架的源代码已开放在 <a href="https://github.com/mgrailoo/TEMPUS" class="uri">https://github.com/mgrailoo/TEMPUS</a>。</p>
+</section>
+<section id="sec-related-work" class="level1">
+<h1>2 相关工作</h1>
+<section id="面向-dnn-的块缩放量化" class="level2">
+<h2 class="anchored" data-anchor-id="面向-dnn-的块缩放量化">面向 DNN 的块缩放量化</h2>
+<p>量化数值表示格式是在精度、动态范围和硬件支持之间做取舍的关键设计选择。 定点数 <span class="citation" data-cites="fixed_point_1 fixed_point2">[13], [14]</span> 的硬件实现很快，但其有限的动态范围不足以表示 DNN 模型中的离群值。 浮点数 <span class="citation" data-cites="fp8_nvidia">[15]</span> 另一方面需要在 MAC 运算中对尾数做对齐，因此计算开销较高，而且窄格式的动态范围也更小。 因此，Block Floating Point（BFP）格式近年来成为这两种极端之间很有吸引力的折中方案 <span class="citation" data-cites="bfp1 msfp fast">[4], [5], [16]</span>。 BFP 的核心思想是：张量块内的元素往往具有相近的幅值，因此可以用共享指数和各自的整数尾数来表示。 这种共享指数结构显著减少了存储开销，同时保留了浮点表示的大部分动态范围灵活性，并且能够使用整数矩阵乘法流水线。</p>
+<p>近期进展催生了 MXFP4、NVFP4 和 MXFP8 等 microscaled BFP 格式 <span class="citation" data-cites="mxfp4 nvfp4">[17], [18]</span>，它们面向现代加速器进一步改进了传统块缩放。 这些格式引入了紧凑的逐块 scale 编码，专门优化 Tensor Core 运算，使得无需反量化就能完成高效低比特运算。 与早期只存储指数位的 BFP 变体不同，NVFP4 <span class="citation" data-cites="nvfp4">[18]</span> 还把尾数位纳入 scale 表示，从而在很小开销下提供更细的粒度和更好的动态范围。 标准 BFP 和 microscaled 格式都采用基于最大值的缩放方式，也就是从块内最大绝对值推导 block scale，以保证数值可表示 <span class="citation" data-cites="msfp bfp1 quant_survey">[4], [5], [6]</span>。</p>
+</section>
+<section id="生成式模型量化" class="level2">
+<h2 class="anchored" data-anchor-id="生成式模型量化">生成式模型量化</h2>
+<p>量化是一项基础技术，它通过降低不同模型组件的数值精度，来优化内存传输、矩阵乘法速度以及端到端训练时间等多个维度。 总体上，量化方法可分为三类：post-training quantization（PTQ）、quantization-aware training（QAT）以及 fully quantized training。 GPTQ <span class="citation" data-cites="gptq">[19]</span>、AWQ <span class="citation" data-cites="awq">[20]</span> 和 ZeroQuant <span class="citation" data-cites="zeroquant">[21]</span> 等 PTQ 算法会在训练后量化模型权重，通常借助二阶误差度量、感知激活的启发式方法或离群通道处理来尽量减小退化。 SmoothQuant <span class="citation" data-cites="smoothquant">[22]</span> 通过学习逐通道仿射变换来降低激活方差，把 PTQ 扩展到激活上。 Qserve <span class="citation" data-cites="qserve">[23]</span> 和 llm.int8() <span class="citation" data-cites="llmint8">[24]</span> 等工作展示了针对不同组件或离群值的混合精度量化。 QuIP <span class="citation" data-cites="quip">[25]</span> 通过自适应舍入和 incoherence processing 推进了 PTQ，而 QuIP# <span class="citation" data-cites="quipsharp">[26]</span> 则引入了 Hadamard 变换和 E8 格向量量化。 我们的方法中的 incoherence processing 就借鉴自这些工作。 相较之下，QAT <span class="citation" data-cites="qat1 qat2">[27], [28]</span> 会在训练期间把量化模拟纳入前向传播，使低比特推理更能抵抗量化损失。 最后，fully quantized training 即同时量化权重、激活和梯度，随着低比特数值格式的发展而变得可行 <span class="citation" data-cites="fp4train1 fp4train2">[9], [10]</span>。 近期的创新，例如使用 NVFP4 和 MXFP4 格式的 FP4 训练，也使得可以在 4-bit 浮点硬件上完成训练和推理。</p>
+</section>
+<section id="kv-缓存压缩" class="level2">
+<h2 class="anchored" data-anchor-id="kv-缓存压缩">KV 缓存压缩</h2>
+<p>随着 KV cache 随序列长度和 batch size 线性增长，业界投入了大量工作来降低它的内存占用。 稀疏 transformer <span class="citation" data-cites="spa1 spa2">[29], [30]</span>、低秩近似 <span class="citation" data-cites="performers">[31]</span> 和共享 KV head 方法 <span class="citation" data-cites="mqa gqa mhla">[32], [33], [34]</span> 等架构变体，都能从机制上减小缓存大小。 在另一条使用 KV cache 子集的方向上，StreamingLLM <span class="citation" data-cites="spa5">[35]</span> 只保留初始 token 和最近 token，而 Gist Tokens 和 SnapKV <span class="citation" data-cites="gist snapkv">[36], [37]</span> 则基于学习方法把初始 prompt 压缩成 “重要 token”。 H2O <span class="citation" data-cites="h20">[38]</span>、RocketKV <span class="citation" data-cites="rocketkv">[39]</span> 和 FastGen <span class="citation" data-cites="discard">[40]</span> 则采用另一种思路：动态识别关键 token 并将其淘汰。 另一些方法 <span class="citation" data-cites="minicache kvsharer">[41], [42]</span> 会在层之间共享 KV cache，并且还可能存储相对向量。</p>
+<p>既有 KV-cache 量化方法会受到 attention 动态性和离群通道的挑战，因此慢速压缩方式，例如自适应舍入和 lattice codebook，对于高吞吐推理并不现实。 Token-wise 方法，如 ZipCache <span class="citation" data-cites="zipcache">[43]</span> 和 WKVQuant <span class="citation" data-cites="wkvquant">[44]</span>，会把误差局部化；而 channel-wise 方法，如 KVQuant <span class="citation" data-cites="kvquant">[45]</span> 和 KIVI <span class="citation" data-cites="kivi">[46]</span>，则更能适配幅值变化。 误差修正技术包括 Gear 的低秩建模 <span class="citation" data-cites="gear">[47]</span> 和 QuaRot 的正交变换 <span class="citation" data-cites="quarot">[48]</span>。 混合精度策略，例如 KIVI <span class="citation" data-cites="kivi">[46]</span>、IntactKV <span class="citation" data-cites="intactkv">[49]</span> 和 KVTuner <span class="citation" data-cites="kvtuner">[50]</span>，会静态地给关键 token 分配更高精度，但其固定启发式和运行时复杂度限制了可扩展性。 动态方法（MiKV <span class="citation" data-cites="mikv">[51]</span>、ZipCache <span class="citation" data-cites="zipcache">[43]</span>）则会带来额外开销，并且与静态图推理不兼容。</p>
+</section>
+</section>
+<section id="sec-background" class="level1">
+<h1>3 FP4 格式背景</h1>
+<p>4-bit 浮点运算如今已被用于支持超低精度下高内存效率和高计算效率的推理与训练。 这里讨论的所有 FP4 格式都遵循标准的 E2M1 结构：1 个符号位、2 个指数位和 1 个尾数位。 这个 FP4 格式可以表示如下实数集：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathbb%7BR%7D_%7B%5Ctext%7BE2M1%7D%7D%20=%20%5C%7B0,%20%5Cpm%200.5,%20%5Cpm%201,%20%5Cpm%201.5,%20%5Cpm%202,%20%5Cpm%203,%20%5Cpm%204,%20%5Cpm%206%5C%7D.%0A"></p>
+<p>Block Floating Point 格式已经被广泛用于 DNN 和生成式模型量化，因为它在精度、动态范围和硬件加速之间提供了理想折中。 BFP 格式的标准底层结构，是给一组低精度浮点数共享一个仅由指数构成的 scale 因子。 这个共享 scale 负责把未量化的数投影到低精度格式可表示的数值范围内。 这种 “校准” 的标准做法，是把 scale 计算为块中最大值与低精度格式可表示最大值的比值。</p>
+<p>NVIDIA Blackwell 架构为两种 4-bit block floating-point 格式提供了支持：<code>NVFP4</code> 和 <code>MXFP4</code>。 这两种格式都会把一个 micro-block，也就是向量中固定长度的一段，表示为 FP4 数值向量乘以一个单独的 8-bit scale 因子。</p>
+<section id="nvfp4" class="level3">
+<h3 class="anchored" data-anchor-id="nvfp4">NVFP4</h3>
+<p>NVFP4 <span class="citation" data-cites="nvfp4">[18]</span> 是一种硬件加速的 FP4 格式，它作用于 16 个值组成的 micro-block，每个 micro-block 共享一个存储为 8-bit E4M3 浮点数的 scale 因子。 设 (<em>{} </em>+) 为该 FP8 格式中可表示的正 scale 集合。 那么，NVFP4 中可表示的 block 可写为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0AV_%7B%5Ctext%7BNVFP4%7D%7D%20=%20%5C%7B%0A%20%20%20%20s%20%5Ccdot%20q%20%5Cmid%0A%20%20%20%20q%20%5Cin%20%5Cmathbb%7BR%7D_%7BE2M1%7D%5E%7B16%7D,%20%5C,%20s%20%5Cin%20%5Cmathbb%7BR%7D_%7B%5Ctext%7BUE4M3%7D%7D%0A%5C%7D%20%5Csubset%20%5Cmathbb%7BR%7D%5E%7B16%7D.%0A"></p>
+<p>对于张量 (X ^{N D})（其中 (D) 能被 16 整除），NVFP4 会把每一行按长度为 16 的非重叠 block 进行量化，从而得到一对 ((Q,S))：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0AQ%20%5Cin%20%5Cmathbb%7BR%7D_%7B%5Ctext%7BE2M1%7D%7D%5E%7B%5Ccdots%20%5Ctimes%20N%20%5Ctimes%20D%7D,%20%5Cqquad%20S%20%5Cin%20%5Cmathbb%7BR%7D_%7B%5Ctext%7BUE4M3%7D%7D%5E%7B%5Ccdots%20%5Ctimes%20N%20%5Ctimes%20(D/16)%7D.%0A"></p>
+<p>这相当于平均每个数 4.5 bit。</p>
+<p><strong>图：VLLM 如何舍入到 NVFP4 的伪代码。下面的代码是对 <code>vllm/csrc/quantization/fp4/nvfp4_utils.cuh</code> 中舍入逻辑的简化。</strong></p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1" style="background: #f1f3f5;"><pre class="sourceCode c code-with-copy"><code class="sourceCode c"><span id="cb1-1"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// input float SFScaleVal is global scale</span></span>
+<span id="cb1-2"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// vecMax = max of abs of input vector</span></span>
+<span id="cb1-3"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">float</span> SFValue <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> SFScaleVal <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> </span>
+<span id="cb1-4">  <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>vecMax <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span> __frcp_rz<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span><span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">6.0</span><span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">f</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">));</span></span>
+<span id="cb1-5">__nv_fp8_e4m3 tmp <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> __nv_fp8_e4m3<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>SFValue<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb1-6"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">float</span> SFValue <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> <span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">float</span><span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>tmp<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span>
+<span id="cb1-7"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">float</span> outputScale <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span> SFValue <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">==</span> <span class="dv" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">?</span> <span class="fl" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">0.0</span><span class="bu" style="color: null;
+background-color: null;
+font-style: inherit;">f</span> <span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">:</span> </span>
+<span id="cb1-8">  __frcp_rz<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>SFValue<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">*</span>__frcp_rz<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>SFScaleVal<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">));</span></span>
+<span id="cb1-9"><span class="co" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">// set fp2Vals = input vec * outputScale</span></span>
+<span id="cb1-10"><span class="dt" style="color: #AD0000;
+background-color: null;
+font-style: inherit;">uint32_t</span> e2m1Vec<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">=</span>fp32_vec_to_e2m1<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">(</span>fp2Vals<span class="op" style="color: #5E5E5E;
+background-color: null;
+font-style: inherit;">);</span></span></code></pre></div></div>
+<p>要把一个实数 micro-block 向量 (x ^{16}) 量化（round）到 NVFP4，标准做法是先在做完行、列或张量级 global scale 缩放之后，计算一个共享 scale (s <em>{})，然后得到向量 (q </em>{FP4}^{16})：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0As%20=%20%5Coperatorname%7Bround%7D_%7B%5Ctext%7BUE4M3%7D%7D%5Cleft(%20%5Cfrac%7B%5C%7C%20x%20%5C%7C_%7B%5Cinfty%7D%7D%7B6.0%7D%20%5Cright),%0A%5Cqquad%0Aq_i%20=%20%5Coperatorname%7Bround%7D_%7B%5Ctext%7BE2M1%7D%7D%5Cleft(%20%5Cfrac%7Bx_i%7D%7Bs%7D%20%5Cright).%0A"></p>
+<p>这里，(6.0) 是 (_{}) 中可表示的最大幅值，(<em>F) 表示向格式 (F) 的普通最近邻舍入，而无穷范数 (| x |</em>{} = _i |x|) 则是输入中最大绝对值。 完成这些操作所需的基本算术步骤，也就是求绝对值最大值、除以 6、再除以 scale，通常都在 FP32 中完成。 上面的代码图 1 就展示了这一点，它是从 vLLM 代码库 <span class="citation" data-cites="kwon2023vllm">[2]</span> 中略作简化得到的；这段代码可以代表当前对 NVFP4 舍入的标准做法。</p>
+<p>要把整个张量量化，标准做法只是把这套舍入算法独立地应用到张量中每个长度为 16 的 block 上。</p>
+<p><strong>反量化</strong> 会通过下式重建全精度张量：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Chat%7Bx%7D_i%20=%20%5Coperatorname%7Bdecode%7D_%7B%5Ctext%7BE2M1%7D%7D(q_i)%20%5Ccdot%20s%0A"></p>
+<p>或者写成矩阵形式，得到 ( ^{N D})：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Chat%7BX%7D%20=%20D(Q,S)=%5Coperatorname%7Bdecode%7D(Q)%20%5Codot%20%5Coperatorname%7BBroadcast%7D(S)%0A"></p>
+<p>其中，((S) ^{N D}) 会把每个 (s_g) 扩展到它对应的 block 上，而 () 表示逐元素乘法。 但需要注意的是，在通常使用 FP4 Tensor Core 的运算里，不会显式做反量化：硬件会直接使用 NVFP4 值来完成低精度矩阵乘法。</p>
+</section>
+<section id="mxfp4" class="level3">
+<h3 class="anchored" data-anchor-id="mxfp4">MXFP4</h3>
+<p>MXFP4 格式沿用相同的 4-bit E2M1 编码，但每个 block 使用更大的 32 值分组，并配合更简单的二的幂 scale 因子。 具体来说，它使用 UE7M0 8-bit 浮点格式，而不是 NVFP4 所用的 UE4M3 格式；除此之外，量化与反量化算法完全相同。 NVFP4 由于 block 更小且 FP8 scale 精度更高，实践中通常能获得更低的量化误差和更好的精度保持，但代价是动态范围更差，并且每个数的 bit 开销会稍微高一点。</p>
+</section>
+</section>
+<section id="sec-scalesearch" class="level1">
+<h1>4 ScaleSearch</h1>
+<p>标准的做法，是只根据输入向量 (x) 的最大幅值来选择 scale。 这显然不是最优的，因为它并不能保证找到在 (V_{}) 中距离 (x) 最近的向量，不过大家通常把这种 scale 选择视为“足够接近最优”的启发式。 出乎意料的是，我们会在这一节里看到，它可能明显次优，而其他 scale 能在合成随机向量和真实神经网络数据上给出更低的均方误差。</p>
+<p><strong>算法 1：NVFP4 Scale Search</strong></p>
+<pre class="text"><code>Input: Block x in R^16, search range [f_min, f_max]
+Output: Best scale s*, fp4 vector q*, best offset f*
+x_max &lt;- max_{i in {1,...,16}} |x_i|
+s &lt;- round_{UE4M3}(x_max * (1.0/6.0))   # Standard scale
+s_int8 -&gt; reinterpret(s, int8)
+l* &lt;- +infty                            # Initialize best loss
+for f = f_min to f_max:
+    if 1 &lt;= s_int8 + f &lt;= 127:          # If scale in range
+        s^(f) &lt;- reinterpret(s_int8 + f, fp8_UE4M3)
+        q_i &lt;- round_E2M1(x_i / s^(f)), for all i   # Quantize
+        \hat{x}_i &lt;- q_i * s^(f), for all i         # Dequantize
+        l &lt;- sum_{i=1}^{16} (x_i - \hat{x}_i)^2      # Compute loss
+        if l &lt; l*:                                  # Update best scale
+            l* &lt;- l
+            s* &lt;- s^(f)
+            q* &lt;- q
+return s*, q*, f*</code></pre>
+<p>我们注意到，NVFP4 里额外的 scale 尾数位预算，为 block scale 因子的细粒度搜索提供了机会，而不是只使用基于块最大值的默认 scale。 我们通过给默认 scale (s) 加上偏移量，并选择能使 block 的量化误差最小的 scale，来实现这一搜索机制。 我们聚焦 NVFP4 格式来实现 <code>ScaleSearch</code>，因为据我们所知，它是唯一一种同时具有浮点 scale 因子并且已经被现代硬件支持用于加速计算的格式。 在此基础上，我们提出 <code>ScaleSearch</code>，它通过搜索多个 FP8 scale 来降低 micro-block 浮点量化误差。</p>
+<p><code>ScaleSearch</code> 的核心算法思想，是搜索若干个靠近标准最大值 scale 的候选值。 具体来说，如果 (s _{}) 表示第 3 节中的“标准” scale，那么我们考虑那些相对 (s) 偏移了整数 (f) 的 scale (s^{(f)})：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0As%5E%7B(f)%7D%20=%20%5Coperatorname%7Breinterpret%7D(%5Coperatorname%7Breinterpret%7D(s,%20%5Ctext%7Bint8%7D)%20+%20f,%20%5Ctext%7Bfp8%7D_%7B%5Ctext%7BUE4M3%7D%7D).%0A"></p>
+<p>也就是说，(s^{(0)} = s)，(s^{(1)}) 是比 (s) 大的最小 UE4M3 值，(s^{(-1)}) 是比 (s) 小的最大 UE4M3 值，依此类推，使得：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Ccdots%20%3C%20s%5E%7B(-2)%7D%20%3C%20s%5E%7B(-1)%7D%20%3C%20s%5E%7B(0)%7D%20%3C%20s%5E%7B(1)%7D%20%3C%20s%5E%7B(2)%7D%20%3C%20%5Ccdots.%0A"></p>
+<p><code>ScaleSearch</code> 会在 (f_{}) 与 (f_{}) 之间穷举所有偏移 (f)，寻找能最小化（均方）量化误差的那个 scale。 NVFP4 的完整算法见算法 1；这套算法也很容易改写成支持其他 micro-block 浮点格式的版本。</p>
+<p>显然，如果我们令 (f_{} = -127) 且 (f_{} = +127)，即对所有 scale 做穷举搜索，那么算法 1 一定能找到与输入 (x) 最近的可表示向量。 但是，这样做的计算代价会很高。 在下一小节中，我们会通过合成数据和真实数据上的实验说明，只搜索一小部分 scale 偏移就足以显著降低误差，并且已经非常接近最优 MSE。</p>
+<section id="synthetic-validation" class="level3">
+<h3 class="anchored" data-anchor-id="synthetic-validation">Synthetic Validation</h3>
+<p>我们首先在合成数据上测试这一方法：生成一个值服从标准高斯分布的大型 FP32 张量，并使用算法 1 在不同搜索范围下把它量化到 NVFP4。 这里被搜索的 scale 数量等于 (f_{} - f_{} + 1)，而我们选取的范围满足 (f_{} = 1 - f_{})。 图 图&nbsp;2 展示了这个张量的量化均方误差（MSE）：随着搜索的 scale 数量增加，量化误差逐渐下降，直到搜索范围继续扩大也不再带来额外收益。 在这些合成数据上，MSE 从 0.0990 降到 0.0066，约降低了 25%。</p>
+<div id="fig-mse" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-mse-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/search-your-block-floating-point-scales/mse_vs_search_range.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mse-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;2: 单位高斯张量的量化 MSE。
+</figcaption>
+</figure>
+</div>
+<section id="offset-distribution" class="level4">
+<h4 class="anchored" data-anchor-id="offset-distribution">Offset distribution</h4>
+<p>为了压缩搜索范围，我们进一步考察不同 block 选择的 offset 分布。 图 图&nbsp;3 展示了通过穷举搜索得到的 offset 经验分布。 对于一个高斯采样的张量，这个分布呈现双峰结构，两条曲线大致以 offset 0 和 4 为中心。 同一张图还画出了从 Llama 3.1 8B 模型中取出的一个真实 Key state tensor 的分布，说明这种行为在真实数据上也会持续存在。 这表明，针对高斯采样张量得到的 scale search 分析，也可以安全地应用到真实模型张量的量化中，因为它们的 offset 分布非常相似。 基于这个经验分析，我们为真实模型量化流程选择 (f_{} = -2) 到 (f_{} = +6) 的 offset 搜索范围，并在本文后续的 NVFP4 实验中一直沿用它。</p>
+<div id="fig-histogram" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-histogram-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/search-your-block-floating-point-scales/scale_offset_comparison_BLOCK_SIZE_16.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-histogram-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;3: 高斯分布和真实 key state 张量在 NVFP4 格式下的 offset 分布。
+</figcaption>
+</figure>
+</div>
+<p>这种分布的直觉是：默认的 block scale（offset 0）被选得恰好能让最大幅值元素用最大的 FP4 数值 6（或 -6）表示时误差很小。 offset 接近 0 的受欢迎程度，对应的是这样一种量化：最大幅值元素会被表示成 6（或 -6）。 但最大幅值元素也可以被存成 4（或 -4），也就是第二大的 FP4 数值。</p>
+<p>这时，我们希望 scale 大约比“默认” block scale 大 (1.5x = 6/4)，以补偿最大幅值元素是用 4 而不是 6 存储这一事实。 offset 大约为 4 或 5 时，通常就对应大约 (1.5x) 的因子：举例来说，E4M3 数值 1.0 对应的 bit pattern 是 0 1000 000 = 64，而在此基础上加 4 后变成 0 1000 100 = 68，对应的数值是 1.5。 图 图&nbsp;3 中 4 和 5 附近的模式，就对应于最大幅值元素会被表示成 4（或 -4）的量化情形。 不存在用 3（或 -3）来表示最大幅值元素的“第三个模式”，因为这样做不会比用 6（或 -6）并把 scale 减半更有优势。</p>
+<p>上述考虑具有普适性，并不依赖于某个特定的数据分布。 这一点也被我们的经验观察所证实：图 图&nbsp;3 中出现的 mode，会同时出现在合成高斯张量和真实激活张量上。</p>
+</section>
+<section id="other-formats" class="level4">
+<h4 class="anchored" data-anchor-id="other-formats">Other formats</h4>
+<p><code>ScaleSearch</code> 可以用于任何 block 量化格式，其收益大小取决于所用的 scale 和 value 格式。 我们针对多种配置做了模拟实验，考察不同 exponent 位数和 mantissa 位数下的 scale 与 value 格式。 图 图&nbsp;4 展示了 <code>ScaleSearch</code> 在不同 scale 表示位数下的百分比提升，而 value 格式固定为 E2M1，也就是 NVFP4 的配置。 图 图&nbsp;4 也展示了当 scale 格式固定为 E4M3（与 NVFP4 相同）时，不同 value 表示位数下的结果。 <code>ScaleSearch</code> 最多可以把量化误差降低约 80%，而对 NVFP4 格式尤其可以降低 27%。 我们还研究了 <code>ScaleSearch</code> 在标准化 MXFP 格式上的效果（图 图&nbsp;4），并观察到：对于使用 E2M3 value 的 MXFP6，MSE 下降 11%；对于 MXFP4，MSE 下降 8%。</p>
+<div id="fig-search-improvements" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-search-improvements-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/search-your-block-floating-point-scales/search_improvements_combined.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-search-improvements-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;4: <code>ScaleSearch</code> 在不同 scale 和 value 组合下的模拟百分比提升。(a) 固定 value 格式为 E2M1，扫描 scale 表示。(b) 固定 scale 格式为 E4M3，扫描 value 表示。(c) 固定 scale 格式为 E8M0，扫描 MXFP value 表示。标准格式用红色标出。
+</figcaption>
+</figure>
+</div>
+<p>我们进一步注意到，对于最近的低精度格式而言，<code>ScaleSearch</code> 的表现更好，原因有两个。 第一，我们观察到，<code>ScaleSearch</code> 的收益在更小的 block size 下更明显。 图 图&nbsp;6 表明，随着 block size 增大，search 与 no-search 情况之间的 MSE 差距会缩小。 先前的量化方法往往使用更大的 block size，从按列或按行到按整个张量缩放都有，这会削弱 <code>ScaleSearch</code> 的收益。 第二，正如图 图&nbsp;3 所示，最有利的搜索位置通常就在 max-abs scale (s) 附近，而 MXFP4 中可表示的 scale 值在更大的范围内分布得更稀疏，因此真正“靠近” (s) 的候选更少。 这一点在图 图&nbsp;5 中可以直接看到：在 MXFP4 scaling 下，实际上只会用到两个 offset，而且最常见的选择是没有 offset。</p>
+<div id="fig-mxfp4" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-mxfp4-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/search-your-block-floating-point-scales/image.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-mxfp4-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;5: MXFP4 格式下的高斯数据 offset 分布。
+</figcaption>
+</figure>
+</div>
+<div id="fig-block-size" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-block-size-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/search-your-block-floating-point-scales/mse_vs_blocksize_comparison_log.png" class="img-fluid figure-img" style="width:60.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-block-size-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;6: 随着 block size 增大，<code>ScaleSearch</code> 的优势会减弱。
+</figcaption>
+</figure>
+</div>
+</section>
+</section>
+<section id="应用于语言建模" class="level3">
+<h3 class="anchored" data-anchor-id="应用于语言建模">应用于语言建模</h3>
+<p>我们把 <code>ScaleSearch</code> 扩展为 <code>ScaleSearchAttention</code>，它是一个端到端的 attention 方法，通过构造一个没有任何反量化开销的、硬件感知型流水线，来优化推理中的 attention 计算。 attention 层中的所有张量（(Q,K,P,V)）都被量化到 NVFP4 格式，并且直接使用带 FP32 accumulator 的 NVFP4 Tensor Core 进行乘法，从而获得更高吞吐。 除了计算收益之外，这还会把 KV cache 以 NVFP4 格式（4.5 bit）存储，从而降低内存占用。 (Q,K,P,V) 的 block scale 会在 row-wise scaling 之后通过 <code>ScaleSearch</code> 计算出来，而量化则沿着矩阵乘法的 reduction 维度进行，这受到 NVFP4 MMA 指令要求的约束 <span class="citation" data-cites="scale_dims">[52]</span>。 为了缩小与未量化模型之间的精度差距，<code>ScaleSearchAttention</code> 在 <code>ScaleSearch</code> 之外又集成了两种额外技术。</p>
+<div id="fig-ssa" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-ssa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/search-your-block-floating-point-scales/ssa.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-ssa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;7: <code>ScaleSearchAttention</code> 的推理流程示例：在 prefill 阶段，已经处理了 (n) 个 token（满足 (n % B=B-1)）。混合精度 K 先与 Q 通过大部分 nvFP4 Tensor Core 指令相乘，结果 P 以 FP32 累积。随后 P 再次量化，并与 V 进行混合精度乘法。新采样 token 对应的 Key 和 Value 状态会补全大小为 B 的 block，然后被量化并存入压缩后的 KV cache。
+</figcaption>
+</figure>
+</div>
+<section id="incoherence-processing-with-magnitude-reduction" class="level4">
+<h4 class="anchored" data-anchor-id="incoherence-processing-with-magnitude-reduction">Incoherence Processing with magnitude reduction</h4>
+<p>QuIP <span class="citation" data-cites="quip">[25]</span>、QuIP# <span class="citation" data-cites="quipsharp">[26]</span> 和 QuaRot <span class="citation" data-cites="quarot">[48]</span> 等多个先前工作，都把 Incoherence Processing（IP）作为一种降低待量化张量离群值的原则性方法。 按照 QuIP# <span class="citation" data-cites="quipsharp">[26]</span> 的做法，我们使用 Hadamard 矩阵 (H) 来变换 (Q) 和 (K) 矩阵，同时保持 attention score 不变，并降低量化误差。 在传统 IP 之外，我们还实现了一个额外的变换，以降低投影后的 query（(Q)）和 key（(K)）表示的平均平方幅值，因为这会直接降低量化误差。 具体来说，我们引入如下两个线性变换：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0AQ'%20=%20Q%20R%5E%7B-T%7D,%20%5Cqquad%20K'%20=%20K%20R,%0A"></p>
+<p>其中 (R ^{d d}) 是一个可逆变换。 这个变换会保留 attention score，同时降低 query（(Q)）和 key（(K)）的量化误差：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0AQ'%20%7BK'%7D%5E%5Ctop%20=%20(Q%20R%5E%7B-T%7D)(K%20R)%5E%5Ctop%20=%20Q%20R%5E%7B-T%7D%20R%5E%5Ctop%20K%5E%5Ctop%20=%20Q%20K%5E%5Ctop.%0A"></p>
+<p>这些公式的推导，以及它们在某种意义上最小化投影后 (Q) 和 (K) 矩阵平均平方幅值的证明，都放在附录中；这里为了简洁起见并且因为它在某种意义上与我们的核心贡献 <code>ScaleSearch</code> 相对独立，所以不再展开。</p>
+</section>
+<section id="attention-sink-aware-mixed-precision-cache" class="level4">
+<h4 class="anchored" data-anchor-id="attention-sink-aware-mixed-precision-cache">Attention-sink-aware mixed-precision cache</h4>
+<p>Attention sink 分析 <span class="citation" data-cites="spa5">[35]</span> 表明，attention score 会集中到上下文中最近的 “local” token 以及最初的 token 上。 基于这个观察，一些先前的 KV cache 压缩方法，例如 KVQuant <span class="citation" data-cites="kvquant">[45]</span> 和 IntactKV <span class="citation" data-cites="intactkv">[49]</span>，会把对应于初始 token 和 “pivot” token 的 KV cache 以高精度保留。 在此基础上，<code>ScaleSearchAttention</code> 使用 mixed-precision attention 计算：整个 attention matrix（(QK^T)）按大小为 (B) 的 block 划分，最前面的 block 和最后一个（最新的）block 用高精度计算，其余 block 则用更低精度计算。 这通过把一个大小为 (O(B)) 的常量 KV cache 以未量化形式存储来实现。 这样做不会随着上下文或生成长度增长，因此不会让推理变得更偏向内存瓶颈。 block size (B) 可以根据给定的内存和计算资源，在性能最优性方面进行调节。 唯一要求是 block 至少要有 16 个 token，因为 V 是沿 token 维度量化的，而 NVFP4 的量化以 16 个一组进行。</p>
+</section>
+<section id="scalesearchattention-工作流程" class="level4">
+<h4 class="anchored" data-anchor-id="scalesearchattention-工作流程"><code>ScaleSearchAttention</code> 工作流程</h4>
+<p>图 图&nbsp;7 展示了 <code>ScaleSearchAttention</code> 的实现与工作流程，这里给出的推理示例位于 prefill 阶段，此时已经处理了 (n) 个 token（满足 (n % B=B-1)）。 与这些 (n) 个 token 对应的 mixed-precision KV cache 中，第一块和最后那个不完整 block（包含 (B-1) 个 token）都以全精度形式存储，而其余 KV cache 则处于 NVFP4 格式。 量化后的 K 会与量化后的 Q 通过 nvFP4 Tensor Core 指令相乘，而全精度矩阵乘法则通过高精度 matmul 指令完成。 由于未量化的值不会随着上下文长度增长，绝大多数计算都可以在快速的 nvFP4 Tensor Core 上完成，而这些运算会把结果累积到 FP32 中。 两个矩阵乘法的结果会拼接起来组成 (QK^T)，随后用 softmax 计算概率。 接着 P 矩阵还会进一步量化，并与 V 做一次 mixed-precision 乘法，过程与 (QK^T) 类似；唯一的区别是 V 矩阵是沿行划分的，因此 P 矩阵需要沿列切分，才能分别执行高精度和低精度的部分矩阵乘法，最后再把它们加起来得到 (PV) 矩阵。 新采样 token 对应的 Key 和 Value 状态会分别拼接到未完成的 K 和 V block 末尾，完整 block 再量化成 nvFP4 并存为压缩后的 KV cache。 由于所有矩阵都被量化，而且 nvFP4 Tensor Core 会在 FP32 中累积，所以这里不会有反量化步骤。</p>
+</section>
+</section>
+</section>
+<section id="sec-scale_search_integration" class="level1">
+<h1>5 实验</h1>
+<p>我们通过验证 <code>ScaleSearch</code> 在数值稳定性和最小开销方面的改进，来评估它的影响。 首先，我们考察它在语言模型 PTQ 和扩散模型超低精度 attention 中的质量提升。 接着，我们对比它与其他低精度 attention 方法的吞吐，以说明 <code>ScaleSearch</code> 的额外开销很小。 最后，我们评估 <code>ScaleSearchAttention</code> 在语言模型上的表现。</p>
+<section id="sec-attention" class="level2">
+<h2 class="anchored" data-anchor-id="sec-attention"><code>ScaleSearch</code></h2>
+<div id="tbl-ptq" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-ptq-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;1: <code>ScaleSearch</code> 作为 PTQ 技术，在若干通用能力基准上的评估结果，5 次运行取平均（MMLU 只运行一次）。数值越高越好，粗体为最佳。
+</figcaption>
+<div aria-describedby="tbl-ptq-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+<col style="width: 16%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">模型</th>
+<th style="text-align: left;">方法</th>
+<th style="text-align: right;">GPQA</th>
+<th style="text-align: right;">MATH-500</th>
+<th style="text-align: right;">AIME-120</th>
+<th style="text-align: right;">MMLU</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">DeepSeek-R1-Distill-Qwen-1.5B</td>
+<td style="text-align: left;">Baseline</td>
+<td style="text-align: right;">32.6 (3.2)</td>
+<td style="text-align: right;">64.6 (1.4)</td>
+<td style="text-align: right;">24.5 (2.3)</td>
+<td style="text-align: right;">48.0</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">NVFP4</td>
+<td style="text-align: right;">30.4 (4.2)</td>
+<td style="text-align: right;">51.6 (2.9)</td>
+<td style="text-align: right;">18.7 (1.4)</td>
+<td style="text-align: right;">45.2</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>ScaleSearch</code></td>
+<td style="text-align: right;"><strong>31.3</strong> (1.8)</td>
+<td style="text-align: right;"><strong>62.1</strong> (1.9)</td>
+<td style="text-align: right;"><strong>19.8</strong> (1.9)</td>
+<td style="text-align: right;"><strong>45.4</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">Qwen3-8B</td>
+<td style="text-align: left;">Baseline</td>
+<td style="text-align: right;">51.3 (3.8)</td>
+<td style="text-align: right;">72.8 (3.4)</td>
+<td style="text-align: right;">71.0 (3.0)</td>
+<td style="text-align: right;">79.7</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">NVFP4</td>
+<td style="text-align: right;">42.4 (5.5)</td>
+<td style="text-align: right;">73.1 (4.3)</td>
+<td style="text-align: right;"><strong>63.7</strong> (1.3)</td>
+<td style="text-align: right;">77.7</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"></td>
+<td style="text-align: left;"><code>ScaleSearch</code></td>
+<td style="text-align: right;"><strong>49.9</strong> (1.6)</td>
+<td style="text-align: right;"><strong>88.1</strong> (0.6)</td>
+<td style="text-align: right;">63.0 (2.2)</td>
+<td style="text-align: right;"><strong>79.4</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<section id="post-training-quantization" class="level3">
+<h3 class="anchored" data-anchor-id="post-training-quantization">Post-Training Quantization</h3>
+<p>我们评估 <code>ScaleSearch</code> 作为一种离线 Post-Training Quantization（PTQ）技术的效果，模型包括 DeepSeek-R1-Distill-Qwen-1.5B <span class="citation" data-cites="guo2025deepseek">[53]</span> 和 Qwen3-8B <span class="citation" data-cites="qwen3">[54]</span>。 我们把它与基础模型以及使用 TensorRT-Model-Optimizer <span class="citation" data-cites="trt_opt">[55]</span>（ModelOpt）量化出的 NVFP4 模型进行比较。 对于 <code>ScaleSearch</code>，我们修改了 ModelOpt 的 NVFP4 量化路径，让它执行 <code>ScaleSearch</code>。 我们使用了五个通用能力基准（GPQA <span class="citation" data-cites="gpqa">[56]</span>、MATH-500 <span class="citation" data-cites="math500">[57]</span>、AIME-120 <span class="citation" data-cites="aime_2024">[58]</span>、MMLU <span class="citation" data-cites="mmlu">[59]</span>）。 GPQA 测试研究生水平的科学推理和多跳推断，体现量化对领域知识的影响。 AIME 和 MATH-500 侧重高中数学，考验符号推理和精度。 MMLU 涵盖历史和法律等多个学科，用来评估常识知识和问题求解能力。 结果如表 表&nbsp;1 所示。</p>
+<p>我们观察到，<code>ScaleSearch</code> 在所有基准上都优于 NVFP4，最高提升 15 个百分点。 在唯一一个 NVFP4 更好的例子里（Qwen3-8B 上的 AIME-120），<code>ScaleSearch</code> 仍然落在一个标准差以内，我们认为这来自这些基准本身的随机性。 值得注意的是，当非量化基线和 NVFP4 之间存在较大差距时，<code>ScaleSearch</code> 也能把差距显著缩小（例如 MATH-500 上的 10.5 分、GPQA 上的 7.5 分、MMLU 上的 1.7 分）。 这些趋势在不同模型规模上都保持一致。</p>
+<div id="tbl-diffusion-quality" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-diffusion-quality-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;2: 使用 SageAttention3 以及 SageAttention3 + <code>ScaleSearch</code> 在 SageAttention3 评测集上的 Mochi 和 CogVideoX 质量（VQA-a、VQA-t、FScore）以及 video-caption 对齐（CLIPSIM、CLIP-T）。数值越高越好，粗体为最佳。
+</figcaption>
+<div aria-describedby="tbl-diffusion-quality-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+<col style="width: 14%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">模型</th>
+<th style="text-align: left;">方法</th>
+<th style="text-align: right;">VQA-a</th>
+<th style="text-align: right;">VQA-t</th>
+<th style="text-align: right;">FScore</th>
+<th style="text-align: right;">CLIPSIM</th>
+<th style="text-align: right;">CLIP-T</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Mochi</td>
+<td style="text-align: left;">Full-Precision</td>
+<td style="text-align: right;">62.919</td>
+<td style="text-align: right;">70.216</td>
+<td style="text-align: right;">2.466</td>
+<td style="text-align: right;">0.1834</td>
+<td style="text-align: right;">0.9991</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">SageAttention3</td>
+<td style="text-align: right;">49.635</td>
+<td style="text-align: right;">55.738</td>
+<td style="text-align: right;">1.874</td>
+<td style="text-align: right;"><strong>0.1829</strong></td>
+<td style="text-align: right;">0.9988</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">SageAttention3 + <code>ScaleSearch</code></td>
+<td style="text-align: right;"><strong>57.424</strong></td>
+<td style="text-align: right;"><strong>70.362</strong></td>
+<td style="text-align: right;"><strong>2.143</strong></td>
+<td style="text-align: right;">0.1826</td>
+<td style="text-align: right;"><strong>0.9989</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CogvideoX</td>
+<td style="text-align: left;">Full-Precision</td>
+<td style="text-align: right;">74.969</td>
+<td style="text-align: right;">75.345</td>
+<td style="text-align: right;">5.969</td>
+<td style="text-align: right;">0.1850</td>
+<td style="text-align: right;">0.9976</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">SageAttention3</td>
+<td style="text-align: right;">72.915</td>
+<td style="text-align: right;">74.912</td>
+<td style="text-align: right;">5.118</td>
+<td style="text-align: right;"><strong>0.1845</strong></td>
+<td style="text-align: right;">0.9973</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">SageAttention3 + <code>ScaleSearch</code></td>
+<td style="text-align: right;"><strong>75.753</strong></td>
+<td style="text-align: right;"><strong>75.873</strong></td>
+<td style="text-align: right;"><strong>5.402</strong></td>
+<td style="text-align: right;">0.1833</td>
+<td style="text-align: right;"><strong>0.9974</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+<section id="diffusion-inference-attention" class="level3">
+<h3 class="anchored" data-anchor-id="diffusion-inference-attention">Diffusion Inference attention</h3>
+<p>我们还把 <code>ScaleSearch</code> 与 SageAttention3 <span class="citation" data-cites="sageattention3">[60]</span> 结合起来，评估它在端到端视频扩散模型推理中的质量。 我们在 Mochi <span class="citation" data-cites="genmo2024mochi">[61]</span> 和 CogVideoX-2B <span class="citation" data-cites="yang2024cogvideox">[62]</span> 上分别比较了是否加入 <code>ScaleSearch</code> 的 SageAttention3，并使用 CLIPSIM 和 CLIP-Temp（CLIP-T）衡量 text-to-video 对齐，用 VQA-a、VQA-t 和 FScore 衡量质量和一致性。 我们在 SageAttention3 的评测数据集 <span class="citation" data-cites="sageattention3">[60]</span> 上进行了测试。</p>
+<p>如表 表&nbsp;2 所示，<code>ScaleSearch</code> 在 Mochi 和 CogVideoX 上都能优于 SageAttention3 的 VQA-a、VQA-t 和 FScore，同时在 CLIPSIM 和 CLIP-T 上保持一致。 和 PTQ 的结果类似，我们观察到，在 SageAttention3 已经接近全精度 attention 的指标上，<code>ScaleSearch</code> 会与朴素 SageAttention3 保持一致；但在 SageAttention3 相比全精度 attention 表现较差的指标上，引入 <code>ScaleSearch</code> 会显著提升质量。</p>
+</section>
+</section>
+<section id="sec-swiftattention-eval" class="level2">
+<h2 class="anchored" data-anchor-id="sec-swiftattention-eval"><code>ScaleSearchAttention</code></h2>
+<p>我们使用基于 PyTorch <span class="citation" data-cites="PyTorch">[63]</span> 搭建的模拟量化框架来评估 <code>ScaleSearchAttention</code>。 我们测试量化和未量化模型的任务无关 PPL。</p>
+<div id="tbl-ppl" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-ppl-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;3: Wikitext-2 测试集上的 perplexity 评估。数值越低越好，粗体为最佳。
+</figcaption>
+<div aria-describedby="tbl-ppl-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<colgroup>
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+<col style="width: 20%">
+</colgroup>
+<thead>
+<tr class="header">
+<th style="text-align: left;">方法</th>
+<th style="text-align: right;">Llama 3.1 8B</th>
+<th style="text-align: right;">Llama 3.1 70B</th>
+<th style="text-align: right;">Qwen3 4B</th>
+<th style="text-align: right;">Qwen3 8B</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">FullPrec</td>
+<td style="text-align: right;">5.4837</td>
+<td style="text-align: right;">2.5554</td>
+<td style="text-align: right;">11.1327</td>
+<td style="text-align: right;">8.3013</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">naive-FP4</td>
+<td style="text-align: right;">5.9988</td>
+<td style="text-align: right;">3.4000</td>
+<td style="text-align: right;">11.5258</td>
+<td style="text-align: right;">8.4429</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">naive-FP4 + <code>ScaleSearch</code></td>
+<td style="text-align: right;">5.8330</td>
+<td style="text-align: right;">3.3441</td>
+<td style="text-align: right;">11.3618</td>
+<td style="text-align: right;">8.4378</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">SA3</td>
+<td style="text-align: right;">5.9542</td>
+<td style="text-align: right;">3.3899</td>
+<td style="text-align: right;">11.3672</td>
+<td style="text-align: right;">8.4575</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">SA3 + <code>ScaleSearch</code></td>
+<td style="text-align: right;">5.8060</td>
+<td style="text-align: right;">3.2972</td>
+<td style="text-align: right;">11.2441</td>
+<td style="text-align: right;">8.4181</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"><code>ScaleSearchAttention</code></td>
+<td style="text-align: right;"><strong>5.4977</strong></td>
+<td style="text-align: right;"><strong>2.6348</strong></td>
+<td style="text-align: right;"><strong>11.2088</strong></td>
+<td style="text-align: right;"><strong>8.3018</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div id="tbl-gpqa" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-gpqa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;4: 在 Llama 3.1 8B Instruct 模型上对 GPQA:diamond 的语言基准评估。粗体为最佳。
+</figcaption>
+<div aria-describedby="tbl-gpqa-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">方法</th>
+<th style="text-align: right;">Accuracy</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">FullPrec</td>
+<td style="text-align: right;">31.81</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">SA3</td>
+<td style="text-align: right;">26.26</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"><code>ScaleSearchAttention</code></td>
+<td style="text-align: right;"><strong>32.32</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div id="tbl-ablation" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-ablation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;5: <code>ScaleSearchAttention</code>（SSA）各个变体的消融分析。注：w/o 表示 without。
+</figcaption>
+<div aria-describedby="tbl-ablation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">方法</th>
+<th style="text-align: right;">PPL</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">SSA</td>
+<td style="text-align: right;">5.4977</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">SSA w/o ScaleSearch</td>
+<td style="text-align: right;">5.5024</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">SSA w/o IP and Magnitude Reduction</td>
+<td style="text-align: right;">5.5283</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">SSA w/o Mixed-precision KV cache</td>
+<td style="text-align: right;">5.5768</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<section id="perplexity" class="level4">
+<h4 class="anchored" data-anchor-id="perplexity">Perplexity</h4>
+<p>我们使用 Llama 3.1 8B、Llama 3.1 70B <span class="citation" data-cites="llama3">[64]</span>、Qwen3 4B 和 Qwen3 8B <span class="citation" data-cites="qwen3">[54]</span> 来测量 Wikitext-2 数据集 <span class="citation" data-cites="Wikitext-2">[65]</span> 测试集上的 token perplexity。 在 PPL 评估中，我们把结果与各模型的全原生精度（FullPrec）、普通 FP4 量化（Naive-FP4） <span class="citation" data-cites="nvfp4">[18]</span> 以及 SageAttention3（SA3） <span class="citation" data-cites="sageattention3">[60]</span> 进行比较。 对于 SageAttention3，我们使用自己的 FP4 simulator 来模拟给定算法（算法 1），因为论文提供的代码在因果场景下数值不稳定。 表 表&nbsp;3 给出了这些结果。 <code>ScaleSearchAttention</code> 在所有模型上都优于 SageAttention3 和 Naive-FP4，并且在 Llama 3.1 70B 上最多把 PPL 降低了 22%。 需要注意的是，对于更大的模型，<code>ScaleSearchAttention</code> 的改进也非常明显，而这些模型通常更不容易受到量化影响 <span class="citation" data-cites="reasoninghurtsquant">[66]</span>。 我们还通过把 <code>ScaleSearch</code> 加到 naive NVFP4（naive-FP4）和 SageAttention3（SA3）之上，研究了它对 PPL 的影响。 naive-FP4 指的是按 NVIDIA 给出的算法对 (Q,K,V,P) 做模拟量化 <span class="citation" data-cites="nvfp4">[18]</span>。 把 <code>ScaleSearch</code> 加进去后，SageAttention3 和 Naive-FP4 的 PPL 都得到了改善，这验证了它的有效性，也说明它可以应用到很广的一类量化算法上。</p>
+</section>
+<section id="language-benchmark" class="level4">
+<h4 class="anchored" data-anchor-id="language-benchmark">Language benchmark</h4>
+<p>我们进一步在 GPQA Diamond <span class="citation" data-cites="gpqa">[56]</span> 基准上，用 Llama 3.1 8B Instruct 模型评估了该方法。 与 perplexity 结果一致，<code>ScaleSearchAttention</code> 取得了最佳表现，准确率达到 32.32，超过了 SA3 的 26.26，并且与全精度评估相匹配。</p>
+</section>
+<section id="scalesearchattention-ablation" class="level4">
+<h4 class="anchored" data-anchor-id="scalesearchattention-ablation"><code>ScaleSearchAttention</code> ablation</h4>
+<p>我们还在表 表&nbsp;5 中的消融实验里研究了 <code>ScaleSearchAttention</code> 各组成部分的重要性。 完整的 <code>ScaleSearchAttention</code> 配置取得了最低 perplexity（5.4977），说明把所有提出的组件联合起来是有效的。 去掉 <code>ScaleSearch</code> 会带来明显退化（5.5024），说明最优 microscaling 很重要。 同样，关闭 IP 和 magnitude reduction 之后，perplexity 会进一步升高（5.5283），而当移除 mixed-precision KV cache 时，性能下降最大（5.5768），这强调了它在保持 attention 质量方面的关键贡献。</p>
+</section>
+<section id="overhead-and-efficiency" class="level3">
+<h3 class="anchored" data-anchor-id="overhead-and-efficiency">Overhead and Efficiency</h3>
+<p>在这一节里，我们通过考察以下三项来分析 <code>ScaleSearch</code> 的性能：(i) 不同搜索范围下的量化开销，(ii) attention 吞吐，(iii) 端到端生成延迟。</p>
+<section id="quantization-overhead" class="level4">
+<h4 class="anchored" data-anchor-id="quantization-overhead">Quantization overhead</h4>
+<p>我们首先测量 <code>ScaleSearch</code> 在 FP32 到 NVFP4 量化过程中引入的开销。 实验在一个随机高斯矩阵上进行，矩阵大小为 (2048 )，基线采用 vLLM 的量化实现，而 <code>ScaleSearch</code> 被集成在其上。 如表 表&nbsp;6 所示，基线量化耗时 0.0258 ms；把 <code>ScaleSearch</code> 加进去并限制搜索范围为 <code>[-1,1]</code> 时，耗时变为 0.0328 ms，也就是 1.27x 开销。 把搜索范围扩大到完整的 <code>[-2,6]</code> 时，耗时变为 0.0449 ms，也就是 1.74x 开销。 这说明，<code>ScaleSearch</code> 在提供稳定 MSE 改进的同时，实际带来的量化开销非常小。</p>
+<div id="tbl-quant-overhead" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-quant-overhead-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;6: 不同搜索范围下 <code>ScaleSearch</code> 的量化开销。
+</figcaption>
+<div aria-describedby="tbl-quant-overhead-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">方法</th>
+<th style="text-align: right;">Time (ms)</th>
+<th style="text-align: right;">Overhead</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">FP32 → NVFP4 (baseline)</td>
+<td style="text-align: right;">0.0258</td>
+<td style="text-align: right;">1.00x</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">+ <code>ScaleSearch</code> (<code>[-1,1]</code>)</td>
+<td style="text-align: right;">0.0328</td>
+<td style="text-align: right;">1.27x</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;">+ <code>ScaleSearch</code> (<code>[-2,6]</code>)</td>
+<td style="text-align: right;">0.0449</td>
+<td style="text-align: right;">1.74x</td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+<div id="fig-throughput" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-throughput-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<img src="https://sadsock.github.io/assets/search-your-block-floating-point-scales/sageattention_perf_5090_hd_128_dtype_bf16.png" class="img-fluid figure-img" style="width:100.0%">
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-throughput-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+图&nbsp;8: 我们将 SageAttention3 <span class="citation" data-cites="sageattention3">[60]</span> 与 <code>ScaleSearch</code> 的组合，与其他超低精度技术 <span class="citation" data-cites="sageattention1 sageattention2">[67], [68]</span>、flash-attention <span class="citation" data-cites="fa3">[69]</span>、xformers <span class="citation" data-cites="xFormers2022">[70]</span> 以及 eager torch 做比较，输入数据类型为 bfloat16。我们发现，<code>ScaleSearch</code> 并不会显著影响 causal 和 non-causal attention 的吞吐，尤其是在更长序列长度下更是如此。
+</figcaption>
+</figure>
+</div>
+</section>
+<section id="attention-throughput" class="level4">
+<h4 class="anchored" data-anchor-id="attention-throughput">Attention throughput</h4>
+<p>接下来，我们在一个受 SageAttention3 <span class="citation" data-cites="sageattention3">[60]</span> 启发的实验设置中，评估 <code>ScaleSearch</code> 对 attention 吞吐的影响。 如图 图&nbsp;8 所示，把 <code>ScaleSearch</code> 和 SageAttention3 结合后，在 causal 和 non-causal 两种设置下的吞吐都几乎和基线一致。 特别是在长序列长度（32K）下，<code>ScaleSearch</code> 在 non-causal attention 中最多能达到基线 TOPs 的 98.3%，在 causal attention 中则达到 97.5%。 这表明，额外的 scale search 并不会给关键 attention kernel 带来显著运行时开销，尤其是在高吞吐场景下更是如此。</p>
+</section>
+<section id="end-to-end-latency" class="level4">
+<h4 class="anchored" data-anchor-id="end-to-end-latency">End-to-end latency</h4>
+<p>最后，我们测量了 text-to-video 生成模型的端到端延迟。 如表 表&nbsp;7 所示，相较于 full-precision attention，SageAttention3 和 SageAttention3 + <code>ScaleSearch</code> 都显著降低了延迟。 值得注意的是，<code>ScaleSearch</code> 只比 SageAttention3 略慢一点点，例如 Mochi 上是 353.40 s 对 364.68 s，CogVideoX 上是 61.72 s 对 63.09 s，这说明它在真实生成工作负载中的额外开销非常小。 总体而言，这些结果说明 <code>ScaleSearch</code> 在几乎不影响系统效率的前提下，就能带来更好的数值表现。</p>
+<div id="tbl-e2e-latency" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-tbl figure">
+<figcaption class="quarto-float-caption-top quarto-float-caption quarto-float-tbl" id="tbl-e2e-latency-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+表&nbsp;7: 文本到视频生成模型 Mochi <span class="citation" data-cites="genmo2024mochi">[61]</span> 和 CogVideoX <span class="citation" data-cites="yang2024cogvideox">[62]</span> 在 12 个不同 prompt 上的平均端到端延迟。数值越低越好。粗体为最佳，下划线为第二名。
+</figcaption>
+<div aria-describedby="tbl-e2e-latency-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th style="text-align: left;">Model</th>
+<th style="text-align: left;">Method</th>
+<th style="text-align: right;">E2E Latency</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td style="text-align: left;">Mochi</td>
+<td style="text-align: left;">Full-Precision</td>
+<td style="text-align: right;">503.38</td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">SageAttention3</td>
+<td style="text-align: right;"><strong>353.40</strong></td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">SA3 + <code>ScaleSearch</code></td>
+<td style="text-align: right;"><u>364.68</u></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;">CogVideoX</td>
+<td style="text-align: left;">Full-Precision</td>
+<td style="text-align: right;">91.67</td>
+</tr>
+<tr class="odd">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">SageAttention3</td>
+<td style="text-align: right;"><strong>61.72</strong></td>
+</tr>
+<tr class="even">
+<td style="text-align: left;"></td>
+<td style="text-align: left;">SA3 + <code>ScaleSearch</code></td>
+<td style="text-align: right;"><u>63.09</u></td>
+</tr>
+</tbody>
+</table>
+</div>
+</figure>
+</div>
+</section>
+</section>
+</section>
+</section>
+<section id="sec-conclusion" class="level1">
+<h1>6 结论</h1>
+<p>本文提出 <code>ScaleSearch</code>，一种用于选择 micro-block scaling 值的 nvFP4 量化技术。 我们发现，<code>ScaleSearch</code> 能降低量化误差，从而提升语言建模和视频扩散任务的端到端质量。 作为扩展，我们又提出 <code>ScaleSearchAttention</code>，这是第一种使用 <code>ScaleSearch</code> 对 KV cache 做 nvFP4 量化的 attention 算法。 我们希望这些方法能够推动量化领域进一步的发展与创新。</p>
+</section>
+<section id="appendix-algo" class="level1">
+<h1>附录：幅值缩减变换的证明</h1>
+<p>设原始的 query 和 key 矩阵为 (Q, K ^{B d})。 我们引入一对线性变换：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0AQ'%20=%20Q%20R%5E%7B-T%7D,%20%5Cqquad%20K'%20=%20K%20R,%0A"></p>
+<p>其中 (R ^{d d}) 是一个可逆变换。 这个变换会保留 attention score：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0AQ'%20%7BK'%7D%5E%5Ctop%20=%20(Q%20R%5E%7B-T%7D)(K%20R)%5E%5Ctop%20=%20Q%20R%5E%7B-T%7D%20R%5E%5Ctop%20K%5E%5Ctop%20=%20Q%20K%5E%5Ctop.%0A"></p>
+<p>设 (Q) 和 (K) 的二阶矩阵（或者 Hessian 矩阵）分别为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0AX%20=%20%5Cmathbb%7BE%7D%5BQ%5E%5Ctop%20Q%5D,%20%5Cqquad%20Y%20=%20%5Cmathbb%7BE%7D%5BK%5E%5Ctop%20K%5D,%0A"></p>
+<p>它们刻画了 (Q) 和 (K) 在各个特征方向上的能量分布。</p>
+<p>在应用重参数化 (R) 之后，变换后的 query 和 key 的平均平方幅值变为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathbb%7BE%7D%5B%5C%7CQ'%5C%7C%5E2%5D%20=%20%5Cmathrm%7Btr%7D(R%5E%7B-1%7D%20X%20R%5E%7B-T%7D),%20%5Cqquad%0A%5Cmathbb%7BE%7D%5B%5C%7CK'%5C%7C%5E2%5D%20=%20%5Cmathrm%7Btr%7D(R%5E%5Ctop%20Y%20R).%0A"></p>
+<p>为了联合最小化它们的整体能量，也就等价于最小化量化误差，我们最小化这两个量的乘积：</p>
+<p><span id="eq-joint-objective"><img src="https://latex.codecogs.com/png.latex?%0A%5Cmin_R%20%5C;%20%5Cmathrm%7Btr%7D(R%5E%7B-1%7D%20X%20R%5E%7B-T%7D)%20%5Ccdot%20%5Cmathrm%7Btr%7D(R%5E%5Ctop%20Y%20R).%0A%5Ctag%7B1%7D"></span></p>
+<p>我们使用奇异值分解（SVD）对式 式&nbsp;1 做解析求解。 设</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0AX%5E%7B1/2%7D%20Y%5E%7B1/2%7D%20=%20U%20S%20V%5E%5Ctop%0A"></p>
+<p>是对对称半正定矩阵乘积 (X^{1/2} Y^{1/2}) 的 SVD，其中 (U, V) 是正交矩阵，(S = (s_i)) 包含奇异值。</p>
+<p>定义最优变换为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0AR%20=%20Y%5E%7B-1/2%7D%20V%20S%5E%7B1/2%7D,%20%5Cqquad%20R%5E%7B-1%7D%20=%20S%5E%7B-1/2%7D%20V%5E%5Ctop%20Y%5E%7B1/2%7D,%0A"></p>
+<p>这样就能让两个 trace 相等。</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cbegin%7Baligned%7D%0A%5Cmathrm%7Btr%7D(R%5E%7B-1%7D%20X%20R%5E%7B-T%7D)%0A&amp;=%20%5Cmathrm%7Btr%7D%5C!%5Cleft(S%5E%7B-1/2%7D%20V%5E%5Ctop%20Y%5E%7B1/2%7D%20X%20Y%5E%7B1/2%7D%20V%20S%5E%7B-1/2%7D%5Cright)%20%5C%5C%0A&amp;=%20%5Cmathrm%7Btr%7D(S),%20%5C%5C%5B4pt%5D%0A%5Cmathrm%7Btr%7D(R%5E%5Ctop%20Y%20R)%0A&amp;=%20%5Cmathrm%7Btr%7D%5C!%5Cleft(S%5E%7B1/2%7D%20V%5E%5Ctop%20Y%5E%7B-1/2%7D%20Y%20Y%5E%7B-1/2%7D%20V%20S%5E%7B1/2%7D%5Cright)%20%5C%5C%0A&amp;=%20%5Cmathrm%7Btr%7D(S).%0A%5Cend%7Baligned%7D%0A"></p>
+<p>因此，最小化后的联合能量为：</p>
+<p><img src="https://latex.codecogs.com/png.latex?%0A%5Cmathrm%7Btr%7D(R%5E%7B-1%7D%20X%20R%5E%7B-T%7D)%20%5Ccdot%20%5Cmathrm%7Btr%7D(R%5E%5Ctop%20Y%20R)%20=%20%5Cleft(%5Cmathrm%7Btr%7D(S)%5Cright)%5E2.%0A"></p>
+<p>这就是式 式&nbsp;1 所能达到的最小值，而对应的 (R) 会把 (X) 和 (Y) 的谱基最优地对齐。</p>
+
+
+
+</section>
+
+<div id="quarto-appendix" class="default"><section class="quarto-appendix-contents" id="quarto-bibliography"><h2 class="anchored quarto-appendix-heading">参考文献</h2><div id="refs" class="references csl-bib-body" data-entry-spacing="0">
+<div id="ref-tensorrt" class="csl-entry">
+<div class="csl-left-margin">[1] </div><div class="csl-right-inline">NVIDIA, <span>《Working with Quantized Types》</span>. 载于: <a href="https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/work-quantized-types.html">https://docs.nvidia.com/deeplearning/tensorrt/latest/inference-library/work-quantized-types.html</a></div>
+</div>
+<div id="ref-kwon2023vllm" class="csl-entry">
+<div class="csl-left-margin">[2] </div><div class="csl-right-inline">W. Kwon <em>等</em>, <span>《Efficient memory management for large language model serving with pagedattention》</span>, 收入 <em>Proceedings of the 29th symposium on operating systems principles</em>, 2023, 页 611～626.</div>
+</div>
+<div id="ref-shared_exponents" class="csl-entry">
+<div class="csl-left-margin">[3] </div><div class="csl-right-inline"><span class="nocase">B. Darvish Rouhani <em>等</em></span>, <span>《With shared microexponents, a little shifting goes a long way》</span>, 收入 <em>Proceedings of the 50th Annual International Symposium on Computer Architecture</em>, 2023, 页 1～13.</div>
+</div>
+<div id="ref-msfp" class="csl-entry">
+<div class="csl-left-margin">[4] </div><div class="csl-right-inline"><span class="nocase">B. Darvish Rouhani <em>等</em></span>, <span>《Pushing the limits of narrow precision inferencing at cloud scale with microsoft floating point》</span>, <em>Advances in neural information processing systems</em>, 卷 33, 页 10271～10281, 2020.</div>
+</div>
+<div id="ref-bfp1" class="csl-entry">
+<div class="csl-left-margin">[5] </div><div class="csl-right-inline">M. Drumond, T. Lin, M. Jaggi, 和 B. Falsafi, <span>《Training dnns with hybrid block floating point》</span>, <em>Advances in Neural Information Processing Systems</em>, 卷 31, 2018.</div>
+</div>
+<div id="ref-quant_survey" class="csl-entry">
+<div class="csl-left-margin">[6] </div><div class="csl-right-inline">A. Gholami, S. Kim, Z. Dong, Z. Yao, M. W. Mahoney, 和 K. Keutzer, <span>《A survey of quantization methods for efficient neural network inference》</span>, 收入 <em>Low-power computer vision</em>, Chapman; Hall/CRC, 2022, 页 291～326.</div>
+</div>
+<div id="ref-svdquant" class="csl-entry">
+<div class="csl-left-margin">[7] </div><div class="csl-right-inline">M. Li <em>等</em>, <span>《Svdquant: Absorbing outliers by low-rank components for 4-bit diffusion models》</span>, <em>arXiv preprint arXiv:2411.05007</em>, 2024.</div>
+</div>
+<div id="ref-fa1" class="csl-entry">
+<div class="csl-left-margin">[8] </div><div class="csl-right-inline">T. Dao, D. Fu, S. Ermon, A. Rudra, 和 C. Ré, <span>《Flashattention: Fast and memory-efficient exact attention with io-awareness》</span>, <em>Advances in neural information processing systems</em>, 卷 35, 页 16344～16359, 2022.</div>
+</div>
+<div id="ref-fp4train1" class="csl-entry">
+<div class="csl-left-margin">[9] </div><div class="csl-right-inline">R. Wang <em>等</em>, <span>《Optimizing Large Language Model Training Using <span>FP</span>4 Quantization》</span>, 收入 <em>Forty-second International Conference on Machine Learning</em>, 2025. 载于: <a href="https://openreview.net/forum?id=uK7JArZEJM">https://openreview.net/forum?id=uK7JArZEJM</a></div>
+</div>
+<div id="ref-fp4train2" class="csl-entry">
+<div class="csl-left-margin">[10] </div><div class="csl-right-inline">A. Tseng, T. Yu, 和 Y. Park, <span>《Training LLMs with MXFP4》</span>. 2025年. 载于: <a href="https://arxiv.org/abs/2502.20586">https://arxiv.org/abs/2502.20586</a></div>
+</div>
+<div id="ref-fp4train3" class="csl-entry">
+<div class="csl-left-margin">[11] </div><div class="csl-right-inline">B. Chmiel, M. Fishman, R. Banner, 和 D. Soudry, <span>《FP4 All the Way: Fully Quantized Training of LLMs》</span>. 2025年. 载于: <a href="https://arxiv.org/abs/2505.19115">https://arxiv.org/abs/2505.19115</a></div>
+</div>
+<div id="ref-blackwell_infer" class="csl-entry">
+<div class="csl-left-margin">[12] </div><div class="csl-right-inline">NVIDIA, <span>《NVIDIA Blackwell Delivers World-Record DeepSeek-R1 Inference Performance》</span>. 2025年. 载于: <a href="https://developer.nvidia.com/blog/nvidia-blackwell-delivers-world-record-deepseek-r1-inference-performance/">https://developer.nvidia.com/blog/nvidia-blackwell-delivers-world-record-deepseek-r1-inference-performance/</a></div>
+</div>
+<div id="ref-fixed_point_1" class="csl-entry">
+<div class="csl-left-margin">[13] </div><div class="csl-right-inline">D. Lin, S. Talathi, 和 S. Annapureddy, <span>《Fixed Point Quantization of Deep Convolutional Networks》</span>, 收入 <em>Proceedings of The 33rd International Conference on Machine Learning</em>, M. F. Balcan 和 K. Q. Weinberger, 编, 收入 Proceedings of Machine Learning Research, vol. 48. New York, New York, USA: PMLR, 2016, 页 2849～2858. 载于: <a href="https://proceedings.mlr.press/v48/linb16.html">https://proceedings.mlr.press/v48/linb16.html</a></div>
+</div>
+<div id="ref-fixed_point2" class="csl-entry">
+<div class="csl-left-margin">[14] </div><div class="csl-right-inline"><span class="nocase">B. Jacob <em>等</em></span>, <span>《Quantization and training of neural networks for efficient integer-arithmetic-only inference》</span>, 收入 <em>Proceedings of the IEEE conference on computer vision and pattern recognition</em>, 2018, 页 2704～2713.</div>
+</div>
+<div id="ref-fp8_nvidia" class="csl-entry">
+<div class="csl-left-margin">[15] </div><div class="csl-right-inline"><span class="nocase">P. Micikevicius <em>等</em></span>, <span>《Fp8 formats for deep learning》</span>, <em>arXiv preprint arXiv:2209.05433</em>, 2022.</div>
+</div>
+<div id="ref-fast" class="csl-entry">
+<div class="csl-left-margin">[16] </div><div class="csl-right-inline">S. Q. Zhang, B. McDanel, 和 H. Kung, <span>《Fast: Dnn training under variable precision block floating point with stochastic rounding》</span>, 收入 <em>2022 IEEE International Symposium on High-Performance Computer Architecture (HPCA)</em>, IEEE, 2022, 页 846～860.</div>
+</div>
+<div id="ref-mxfp4" class="csl-entry">
+<div class="csl-left-margin">[17] </div><div class="csl-right-inline"><span class="nocase">B. D. Rouhani <em>等</em></span>, <span>《OCP Microscaling Formats (MX) Specification》</span>. 2025年. 载于: <a href="https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf">https://www.opencompute.org/documents/ocp-microscaling-formats-mx-v1-0-spec-final-pdf</a></div>
+</div>
+<div id="ref-nvfp4" class="csl-entry">
+<div class="csl-left-margin">[18] </div><div class="csl-right-inline">E. Alvarez <em>等</em>, <span>《Introducing NVFP4 for Efficient and Accurate Low-Precision Inference》</span>. 2025年. 载于: <a href="https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/">https://developer.nvidia.com/blog/introducing-nvfp4-for-efficient-and-accurate-low-precision-inference/</a></div>
+</div>
+<div id="ref-gptq" class="csl-entry">
+<div class="csl-left-margin">[19] </div><div class="csl-right-inline">E. Frantar, S. Ashkboos, T. Hoefler, 和 D. Alistarh, <span>《Gptq: Accurate post-training quantization for generative pre-trained transformers》</span>, <em>arXiv preprint arXiv:2210.17323</em>, 2022.</div>
+</div>
+<div id="ref-awq" class="csl-entry">
+<div class="csl-left-margin">[20] </div><div class="csl-right-inline">J. Lin <em>等</em>, <span>《AWQ: Activation-aware Weight Quantization for On-Device LLM Compression and Acceleration》</span>, 收入 <em>Proceedings of Machine Learning and Systems</em>, P. Gibbons, G. Pekhimenko, 和 C. D. Sa, 编, 2024, 页 87～100. 载于: <a href="https://proceedings.mlsys.org/paper_files/paper/2024/file/42a452cbafa9dd64e9ba4aa95cc1ef21-Paper-Conference.pdf">https://proceedings.mlsys.org/paper_files/paper/2024/file/42a452cbafa9dd64e9ba4aa95cc1ef21-Paper-Conference.pdf</a></div>
+</div>
+<div id="ref-zeroquant" class="csl-entry">
+<div class="csl-left-margin">[21] </div><div class="csl-right-inline">Z. Yao, R. Yazdani Aminabadi, M. Zhang, X. Wu, C. Li, 和 Y. He, <span>《Zeroquant: Efficient and affordable post-training quantization for large-scale transformers》</span>, <em>Advances in neural information processing systems</em>, 卷 35, 页 27168～27183, 2022.</div>
+</div>
+<div id="ref-smoothquant" class="csl-entry">
+<div class="csl-left-margin">[22] </div><div class="csl-right-inline">G. Xiao, J. Lin, M. Seznec, H. Wu, J. Demouth, 和 S. Han, <span>《Smoothquant: Accurate and efficient post-training quantization for large language models》</span>, 收入 <em>International conference on machine learning</em>, PMLR, 2023, 页 38087～38099.</div>
+</div>
+<div id="ref-qserve" class="csl-entry">
+<div class="csl-left-margin">[23] </div><div class="csl-right-inline">Y. Lin* <em>等</em>, <span>《QServe: W4A8KV4 Quantization and System Co-design for Efficient LLM Serving》</span>, <em>arXiv preprint arXiv:2405.04532</em>, 2024.</div>
+</div>
+<div id="ref-llmint8" class="csl-entry">
+<div class="csl-left-margin">[24] </div><div class="csl-right-inline">T. Dettmers, M. Lewis, Y. Belkada, 和 L. Zettlemoyer, <span>《<span>LLM.int8()</span>: 8-bit matrix multiplication for transformers at scale》</span>, 收入 NIPS ’22. Red Hook, NY, USA: Curran Associates Inc., 2022.</div>
+</div>
+<div id="ref-quip" class="csl-entry">
+<div class="csl-left-margin">[25] </div><div class="csl-right-inline">J. Chee, Y. Cai, V. Kuleshov, 和 C. M. De Sa, <span>《Quip: 2-bit quantization of large language models with guarantees》</span>, <em>Advances in Neural Information Processing Systems</em>, 卷 36, 页 4396～4429, 2023.</div>
+</div>
+<div id="ref-quipsharp" class="csl-entry">
+<div class="csl-left-margin">[26] </div><div class="csl-right-inline">A. Tseng, J. Chee, Q. Sun, V. Kuleshov, 和 C. De Sa, <span>《Quip#: Even better llm quantization with hadamard incoherence and lattice codebooks》</span>, <em>arXiv preprint arXiv:2402.04396</em>, 2024.</div>
+</div>
+<div id="ref-qat1" class="csl-entry">
+<div class="csl-left-margin">[27] </div><div class="csl-right-inline">P. Stock <em>等</em>, <span>《Training with Quantization Noise for Extreme Model Compression》</span>, 收入 <em>International Conference on Learning Representations</em>, 2021. 载于: <a href="https://openreview.net/forum?id=dV19Yyi1fS3">https://openreview.net/forum?id=dV19Yyi1fS3</a></div>
+</div>
+<div id="ref-qat2" class="csl-entry">
+<div class="csl-left-margin">[28] </div><div class="csl-right-inline"><span class="nocase">B. Jacob <em>等</em></span>, <span>《Quantization and Training of Neural Networks for Efficient Integer-Arithmetic-Only Inference》</span>, 收入 <em>2018 IEEE/CVF Conference on Computer Vision and Pattern Recognition</em>, 2018, 页 2704～2713. doi: <a href="https://doi.org/10.1109/CVPR.2018.00286">10.1109/CVPR.2018.00286</a>.</div>
+</div>
+<div id="ref-spa1" class="csl-entry">
+<div class="csl-left-margin">[29] </div><div class="csl-right-inline"><span class="nocase">H. Jiang <em>等</em></span>, <span>《Minference 1.0: Accelerating pre-filling for long-context llms via dynamic sparse attention》</span>, <em>Advances in Neural Information Processing Systems</em>, 卷 37, 页 52481～52515, 2024.</div>
+</div>
+<div id="ref-spa2" class="csl-entry">
+<div class="csl-left-margin">[30] </div><div class="csl-right-inline">J. Zhang <em>等</em>, <span>《Spargeattn: Accurate sparse attention accelerating any model inference》</span>, <em>arXiv preprint arXiv:2502.18137</em>, 2025.</div>
+</div>
+<div id="ref-performers" class="csl-entry">
+<div class="csl-left-margin">[31] </div><div class="csl-right-inline"><span class="nocase">K. Choromanski <em>等</em></span>, <span>《Rethinking attention with performers》</span>, <em>arXiv preprint arXiv:2009.14794</em>, 2020.</div>
+</div>
+<div id="ref-mqa" class="csl-entry">
+<div class="csl-left-margin">[32] </div><div class="csl-right-inline">N. Shazeer, <span>《Fast transformer decoding: One write-head is all you need》</span>, <em>arXiv preprint arXiv:1911.02150</em>, 2019.</div>
+</div>
+<div id="ref-gqa" class="csl-entry">
+<div class="csl-left-margin">[33] </div><div class="csl-right-inline">J. Ainslie, J. Lee-Thorp, M. de Jong, Y. Zemlyanskiy, F. Lebrón, 和 S. Sanghai, <span>《GQA: Training Generalized Multi-Query Transformer Models from Multi-Head Checkpoints》</span>. 2023年. 载于: <a href="https://arxiv.org/abs/2305.13245">https://arxiv.org/abs/2305.13245</a></div>
+</div>
+<div id="ref-mhla" class="csl-entry">
+<div class="csl-left-margin">[34] </div><div class="csl-right-inline"><span class="nocase">A. Liu <em>等</em></span>, <span>《Deepseek-v2: A strong, economical and efficient mixture-of-experts language model》</span>, <em>arXiv preprint arXiv:2405.04434</em>, 2024.</div>
+</div>
+<div id="ref-spa5" class="csl-entry">
+<div class="csl-left-margin">[35] </div><div class="csl-right-inline">G. Xiao, Y. Tian, B. Chen, S. Han, 和 M. Lewis, <span>《Efficient streaming language models with attention sinks》</span>, <em>arXiv preprint arXiv:2309.17453</em>, 2023.</div>
+</div>
+<div id="ref-gist" class="csl-entry">
+<div class="csl-left-margin">[36] </div><div class="csl-right-inline">J. Mu, X. Li, 和 N. Goodman, <span>《Learning to compress prompts with gist tokens》</span>, <em>Advances in Neural Information Processing Systems</em>, 卷 36, 页 19327～19352, 2023.</div>
+</div>
+<div id="ref-snapkv" class="csl-entry">
+<div class="csl-left-margin">[37] </div><div class="csl-right-inline">Y. Li <em>等</em>, <span>《Snap<span>KV</span>: <span>LLM</span> Knows What You are Looking for Before Generation》</span>, 收入 <em>The Thirty-eighth Annual Conference on Neural Information Processing Systems</em>, 2024. 载于: <a href="https://openreview.net/forum?id=poE54GOq2l">https://openreview.net/forum?id=poE54GOq2l</a></div>
+</div>
+<div id="ref-h20" class="csl-entry">
+<div class="csl-left-margin">[38] </div><div class="csl-right-inline"><span class="nocase">Z. Zhang <em>等</em></span>, <span>《H2o: Heavy-hitter oracle for efficient generative inference of large language models》</span>, <em>Advances in Neural Information Processing Systems</em>, 卷 36, 页 34661～34710, 2023.</div>
+</div>
+<div id="ref-rocketkv" class="csl-entry">
+<div class="csl-left-margin">[39] </div><div class="csl-right-inline">P. Behnam, Y. Fu, R. Zhao, P.-A. Tsai, Z. Yu, 和 A. Tumanov, <span>《Rocket<span>KV</span>: Accelerating Long-Context <span>LLM</span> Inference via Two-Stage <span>KV</span> Cache Compression》</span>, 收入 <em>Forty-second International Conference on Machine Learning</em>, 2025. 载于: <a href="https://openreview.net/forum?id=RyOpooIxDF">https://openreview.net/forum?id=RyOpooIxDF</a></div>
+</div>
+<div id="ref-discard" class="csl-entry">
+<div class="csl-left-margin">[40] </div><div class="csl-right-inline">S. Ge, Y. Zhang, L. Liu, M. Zhang, J. Han, 和 J. Gao, <span>《Model Tells You What to Discard: Adaptive <span>KV</span> Cache Compression for <span>LLM</span>s》</span>, 收入 <em>The Twelfth International Conference on Learning Representations</em>, 2024. 载于: <a href="https://openreview.net/forum?id=uNrFpDPMyo">https://openreview.net/forum?id=uNrFpDPMyo</a></div>
+</div>
+<div id="ref-minicache" class="csl-entry">
+<div class="csl-left-margin">[41] </div><div class="csl-right-inline">A. Liu, J. Liu, Z. Pan, Y. He, G. Haffari, 和 B. Zhuang, <span>《Minicache: Kv cache compression in depth dimension for large language models》</span>, <em>Advances in Neural Information Processing Systems</em>, 卷 37, 页 139997～140031, 2024.</div>
+</div>
+<div id="ref-kvsharer" class="csl-entry">
+<div class="csl-left-margin">[42] </div><div class="csl-right-inline">Y. Yang <em>等</em>, <span>《Kvsharer: Efficient inference via layer-wise dissimilar kv cache sharing》</span>, <em>arXiv preprint arXiv:2410.18517</em>, 2024.</div>
+</div>
+<div id="ref-zipcache" class="csl-entry">
+<div class="csl-left-margin">[43] </div><div class="csl-right-inline">Y. He, L. Zhang, W. Wu, J. Liu, H. Zhou, 和 B. Zhuang, <span>《Zipcache: Accurate and efficient kv cache quantization with salient token identification》</span>, <em>Advances in Neural Information Processing Systems</em>, 卷 37, 页 68287～68307, 2024.</div>
+</div>
+<div id="ref-wkvquant" class="csl-entry">
+<div class="csl-left-margin">[44] </div><div class="csl-right-inline">Y. Yue, Z. Yuan, H. Duanmu, S. Zhou, J. Wu, 和 L. Nie, <span>《Wkvquant: Quantizing weight and key/value cache for large language models gains more》</span>, <em>arXiv preprint arXiv:2402.12065</em>, 2024.</div>
+</div>
+<div id="ref-kvquant" class="csl-entry">
+<div class="csl-left-margin">[45] </div><div class="csl-right-inline">C. R. C. Hooper <em>等</em>, <span>《<span>KVQ</span>uant: Towards 10 Million Context Length <span>LLM</span> Inference with <span>KV</span> Cache Quantization》</span>, 收入 <em>The Thirty-eighth Annual Conference on Neural Information Processing Systems</em>, 2024. 载于: <a href="https://openreview.net/forum?id=0LXotew9Du">https://openreview.net/forum?id=0LXotew9Du</a></div>
+</div>
+<div id="ref-kivi" class="csl-entry">
+<div class="csl-left-margin">[46] </div><div class="csl-right-inline">Z. Liu <em>等</em>, <span>《KIVI: a tuning-free asymmetric 2bit quantization for KV cache》</span>, 收入 <em>Proceedings of the 41st International Conference on Machine Learning</em>, 收入 ICML’24. Vienna, Austria: JMLR.org, 2024.</div>
+</div>
+<div id="ref-gear" class="csl-entry">
+<div class="csl-left-margin">[47] </div><div class="csl-right-inline">H. Kang <em>等</em>, <span>《GEAR: An Efficient KV Cache Compression Recipe for Near-Lossless Generative Inference of LLM》</span>. 2024年. 载于: <a href="https://arxiv.org/abs/2403.05527">https://arxiv.org/abs/2403.05527</a></div>
+</div>
+<div id="ref-quarot" class="csl-entry">
+<div class="csl-left-margin">[48] </div><div class="csl-right-inline">S. Ashkboos <em>等</em>, <span>《QuaRot: Outlier-Free 4-Bit Inference in Rotated <span>LLM</span>s》</span>, 收入 <em>The Thirty-eighth Annual Conference on Neural Information Processing Systems</em>, 2024. 载于: <a href="https://openreview.net/forum?id=dfqsW38v1X">https://openreview.net/forum?id=dfqsW38v1X</a></div>
+</div>
+<div id="ref-intactkv" class="csl-entry">
+<div class="csl-left-margin">[49] </div><div class="csl-right-inline">R. Liu <em>等</em>, <span>《<span>I</span>ntact<span>KV</span>: Improving Large Language Model Quantization by Keeping Pivot Tokens Intact》</span>, 收入 <em>Findings of the Association for Computational Linguistics: ACL 2024</em>, <span class="nocase">L.-W. Ku, M. andre, 和 V. Srikumar, 编</span>, Bangkok, Thailand: Association for Computational Linguistics, 8月 2024, 页 7716～7741. doi: <a href="https://doi.org/10.18653/v1/2024.findings-acl.460">10.18653/v1/2024.findings-acl.460</a>.</div>
+</div>
+<div id="ref-kvtuner" class="csl-entry">
+<div class="csl-left-margin">[50] </div><div class="csl-right-inline">X. Li <em>等</em>, <span>《<span>KVT</span>uner: Sensitivity-Aware Layer-Wise Mixed-Precision <span>KV</span> Cache Quantization for Efficient and Nearly Lossless <span>LLM</span> Inference》</span>, 收入 <em>Forty-second International Conference on Machine Learning</em>, 2025. 载于: <a href="https://openreview.net/forum?id=zDwipF6h06">https://openreview.net/forum?id=zDwipF6h06</a></div>
+</div>
+<div id="ref-mikv" class="csl-entry">
+<div class="csl-left-margin">[51] </div><div class="csl-right-inline">J. Y. Yang <em>等</em>, <span>《No Token Left Behind: Reliable KV Cache Compression via Importance-Aware Mixed Precision Quantization》</span>. 2024年. 载于: <a href="https://arxiv.org/abs/2402.18096">https://arxiv.org/abs/2402.18096</a></div>
+</div>
+<div id="ref-scale_dims" class="csl-entry">
+<div class="csl-left-margin">[52] </div><div class="csl-right-inline">NVIDIA, <span>《PTX warp-level block scaling》</span>. 2025年. 载于: <a href="https://docs.nvidia.com/cuda/parallel-thread-execution/#warp-level-block-scaling">https://docs.nvidia.com/cuda/parallel-thread-execution/#warp-level-block-scaling</a></div>
+</div>
+<div id="ref-guo2025deepseek" class="csl-entry">
+<div class="csl-left-margin">[53] </div><div class="csl-right-inline"><span class="nocase">D. Guo <em>等</em></span>, <span>《Deepseek-r1: Incentivizing reasoning capability in llms via reinforcement learning》</span>, <em>arXiv preprint arXiv:2501.12948</em>, 2025.</div>
+</div>
+<div id="ref-qwen3" class="csl-entry">
+<div class="csl-left-margin">[54] </div><div class="csl-right-inline">A. Yang <em>等</em>, <span>《Qwen3 Technical Report》</span>. 2025年. 载于: <a href="https://arxiv.org/abs/2505.09388">https://arxiv.org/abs/2505.09388</a></div>
+</div>
+<div id="ref-trt_opt" class="csl-entry">
+<div class="csl-left-margin">[55] </div><div class="csl-right-inline">NVIDIA, <span>《<span>TensorRT-Model-Optimizer</span>》</span>. 2025年. 载于: <a href="https://github.com/NVIDIA/TensorRT-Model-Optimizer/tree/main">https://github.com/NVIDIA/TensorRT-Model-Optimizer/tree/main</a></div>
+</div>
+<div id="ref-gpqa" class="csl-entry">
+<div class="csl-left-margin">[56] </div><div class="csl-right-inline">D. Rein <em>等</em>, <span>《GPQA: A Graduate-Level Google-Proof Q&amp;A Benchmark》</span>. 2023年. 载于: <a href="https://arxiv.org/abs/2311.12022">https://arxiv.org/abs/2311.12022</a></div>
+</div>
+<div id="ref-math500" class="csl-entry">
+<div class="csl-left-margin">[57] </div><div class="csl-right-inline">D. Hendrycks <em>等</em>, <span>《Measuring mathematical problem solving with the math dataset》</span>, <em>arXiv preprint arXiv:2103.03874</em>, 2021.</div>
+</div>
+<div id="ref-aime_2024" class="csl-entry">
+<div class="csl-left-margin">[58] </div><div class="csl-right-inline">M. Jia, <span>《AIME Problem Set 2024》</span>. Huggingface, 2024年. 载于: <a href="https://huggingface.co/datasets/Maxwell-Jia/AIME_2024">https://huggingface.co/datasets/Maxwell-Jia/AIME_2024</a></div>
+</div>
+<div id="ref-mmlu" class="csl-entry">
+<div class="csl-left-margin">[59] </div><div class="csl-right-inline">D. Hendrycks <em>等</em>, <span>《Measuring massive multitask language understanding》</span>, <em>arXiv preprint arXiv:2009.03300</em>, 2020.</div>
+</div>
+<div id="ref-sageattention3" class="csl-entry">
+<div class="csl-left-margin">[60] </div><div class="csl-right-inline">J. Zhang <em>等</em>, <span>《Sageattention3: Microscaling fp4 attention for inference and an exploration of 8-bit training》</span>, <em>arXiv preprint arXiv:2505.11594</em>, 2025.</div>
+</div>
+<div id="ref-genmo2024mochi" class="csl-entry">
+<div class="csl-left-margin">[61] </div><div class="csl-right-inline">G. Team, <span>《Mochi 1》</span>, <em>GitHub repository</em>. <a href="https://github.com/genmoai/models" class="uri">https://github.com/genmoai/models</a>; GitHub, 2024年.</div>
+</div>
+<div id="ref-yang2024cogvideox" class="csl-entry">
+<div class="csl-left-margin">[62] </div><div class="csl-right-inline">Z. Yang <em>等</em>, <span>《CogVideoX: Text-to-Video Diffusion Models with An Expert Transformer》</span>, <em>arXiv preprint arXiv:2408.06072</em>, 2024, 载于: <a href="https://arxiv.org/abs/2408.06072">https://arxiv.org/abs/2408.06072</a></div>
+</div>
+<div id="ref-PyTorch" class="csl-entry">
+<div class="csl-left-margin">[63] </div><div class="csl-right-inline">Meta, <span>《Pytorch》</span>. 载于: <a href="https://pytorch.org/">https://pytorch.org/</a></div>
+</div>
+<div id="ref-llama3" class="csl-entry">
+<div class="csl-left-margin">[64] </div><div class="csl-right-inline"><span class="nocase">A. Dubey <em>等</em></span>, <span>《The llama 3 herd of models》</span>, <em>arXiv e-prints</em>, 页 arXiv～2407, 2024.</div>
+</div>
+<div id="ref-Wikitext-2" class="csl-entry">
+<div class="csl-left-margin">[65] </div><div class="csl-right-inline">Salesforce, <span>《Wikitext-2 dataset》</span>. 载于: <a href="https://huggingface.co/datasets/Salesforce/wikitext/viewer/wikitext-2-v1">https://huggingface.co/datasets/Salesforce/wikitext/viewer/wikitext-2-v1</a></div>
+</div>
+<div id="ref-reasoninghurtsquant" class="csl-entry">
+<div class="csl-left-margin">[66] </div><div class="csl-right-inline">R. Liu <em>等</em>, <span>《Quantization Hurts Reasoning? An Empirical Study on Quantized Reasoning Models》</span>. 2025年. 载于: <a href="https://arxiv.org/abs/2504.04823">https://arxiv.org/abs/2504.04823</a></div>
+</div>
+<div id="ref-sageattention1" class="csl-entry">
+<div class="csl-left-margin">[67] </div><div class="csl-right-inline">J. Zhang, J. Wei, H. Huang, P. Zhang, J. Zhu, 和 J. Chen, <span>《Sageattention: Accurate 8-bit attention for plug-and-play inference acceleration》</span>, <em>arXiv preprint arXiv:2410.02367</em>, 2024.</div>
+</div>
+<div id="ref-sageattention2" class="csl-entry">
+<div class="csl-left-margin">[68] </div><div class="csl-right-inline"><span class="nocase">J. Zhang, H. Huang, P. Zhang, J. Zhu, J. Chen, <em>等</em></span>, <span>《SageAttention2: Efficient Attention with Smoothing Q and Per-thread Quantization》</span>, 收入 <em>First Workshop on Scalable Optimization for Efficient and Adaptive Foundation Models</em>, </div>
+</div>
+<div id="ref-fa3" class="csl-entry">
+<div class="csl-left-margin">[69] </div><div class="csl-right-inline">J. Shah, G. Bikshandi, Y. Zhang, V. Thakkar, P. Ramani, 和 T. Dao, <span>《Flashattention-3: Fast and accurate attention with asynchrony and low-precision》</span>, <em>Advances in Neural Information Processing Systems</em>, 卷 37, 页 68658～68685, 2024.</div>
+</div>
+<div id="ref-xFormers2022" class="csl-entry">
+<div class="csl-left-margin">[70] </div><div class="csl-right-inline">B. Lefaudeux <em>等</em>, <span>《xFormers: A modular and hackable Transformer modelling library》</span>. <a href="https://github.com/facebookresearch/xformers" class="uri">https://github.com/facebookresearch/xformers</a>, 2022年.</div>
+</div>
+</div></section></div> ]]></description>
+  <category>编译原理</category>
+  <category>人工智能</category>
+  <guid>https://sadsock.github.io/posts/2026-05-20-search-your-block-floating-point-scales.html</guid>
+  <pubDate>Wed, 20 May 2026 00:00:00 GMT</pubDate>
+</item>
 <item>
   <title>拆解华为的快速整数除法</title>
   <link>https://sadsock.github.io/posts/2026-05-17-magic-number-division-analysis.html</link>
@@ -17039,62 +18030,6 @@ font-style: inherit;">-o</span> test</span></code></pre></div></div>
   <category>LLVM</category>
   <guid>https://sadsock.github.io/posts/2020-12-03-RISCW-1.html</guid>
   <pubDate>Fri, 04 Dec 2020 11:30:38 GMT</pubDate>
-</item>
-<item>
-  <title>为LLVM添加简易RISCV后端(零)：简介</title>
-  <link>https://sadsock.github.io/posts/2020-12-03-RISCW-0.html</link>
-  <description><![CDATA[ 
-
-
-
-
-<p>为一个新的指令集编写编译器是一件复杂的事情，尽管LLVM的出现使这个过程比之前简单多了！ 一个匪夷所思的困难是缺乏一个简单的、循序渐进的教程<sup>1</sup><sup>2</sup>。 因此，本系列博客试图提供一个从头开始编写LLVM后端的简易教程来解决（部分）问题。</p>
-<section id="简介" class="level2">
-<h2 class="anchored" data-anchor-id="简介">简介</h2>
-<p>在本教程中，我将为RISC V指令集的基本32位版本（即RV32IM）开发一个后端。希望这能帮助那些不熟悉LLVM的人开始使用这个工具，并将其扩展到自己的项目中。看懂本教程不需要前置知识，但是如果你熟悉C++和RISC V，学习本教程会更容易。</p>
-<p>在本文剩下的部分中，我将简要描述LLVM的体系结构和后端结构。不过，我不会在这里详细说明，因为，如果你像我一样，在5分钟（或5秒）之后，就会忘记读过的任何繁琐文档。LLVM的细节将在以后的帖子中根据需要提供。</p>
-<p><strong>注意:</strong>如果你想要更详细的版本，你可以自娱自乐地阅读<a href="http://llvm.org/docs/UserGuides.html">LLVM User Guides</a>。</p>
-<section id="llvm架构" class="level3">
-<h3 class="anchored" data-anchor-id="llvm架构">LLVM架构</h3>
-<p>传统上，编译过程分为三个阶段。 首先，编译器的前端将源代码转换为某种中间表示（IR）； 然后，优化IR； 最后，编译器的后端将IR转换为机器代码。 传统的编译器通常仅支持一种编程语言和一种目标指令集，编译器的源代码很难重用，例如添加新的目标指令集。</p>
-<p>LLVM模块化地实现了三个编译过程，可以解决重用问题。 其思想是LLVM的核心（即IR和优化器）是固定的，但是前端和后端可以被替换，以使编译器可以支持多种编程语言和指令集。 例如，我们可以使用Clang（LLVM的前端）和x86后端把C/C++代码编译成X86指令集上的可执行程序。 我们也可以用ARM后端替换X86后端，从而得到ARM指令集上的可执行程序。</p>
-<p><strong>注意：</strong>LLVM的设计师Chris Lattner撰写了这篇<a href="http://www.aosabook.org/en/llvm.html">文章</a>介绍LLVM的体系结构及其设计动机。</p>
-<p><strong>注意：</strong>LLVM的这三个阶段的每个阶段在都有一个专用的可执行文件。 clang是C/C++的前端（显然针对不同的编程语言有不同的前端），opt是优化程序，llc用于调用后端。 通常，我们使用clang作为驱动程序来执行前端，使用llc和opt配合适当的参数来生成IR，汇编，可执行文件等。</p>
-</section>
-<section id="代码生成" class="level3">
-<h3 class="anchored" data-anchor-id="代码生成">代码生成</h3>
-<p>LLVM后端将IR编译为目标代码或汇编代码。 每个后端都只支持单一平台，但可以支持多个指令集。 例如，LLVM只有一个ARM后端，但该后端可以为ARMv6和ARMv7等指令集生成代码。 每个后端都建立在LLVM的目标无关代码生成器之上。 目标无关代码生成器是一个框架，可实现诸如寄存器分配之类的关键算法。 从广义上讲，后端的任务是配置该框架并使之适应其目标指令集的特定需求。</p>
-<p>代码生成具有以下阶段：</p>
-<ol type="1">
-<li><p><strong>指令选择</strong> 映射LLVM IR到目标指令集中的指令。 此阶段使用无限数量的虚拟寄存器和函数调用堆栈的抽象引用。</p></li>
-<li><p><strong>计划和编排</strong> 确定指令的顺序。 需要明确的是，在指令选择阶段已经对指令进行了排序，但这里可以根据寄存器分配策略或指令等待时间来对其中的一些指令的排序进行优化。</p></li>
-<li><p><strong>基于SSA的机器代码优化</strong> 执行诸如<a href="https://en.wikipedia.org/wiki/Peephole_optimization">peephole</a>优化之类的工作。</p></li>
-<li><p><strong>寄存器分配</strong> 将虚拟寄存器映射到物理寄存器。</p></li>
-<li><p><strong>Prolog / Epilog插入</strong> 在每个函数的开头（或prolog）和结尾（或epilog）插入机器指令。 这些通常是在进入或退出函数时扩展堆栈的指令。 由于当前已经知道堆栈大小，因此也可以解析抽象堆栈引用。</p></li>
-<li><p><strong>后期机器代码优化</strong> 可能不言自明。</p></li>
-<li><p><strong>代码发射</strong> 发出目标代码或汇编代码。</p></li>
-</ol>
-<p>接下来，我将看一下构建LLVM以及如何设置开发/调试环境…</p>
-<p><strong>注意：</strong>您可以阅读<a href="http://llvm.org/docs/CodeGenerator.html">这篇文章</a>了解LLVM目标无关代码生成器的更多信息。</p>
-</section>
-</section>
-<section id="注释" class="level2">
-<h2 class="anchored" data-anchor-id="注释">注释</h2>
-
-
-</section>
-
-
-<div id="quarto-appendix" class="default"><section id="footnotes" class="footnotes footnotes-end-of-document"><h2 class="anchored quarto-appendix-heading">脚注</h2>
-
-<ol>
-<li id="fn1"><p>公平地说，有不少关于LLVM的书籍和网站，但大多数都是对这个工具的一般性描述，还有是关于如何编写新前端的实践教程，但后端的教程非常少。↩︎</p></li>
-<li id="fn2"><p><a href="https://jonathan2251.github.io/lbd/">这个教程</a>描述了如何开发LLVM后端，但我发现很难理解。↩︎</p></li>
-</ol>
-</section></div> ]]></description>
-  <category>LLVM</category>
-  <guid>https://sadsock.github.io/posts/2020-12-03-RISCW-0.html</guid>
-  <pubDate>Thu, 03 Dec 2020 11:30:38 GMT</pubDate>
 </item>
 </channel>
 </rss>

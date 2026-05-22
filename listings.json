@@ -2,6 +2,7 @@
   {
     "listing": "/index.html",
     "items": [
+      "/posts/2026-05-20-search-your-block-floating-point-scales.html",
       "/posts/2026-05-17-magic-number-division-analysis.html",
       "/posts/2026-05-14-efficiency-expressivity-and-extensibility-in-a-close-to-metal-npu-programming-interface.html",
       "/posts/2026-05-06-tempus-a-temporally-scalable-resource-invariant-gemm-streaming-framework-for-versal-ai-edge.html",
